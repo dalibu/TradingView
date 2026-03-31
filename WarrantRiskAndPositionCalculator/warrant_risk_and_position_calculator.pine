@@ -20,6 +20,19 @@ osSpread = input.float(0.01, "Spread", group=grp_os, tooltip="The difference bet
 grp_sl = "Stop-Loss Settings"
 slAsset  = input.float(4526.0, "Asset Stop-Loss Price", group=grp_sl, tooltip="The price of the underlying asset (e.g., Gold price or Stock price) at which you want to close the position.")
 
+grp_ui = "User Interface"
+tablePos = input.string("Top Right", "Dashboard Placement", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left", "Middle Right"], group=grp_ui, tooltip="Choose where the results table should be displayed on your chart.")
+
+// --- POSITION MAPPING ---
+// Map the string input to the actual TradingView position constant
+var string actualPos = switch tablePos
+    "Top Right"    => position.top_right
+    "Top Left"     => position.top_left
+    "Bottom Right" => position.bottom_right
+    "Bottom Left"  => position.bottom_left
+    "Middle Right" => position.middle_right
+    => position.top_right
+
 // --- CALCULATIONS ---
 currentAssetPrice = close
 
@@ -56,10 +69,13 @@ assetTP2  = calcAssetTP(tp2)
 assetTP3  = calcAssetTP(tp3)
 
 // --- DYNAMIC DASHBOARD ---
-var table mainTable = table.new(position.top_right, 2, 9, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
+var table mainTable = table.new(actualPos, 2, 9, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
 
+// Update table position if input changes (using barstate.islast to ensure it's drawn correctly)
 if barstate.islast
+    mainTable := table.new(actualPos, 2, 9, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
     c_white = color.white
+    
     // Header
     table.cell(mainTable, 0, 0, "Direction: " + tradeDir, text_color=tradeDir == "Long" ? color.lime : color.red, text_halign=text.align_left)
     table.cell(mainTable, 1, 0, "Units: " + str.tostring(quantity, "#"), text_color=color.yellow)
