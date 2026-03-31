@@ -1,0 +1,88 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © artishock
+
+//@version=6
+indicator("[ArtiShock] Warrant Risk & Position Calculator (v1)", overlay=true)
+
+// --- EINGABEN ---
+grp_risk = "Risiko & Gebühren"
+maxRisk  = input.float(100.0, "Max. Verlustbudget (€)", group=grp_risk)
+fees     = input.float(1.0, "Gebühr pro Order (Kauf/Verkauf €)", group=grp_risk)
+
+grp_os = "Optionsschein Daten"
+osPrice  = input.float(1.42, "Aktueller OS-Preis (Kauf/Brief €)", group=grp_os)
+osHebel  = input.float(15.0, "Hebel des Scheins", group=grp_os)
+osSpread = input.float(0.01, "Spread des Scheins (€)", group=grp_os)
+
+grp_sl = "Stop-Loss Einstellungen"
+slGold   = input.float(4526.0, "Stop-Loss Goldpreis ($)", group=grp_sl)
+
+// --- BERECHNUNGEN ---
+currentGold = close
+
+// 1. Kursrückgang Gold in %
+goldDropPct = (currentGold - slGold) / currentGold
+
+// 2. Kursrückgang Schein in % (Hebel-Effekt)
+osDropPct = goldDropPct * osHebel
+
+// 3. Stop-Loss Preis des Scheins (Geld-Kurs bei SL)
+osSLPrice = osPrice * (1 - osDropPct) - osSpread
+
+// 4. Verfügbares Budget für Kursverlust (abzgl. 2x Gebühren)
+netRiskBudget = maxRisk - (2 * fees)
+
+// 5. Kursverlust pro Stück
+lossPerUnit = osPrice - osSLPrice
+
+// 6. Optimale Stückzahl (Abgerundet)
+quantity = math.floor(netRiskBudget / lossPerUnit)
+
+// 7. Take Profit Level (Schein)
+tp1  = osPrice + (lossPerUnit * 1.0)
+tp15 = osPrice + (lossPerUnit * 1.5)
+tp2  = osPrice + (lossPerUnit * 2.0)
+tp3  = osPrice + (lossPerUnit * 3.0)
+
+// 8. Korrespondierende Goldpreise für TP
+// Formel: AktuellerGoldpreis * (1 + (OS_Gewinn_% / Hebel))
+calcGoldTP(targetOS) =>
+    osGainPct = (targetOS - osPrice) / osPrice
+    currentGold * (1 + (osGainPct / osHebel))
+
+goldTP1  = calcGoldTP(tp1)
+goldTP2  = calcGoldTP(tp2)
+goldTP3  = calcGoldTP(tp3)
+
+// --- TABELLE ERSTELLEN ---
+var table mainTable = table.new(position.top_right, 2, 10, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
+
+if barstate.islast
+    // Header
+    table.cell(mainTable, 0, 0, "Kennzahl", text_color=color.white, text_halign=text.align_left)
+    table.cell(mainTable, 1, 0, "Wert", text_color=color.white)
+    
+    // Stückzahl & SL
+    table.cell(mainTable, 0, 1, "Kauf-Stückzahl:", text_color=color.yellow, text_halign=text.align_left)
+    table.cell(mainTable, 1, 1, str.tostring(quantity, "#"), text_color=color.yellow)
+    
+    table.cell(mainTable, 0, 2, "OS Stop-Loss (€):", text_color=color.orange, text_halign=text.align_left)
+    table.cell(mainTable, 1, 2, str.tostring(osSLPrice, "#.##"), text_color=color.orange)
+    
+    // Trenner
+    table.cell(mainTable, 0, 3, "--- Ziele (OS) ---", text_color=color.gray)
+    table.cell(mainTable, 1, 3, "--- Gold ---", text_color=color.gray)
+    
+    // TP Level
+    table.cell(mainTable, 0, 4, "TP 1 (1:1): " + str.tostring(tp1, "#.##") + " €", text_color=color.lime, text_halign=text.align_left)
+    table.cell(mainTable, 1, 4, str.tostring(goldTP1, "#.#") + " $", text_color=color.lime)
+    
+    table.cell(mainTable, 0, 5, "TP 2 (2:1): " + str.tostring(tp2, "#.##") + " €", text_color=color.lime, text_halign=text.align_left)
+    table.cell(mainTable, 1, 5, str.tostring(goldTP2, "#.#") + " $", text_color=color.lime)
+    
+    table.cell(mainTable, 0, 6, "TP 3 (3:1): " + str.tostring(tp3, "#.##") + " €", text_color=color.lime, text_halign=text.align_left)
+    table.cell(mainTable, 1, 6, str.tostring(goldTP3, "#.#") + " $", text_color=color.lime)
+
+// --- VISUALISIERUNG IM CHART ---
+plot(slGold, "Gold SL Linie", color=color.red, style=plot.style_linebr)
+
