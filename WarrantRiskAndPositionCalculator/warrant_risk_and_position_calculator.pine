@@ -2,86 +2,79 @@
 // © artishock
 
 //@version=6
-indicator("[ArtiShock] Warrant Risk & Position Calculator (v1)", overlay=true)
+indicator("[ArtiShock] Universal Warrant Position Sizer (v1)", overlay=true)
 
 // --- INPUTS ---
-grp_risk = "Risk & Fees"
-maxRisk  = input.float(100.0, "Max. Risk Budget (€)", group=grp_risk)
-fees     = input.float(1.0, "Fee per Order (Buy/Sell €)", group=grp_risk)
+grp_trade = "Trade Direction"
+tradeDir = input.string("Long", "Direction", options=["Long", "Short"], group=grp_trade)
 
-grp_os = "Warrant / Option Data"
-osPrice  = input.float(1.42, "Current Warrant Price (Ask/Buy €)", group=grp_os)
-osHebel  = input.float(15.0, "Warrant Leverage", group=grp_os)
-osSpread = input.float(0.01, "Warrant Spread (€)", group=grp_os)
+grp_risk = "Risk & Fees"
+maxRisk  = input.float(100.0, "Max. Risk Budget (Account Currency)", group=grp_risk)
+fees     = input.float(1.0, "Fee per Order (Buy/Sell)", group=grp_risk)
+
+grp_os = "Warrant / Derivative Data"
+osPrice  = input.float(1.42, "Current Price (Ask/Buy)", group=grp_os)
+osHebel  = input.float(15.0, "Leverage", group=grp_os)
+osSpread = input.float(0.01, "Spread", group=grp_os)
 
 grp_sl = "Stop-Loss Settings"
-slGold   = input.float(4526.0, "Gold Stop-Loss Price ($)", group=grp_sl)
+slAsset  = input.float(4526.0, "Asset Stop-Loss Price", group=grp_sl)
 
 // --- CALCULATIONS ---
-currentGold = close
+currentAssetPrice = close
 
-// 1. Gold price drop in %
-goldDropPct = (currentGold - slGold) / currentGold
+// 1. Asset price movement in %
+// If Long: Price must stay above SL. If Short: Price must stay below SL.
+assetMovePct = tradeDir == "Long" ? (currentAssetPrice - slAsset) / currentAssetPrice : (slAsset - currentAssetPrice) / currentAssetPrice
 
 // 2. Warrant price drop in % (Leverage effect)
-osDropPct = goldDropPct * osHebel
+// Note: assetMovePct is positive if trade is "alive", negative if SL is hit.
+osDropPct = assetMovePct * osHebel
 
-// 3. Stop-Loss Price for the Warrant (Bid price at SL)
-osSLPrice = osPrice * (1 - osDropPct) - osSpread
+// 3. Stop-Loss Price for the Warrant
+// We calculate the loss: if assetMovePct becomes negative, OS price drops.
+osSLPrice = osPrice * (1 + (tradeDir == "Long" ? -1 : -1) * math.abs(assetMovePct) * osHebel) - osSpread
+// Simplified for clarity:
+osLossPerUnit = osPrice * (math.abs(assetMovePct) * osHebel) + osSpread
 
 // 4. Available budget for price loss (minus 2x fees)
 netRiskBudget = maxRisk - (2 * fees)
 
-// 5. Loss per Unit
-lossPerUnit = osPrice - osSLPrice
+// 5. Optimal Position Size
+quantity = math.floor(netRiskBudget / osLossPerUnit)
 
-// 6. Optimal Position Size (Rounded down)
-quantity = math.floor(netRiskBudget / lossPerUnit)
+// 6. Target calculations (RRR)
+tp1  = osPrice + (osLossPerUnit * 1.0)
+tp2  = osPrice + (osLossPerUnit * 2.0)
+tp3  = osPrice + (osLossPerUnit * 3.0)
 
-// 7. Take Profit Levels (Warrant)
-tp1  = osPrice + (lossPerUnit * 1.0)
-tp15 = osPrice + (lossPerUnit * 1.5)
-tp2  = osPrice + (lossPerUnit * 2.0)
-tp3  = osPrice + (lossPerUnit * 3.0)
-
-// 8. Corresponding Gold Prices for TP
-calcGoldTP(targetOS) =>
+calcAssetTP(targetOS) =>
     osGainPct = (targetOS - osPrice) / osPrice
-    currentGold * (1 + (osGainPct / osHebel))
+    move = (osGainPct / osHebel)
+    tradeDir == "Long" ? currentAssetPrice * (1 + move) : currentAssetPrice * (1 - move)
 
-goldTP1  = calcGoldTP(tp1)
-goldTP2  = calcGoldTP(tp2)
-goldTP3  = calcGoldTP(tp3)
+assetTP1 = calcAssetTP(tp1)
+assetTP2 = calcAssetTP(tp2)
+assetTP3 = calcAssetTP(tp3)
 
-// --- TABLE CREATION ---
-var table mainTable = table.new(position.top_right, 2, 10, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
+// --- DYNAMIC TABLE ---
+var table mainTable = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
 
 if barstate.islast
-    // Header
-    table.cell(mainTable, 0, 0, "Metric", text_color=color.white, text_halign=text.align_left)
-    table.cell(mainTable, 1, 0, "Value", text_color=color.white)
+    c_white = color.white
+    table.cell(mainTable, 0, 0, "Direction: " + tradeDir, text_color=tradeDir == "Long" ? color.lime : color.red)
+    table.cell(mainTable, 1, 0, "Units: " + str.tostring(quantity, "#"), text_color=color.yellow)
     
-    // Quantity & SL
-    table.cell(mainTable, 0, 1, "Buy Quantity:", text_color=color.yellow, text_halign=text.align_left)
-    table.cell(mainTable, 1, 1, str.tostring(quantity, "#"), text_color=color.yellow)
+    table.cell(mainTable, 0, 1, "Warrant SL:", text_color=c_white, text_halign=text.align_left)
+    table.cell(mainTable, 1, 1, str.tostring(osSLPrice, "#.###"), text_color=color.orange)
     
-    table.cell(mainTable, 0, 2, "Warrant SL (€):", text_color=color.orange, text_halign=text.align_left)
-    table.cell(mainTable, 1, 2, str.tostring(osSLPrice, "#.##"), text_color=color.orange)
+    table.cell(mainTable, 0, 2, "--- TP Levels ---", text_color=color.gray)
+    table.cell(mainTable, 1, 2, "--- Asset Target ---", text_color=color.gray)
     
-    // Separator
-    table.cell(mainTable, 0, 3, "--- Targets (OS) ---", text_color=color.gray)
-    table.cell(mainTable, 1, 3, "--- Gold ---", text_color=color.gray)
+    table.cell(mainTable, 0, 3, "TP 1 (1:1): " + str.tostring(tp1, "#.###"), text_color=c_white, text_halign=text.align_left)
+    table.cell(mainTable, 1, 3, str.tostring(assetTP1, "#.##"), text_color=color.lime)
     
-    // TP Levels
-    table.cell(mainTable, 0, 4, "TP 1 (1:1): " + str.tostring(tp1, "#.##") + " €", text_color=color.lime, text_halign=text.align_left)
-    table.cell(mainTable, 1, 4, str.tostring(goldTP1, "#.#") + " $", text_color=color.lime)
-    
-    table.cell(mainTable, 0, 5, "TP 2 (2:1): " + str.tostring(tp2, "#.##") + " €", text_color=color.lime, text_halign=text.align_left)
-    table.cell(mainTable, 1, 5, str.tostring(goldTP2, "#.#") + " $", text_color=color.lime)
-    
-    table.cell(mainTable, 0, 6, "TP 3 (3:1): " + str.tostring(tp3, "#.##") + " €", text_color=color.lime, text_halign=text.align_left)
-    table.cell(mainTable, 1, 6, str.tostring(goldTP3, "#.#") + " $", text_color=color.lime)
+    table.cell(mainTable, 0, 4, "TP 2 (2:1): " + str.tostring(tp2, "#.###"), text_color=c_white, text_halign=text.align_left)
+    table.cell(mainTable, 1, 4, str.tostring(assetTP2, "#.##"), text_color=color.lime)
 
-// --- CHART VISUALIZATION ---
-plot(slGold, "Gold SL Line", color=color.red, style=plot.style_linebr)
-
+plot(slAsset, "Asset SL Line", color=color.red, style=plot.style_linebr)
