@@ -6,36 +6,32 @@ indicator("[ArtiShock] Universal Warrant Position Sizer (v1)", overlay=true)
 
 // --- INPUTS ---
 grp_trade = "Trade Direction"
-tradeDir = input.string("Long", "Direction", options=["Long", "Short"], group=grp_trade)
+tradeDir = input.string("Long", "Direction", options=["Long", "Short"], group=grp_trade, tooltip="Select 'Long' for Call warrants (bullish) or 'Short' for Put warrants (bearish).")
 
 grp_risk = "Risk & Fees"
-maxRisk  = input.float(100.0, "Max. Risk Budget (Account Currency)", group=grp_risk)
-fees     = input.float(1.0, "Fee per Order (Buy/Sell)", group=grp_risk)
+maxRisk  = input.float(100.0, "Max. Risk Budget", group=grp_risk, tooltip="The maximum amount in your account currency (e.g., €/$) you are willing to lose on this trade (including fees).")
+fees     = input.float(1.0, "Fee per Order", group=grp_risk, tooltip="The transaction fee charged by your broker per trade. The script accounts for this twice (once for buying, once for selling).")
 
 grp_os = "Warrant / Derivative Data"
-osPrice  = input.float(1.42, "Current Price (Ask/Buy)", group=grp_os)
-osHebel  = input.float(15.0, "Leverage", group=grp_os)
-osSpread = input.float(0.01, "Spread", group=grp_os)
+osPrice  = input.float(1.42, "Warrant Price (Ask)", group=grp_os, tooltip="The current purchase price (Ask) of the warrant in your broker terminal.")
+osHebel  = input.float(15.0, "Leverage", group=grp_os, tooltip="The current leverage of the warrant. This can be found in the product details provided by your broker.")
+osSpread = input.float(0.01, "Spread", group=grp_os, tooltip="The difference between the Ask (buy) and Bid (sell) price. This value is subtracted from the SL to calculate the real exit price.")
 
 grp_sl = "Stop-Loss Settings"
-slAsset  = input.float(4526.0, "Asset Stop-Loss Price", group=grp_sl)
+slAsset  = input.float(4526.0, "Asset Stop-Loss Price", group=grp_sl, tooltip="The price of the underlying asset (e.g., Gold price or Stock price) at which you want to close the position.")
 
 // --- CALCULATIONS ---
 currentAssetPrice = close
 
 // 1. Asset price movement in %
-// If Long: Price must stay above SL. If Short: Price must stay below SL.
 assetMovePct = tradeDir == "Long" ? (currentAssetPrice - slAsset) / currentAssetPrice : (slAsset - currentAssetPrice) / currentAssetPrice
 
 // 2. Warrant price drop in % (Leverage effect)
-// Note: assetMovePct is positive if trade is "alive", negative if SL is hit.
 osDropPct = assetMovePct * osHebel
 
-// 3. Stop-Loss Price for the Warrant
-// We calculate the loss: if assetMovePct becomes negative, OS price drops.
-osSLPrice = osPrice * (1 + (tradeDir == "Long" ? -1 : -1) * math.abs(assetMovePct) * osHebel) - osSpread
-// Simplified for clarity:
-osLossPerUnit = osPrice * (math.abs(assetMovePct) * osHebel) + osSpread
+// 3. Stop-Loss Price for the Warrant (Real Bid Price)
+osSLPrice = osPrice * (1 - osDropPct) - osSpread
+osLossPerUnit = osPrice - osSLPrice
 
 // 4. Available budget for price loss (minus 2x fees)
 netRiskBudget = maxRisk - (2 * fees)
@@ -45,6 +41,7 @@ quantity = math.floor(netRiskBudget / osLossPerUnit)
 
 // 6. Target calculations (RRR)
 tp1  = osPrice + (osLossPerUnit * 1.0)
+tp15 = osPrice + (osLossPerUnit * 1.5)
 tp2  = osPrice + (osLossPerUnit * 2.0)
 tp3  = osPrice + (osLossPerUnit * 3.0)
 
@@ -53,28 +50,40 @@ calcAssetTP(targetOS) =>
     move = (osGainPct / osHebel)
     tradeDir == "Long" ? currentAssetPrice * (1 + move) : currentAssetPrice * (1 - move)
 
-assetTP1 = calcAssetTP(tp1)
-assetTP2 = calcAssetTP(tp2)
-assetTP3 = calcAssetTP(tp3)
+assetTP1  = calcAssetTP(tp1)
+assetTP15 = calcAssetTP(tp15)
+assetTP2  = calcAssetTP(tp2)
+assetTP3  = calcAssetTP(tp3)
 
-// --- DYNAMIC TABLE ---
-var table mainTable = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
+// --- DYNAMIC DASHBOARD ---
+var table mainTable = table.new(position.top_right, 2, 9, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
 
 if barstate.islast
     c_white = color.white
-    table.cell(mainTable, 0, 0, "Direction: " + tradeDir, text_color=tradeDir == "Long" ? color.lime : color.red)
+    // Header
+    table.cell(mainTable, 0, 0, "Direction: " + tradeDir, text_color=tradeDir == "Long" ? color.lime : color.red, text_halign=text.align_left)
     table.cell(mainTable, 1, 0, "Units: " + str.tostring(quantity, "#"), text_color=color.yellow)
     
-    table.cell(mainTable, 0, 1, "Warrant SL:", text_color=c_white, text_halign=text.align_left)
+    // SL Row
+    table.cell(mainTable, 0, 1, "Warrant SL Price:", text_color=c_white, text_halign=text.align_left)
     table.cell(mainTable, 1, 1, str.tostring(osSLPrice, "#.###"), text_color=color.orange)
     
-    table.cell(mainTable, 0, 2, "--- TP Levels ---", text_color=color.gray)
-    table.cell(mainTable, 1, 2, "--- Asset Target ---", text_color=color.gray)
+    // Separator
+    table.cell(mainTable, 0, 2, "--- Target (OS) ---", text_color=color.gray)
+    table.cell(mainTable, 1, 2, "--- Asset Goal ---", text_color=color.gray)
     
-    table.cell(mainTable, 0, 3, "TP 1 (1:1): " + str.tostring(tp1, "#.###"), text_color=c_white, text_halign=text.align_left)
+    // TP Levels
+    table.cell(mainTable, 0, 3, "TP 1.0 (1:1): " + str.tostring(tp1, "#.###"), text_color=c_white, text_halign=text.align_left)
     table.cell(mainTable, 1, 3, str.tostring(assetTP1, "#.##"), text_color=color.lime)
-    
-    table.cell(mainTable, 0, 4, "TP 2 (2:1): " + str.tostring(tp2, "#.###"), text_color=c_white, text_halign=text.align_left)
-    table.cell(mainTable, 1, 4, str.tostring(assetTP2, "#.##"), text_color=color.lime)
 
-plot(slAsset, "Asset SL Line", color=color.red, style=plot.style_linebr)
+    table.cell(mainTable, 0, 4, "TP 1.5 (1.5:1): " + str.tostring(tp15, "#.###"), text_color=c_white, text_halign=text.align_left)
+    table.cell(mainTable, 1, 4, str.tostring(assetTP15, "#.##"), text_color=color.lime)
+    
+    table.cell(mainTable, 0, 5, "TP 2.0 (2:1): " + str.tostring(tp2, "#.###"), text_color=c_white, text_halign=text.align_left)
+    table.cell(mainTable, 1, 5, str.tostring(assetTP2, "#.##"), text_color=color.lime)
+
+    table.cell(mainTable, 0, 6, "TP 3.0 (3:1): " + str.tostring(tp3, "#.###"), text_color=c_white, text_halign=text.align_left)
+    table.cell(mainTable, 1, 6, str.tostring(assetTP3, "#.##"), text_color=color.lime)
+
+// Plot SL Line on Chart
+plot(slAsset, "Asset SL Level", color=color.red, style=plot.style_linebr, linewidth=1)
