@@ -2,7 +2,7 @@
 // © artishock
 
 //@version=6
-indicator("[ArtiShock] Universal Warrant Position Sizer Pro", overlay=true)
+indicator("[ArtiShock] Universal Warrant Position Calculator (v1)", overlay=true)
 
 // --- INPUTS ---
 grp_trade = "Trade Direction"
