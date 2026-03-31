@@ -34,7 +34,7 @@ atrValue = ta.atr(atrLen)
 timeDelta = ta.change(time)
 lineTimeEnd = time + math.round(nz(timeDelta, 3600000) * 30) 
 
-// 1. Calculate ATR History Path (Must be outside any IF to plot correctly)
+// 1. Calculate ATR History Path
 atrHistoryValue = tradeDir == "Long" ? currentAssetPrice - (atrValue * atrMult) : currentAssetPrice + (atrValue * atrMult)
 plot(slMode == "ATR-Based" ? atrHistoryValue : na, "ATR Path", color=color.red, linewidth=1, style=plot.style_linebr)
 
@@ -55,11 +55,13 @@ netRiskBudget = maxRisk - (2 * fees)
 quantity = osLossPerUnit > 0 ? math.floor(netRiskBudget / osLossPerUnit) : 0
 quantity := math.max(0, int(quantity))
 
-// 6. Target calculations (RRR)
-tp1  = osPrice + (osLossPerUnit * 1.0)
-tp15 = osPrice + (osLossPerUnit * 1.5)
-tp2  = osPrice + (osLossPerUnit * 2.0)
-tp3  = osPrice + (osLossPerUnit * 3.0)
+// 6. Target calculations (Fee-Adjusted for Net Profit)
+// Formula: EntryPrice + ((Required Net Profit + Total Fees) / Quantity)
+float totalFees = 2 * fees
+tp1  = quantity > 0 ? osPrice + ((maxRisk * 1.0 + totalFees) / quantity) : na
+tp15 = quantity > 0 ? osPrice + ((maxRisk * 1.5 + totalFees) / quantity) : na
+tp2  = quantity > 0 ? osPrice + ((maxRisk * 2.0 + totalFees) / quantity) : na
+tp3  = quantity > 0 ? osPrice + ((maxRisk * 3.0 + totalFees) / quantity) : na
 
 calcAssetTP(targetOS) =>
     osGainPct = (targetOS - osPrice) / osPrice
@@ -71,6 +73,7 @@ assetTP15 = calcAssetTP(tp15)
 assetTP2  = calcAssetTP(tp2)
 assetTP3  = calcAssetTP(tp3)
 
+// Helper function for Net Profit
 calcNetProfit(targetPrice) => (targetPrice - osPrice) * quantity - (2 * fees)
 
 // --- MAPPING & UI ---
@@ -126,12 +129,10 @@ if barstate.islast
     table.cell(mainTable, 1, 6, str.tostring(assetTP3, "#.##"), text_color=color.lime, text_size=actualSize)
     table.cell(mainTable, 2, 6, "+" + str.tostring(calcNetProfit(tp3), "#.##"), text_color=color.lime, text_size=actualSize)
 
-// --- VISUAL LINES (Live & Projection) ---
+// --- VISUAL LINES ---
 
-// Scale Label for Current SL
 plot(slAsset, "Scale Label", color=color.red, style=plot.style_linebr, trackprice=true, show_last=1, display=display.price_scale)
 
-// Line Management Function
 updateVisuals(lineObj, labelObj, price, txt, lColor, endTime) =>
     line.set_xy1(lineObj, time, price)
     line.set_xy2(lineObj, endTime, price)
@@ -139,7 +140,6 @@ updateVisuals(lineObj, labelObj, price, txt, lColor, endTime) =>
     label.set_text(labelObj, txt)
     label.set_textcolor(labelObj, lColor)
 
-// Initialize Visuals
 var slLine = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.red, style=line.style_dashed, width=1)
 var slLabel = label.new(na, na, "SL", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.red, style=label.style_label_left, size=size.small)
 
