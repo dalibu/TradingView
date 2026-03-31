@@ -31,33 +31,27 @@ textSize = input.string("Small", "Table Text Size", options=["Tiny", "Small", "N
 // --- CALCULATIONS ---
 currentAssetPrice = close
 atrValue = ta.atr(atrLen)
-// Consistency fix for Pine v6
 timeDelta = ta.change(time)
 lineTimeEnd = time + math.round(nz(timeDelta, 3600000) * 30) 
 
-// FIX: Determine Entry and SL strictly by Mode
+// 1. Calculate ATR History Path (Must be outside any IF to plot correctly)
+atrHistoryValue = tradeDir == "Long" ? currentAssetPrice - (atrValue * atrMult) : currentAssetPrice + (atrValue * atrMult)
+plot(slMode == "ATR-Based" ? atrHistoryValue : na, "ATR Path", color=color.red, linewidth=1, style=plot.style_linebr)
+
+// 2. Determine Entry and SL strictly by Mode
 float entryPrice = slMode == "Manual" ? entryManual : currentAssetPrice
-float slAsset = na
+float slAsset = slMode == "Manual" ? slManual : atrHistoryValue
 
-if slMode == "Manual"
-    slAsset := slManual
-else
-    slAsset := tradeDir == "Long" ? currentAssetPrice - (atrValue * atrMult) : currentAssetPrice + (atrValue * atrMult)
-
-// 1. Asset price movement in %
+// 3. Asset price movement in %
 assetMovePct = math.abs(entryPrice - slAsset) / entryPrice
 
-// 2. Warrant price drop in % (Leverage effect)
+// 4. Warrant price calculations
 osDropPct = assetMovePct * osHebel
-
-// 3. Stop-Loss Price for the Warrant (Real Bid Price)
 osSLPrice = osPrice * (1 - osDropPct) - osSpread
 osLossPerUnit = osPrice - osSLPrice
 
-// 4. Available budget for price loss (minus 2x fees)
-netRiskBudget = maxRisk - (2 * fees)
-
 // 5. Optimal Position Size
+netRiskBudget = maxRisk - (2 * fees)
 quantity = osLossPerUnit > 0 ? math.floor(netRiskBudget / osLossPerUnit) : 0
 quantity := math.max(0, int(quantity))
 
@@ -79,7 +73,7 @@ assetTP3  = calcAssetTP(tp3)
 
 calcNetProfit(targetPrice) => (targetPrice - osPrice) * quantity - (2 * fees)
 
-// --- MAPPING ---
+// --- MAPPING & UI ---
 var string actualPos = switch tablePos
     "Top Right"    => position.top_right
     "Top Left"     => position.top_left
@@ -132,11 +126,12 @@ if barstate.islast
     table.cell(mainTable, 1, 6, str.tostring(assetTP3, "#.##"), text_color=color.lime, text_size=actualSize)
     table.cell(mainTable, 2, 6, "+" + str.tostring(calcNetProfit(tp3), "#.##"), text_color=color.lime, text_size=actualSize)
 
-// --- VISUAL LINES ---
+// --- VISUAL LINES (Live & Projection) ---
 
+// Scale Label for Current SL
 plot(slAsset, "Scale Label", color=color.red, style=plot.style_linebr, trackprice=true, show_last=1, display=display.price_scale)
 
-// Helper function for visual updates
+// Line Management Function
 updateVisuals(lineObj, labelObj, price, txt, lColor, endTime) =>
     line.set_xy1(lineObj, time, price)
     line.set_xy2(lineObj, endTime, price)
@@ -144,6 +139,7 @@ updateVisuals(lineObj, labelObj, price, txt, lColor, endTime) =>
     label.set_text(labelObj, txt)
     label.set_textcolor(labelObj, lColor)
 
+// Initialize Visuals
 var slLine = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.red, style=line.style_dashed, width=1)
 var slLabel = label.new(na, na, "SL", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.red, style=label.style_label_left, size=size.small)
 
