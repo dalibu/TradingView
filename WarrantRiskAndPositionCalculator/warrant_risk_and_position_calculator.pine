@@ -13,15 +13,15 @@ maxRisk  = input.float(100.0, "Max. Risk Budget", group=grp_risk, tooltip="The m
 fees     = input.float(1.0, "Fee per Order", group=grp_risk, tooltip="Broker fee per transaction (buy/sell).")
 
 grp_os = "Warrant / Derivative Data"
-osPrice  = input.float(1.42, "Warrant Price (Ask)", group=grp_os, tooltip="Current purchase price in your broker terminal.")
-osHebel  = input.float(15.0, "Leverage", group=grp_os, tooltip="Current warrant leverage.")
-osSpread = input.float(0.01, "Spread", group=grp_os, tooltip="Difference between Ask (buy) and Bid (sell) price.")
+osPrice  = input.float(1.0, "Warrant Price (Ask)", step=0.1, group=grp_os, tooltip="Current purchase price in your broker terminal.")
+osHebel  = input.int(15, "Leverage", step=1, group=grp_os, tooltip="Current warrant leverage.")
+osSpread = input.float(0.01, "Spread", step=0.01, group=grp_os, tooltip="Difference between Ask (buy) and Bid (sell) price.")
 
 grp_sl = "Stop-Loss Settings"
 slMode   = input.string("Manual", "SL Mode", options=["Manual", "ATR-Based"], group=grp_sl, tooltip="Choose between a fixed price or a volatility-based (ATR) Stop-Loss.")
-entryManual = input.float(4575.0, "Manual Entry Price (Asset)", group=grp_sl, tooltip="Your entry price. Only used in Manual mode to keep lines static.")
+entryManual = input.float(4575.0, "Manual Entry Price (Asset)", step=1, group=grp_sl, tooltip="Your entry price. Only used in Manual mode to keep lines static.")
 slManual = input.float(4526.0, "Manual SL Price", group=grp_sl)
-atrLen   = input.int(14, "ATR Length", minval=1, group=grp_sl)
+atrLen   = input.int(14, "ATR Length", step=1, minval=1, group=grp_sl)
 atrMult  = input.float(1.5, "ATR Multiplier", step=0.1, group=grp_sl)
 
 grp_ui = "User Interface"
