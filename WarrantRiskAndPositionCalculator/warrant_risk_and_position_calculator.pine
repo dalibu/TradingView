@@ -9,22 +9,22 @@ grp_trade = "Trade Direction"
 tradeDir = input.string("Long", "Direction", options=["Long", "Short"], group=grp_trade, tooltip="Select 'Long' for Call warrants (bullish) or 'Short' for Put warrants (bearish).")
 
 grp_risk = "Risk & Fees"
-maxRisk  = input.float(100.0, "Max. Risk Budget", group=grp_risk, tooltip="The maximum amount in your account currency (e.g., €/$) you are willing to lose on this trade (including fees).")
-fees     = input.float(1.0, "Fee per Order", group=grp_risk, tooltip="The transaction fee charged by your broker per trade. The script accounts for this twice (once for buying, once for selling).")
+maxRisk  = input.float(100.0, "Max. Risk Budget", group=grp_risk, tooltip="The maximum amount you are willing to lose.")
+fees     = input.float(1.0, "Fee per Order", group=grp_risk, tooltip="Broker fee per transaction.")
 
 grp_os = "Warrant / Derivative Data"
-osPrice  = input.float(1.42, "Warrant Price (Ask)", group=grp_os, tooltip="The current purchase price (Ask) of the warrant in your broker terminal.")
-osHebel  = input.float(15.0, "Leverage", group=grp_os, tooltip="The current leverage of the warrant. This can be found in the product details provided by your broker.")
-osSpread = input.float(0.01, "Spread", group=grp_os, tooltip="The difference between the Ask (buy) and Bid (sell) price. This value is subtracted from the SL to calculate the real exit price.")
+osPrice  = input.float(1.42, "Warrant Price (Ask)", group=grp_os, tooltip="Current purchase price.")
+osHebel  = input.float(15.0, "Leverage", group=grp_os, tooltip="Current warrant leverage.")
+osSpread = input.float(0.01, "Spread", group=grp_os, tooltip="Difference between Ask and Bid.")
 
 grp_sl = "Stop-Loss Settings"
 slMode   = input.string("Manual", "SL Mode", options=["Manual", "ATR-Based"], group=grp_sl, tooltip="Choose between a fixed price or a volatility-based (ATR) Stop-Loss.")
-slManual = input.float(4526.0, "Manual SL Price", group=grp_sl, tooltip="Enter your technical chart SL here.")
+slManual = input.float(4526.0, "Manual SL Price", group=grp_sl)
 atrLen   = input.int(14, "ATR Length", minval=1, group=grp_sl)
-atrMult  = input.float(1.5, "ATR Multiplier", step=0.1, group=grp_sl, tooltip="Multiplier for ATR (default 1.5 or 1.7).")
+atrMult  = input.float(1.5, "ATR Multiplier", step=0.1, group=grp_sl)
 
 grp_ui = "User Interface"
-tablePos = input.string("Top Right", "Dashboard Placement", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left", "Middle Right"], group=grp_ui, tooltip="Choose where the results table should be displayed on your chart.")
+tablePos = input.string("Top Right", "Dashboard Placement", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left", "Middle Right"], group=grp_ui)
 
 // --- CALCULATIONS ---
 currentAssetPrice = close
@@ -52,7 +52,7 @@ netRiskBudget = maxRisk - (2 * fees)
 
 // 5. Optimal Position Size
 quantity = osLossPerUnit > 0 ? math.floor(netRiskBudget / osLossPerUnit) : 0
-quantity := math.max(0, quantity)
+quantity := math.max(0, int(quantity))
 
 // 6. Target calculations (RRR)
 tp1  = osPrice + (osLossPerUnit * 1.0)
@@ -109,15 +109,26 @@ if barstate.islast
     // TP Rows
     table.cell(mainTable, 0, 6, "TP 1.0 (1:1): " + str.tostring(tp1, "#.###"), text_color=c_white, text_halign=text.align_left)
     table.cell(mainTable, 1, 6, str.tostring(calcAssetTP(tp1), "#.##"), text_color=color.lime)
-
     table.cell(mainTable, 0, 7, "TP 1.5 (1.5:1): " + str.tostring(tp15, "#.###"), text_color=c_white, text_halign=text.align_left)
     table.cell(mainTable, 1, 7, str.tostring(calcAssetTP(tp15), "#.##"), text_color=color.lime)
-    
     table.cell(mainTable, 0, 8, "TP 2.0 (2:1): " + str.tostring(tp2, "#.###"), text_color=c_white, text_halign=text.align_left)
     table.cell(mainTable, 1, 8, str.tostring(calcAssetTP(tp2), "#.##"), text_color=color.lime)
-
     table.cell(mainTable, 0, 9, "TP 3.0 (3:1): " + str.tostring(tp3, "#.###"), text_color=c_white, text_halign=text.align_left)
     table.cell(mainTable, 1, 9, str.tostring(calcAssetTP(tp3), "#.##"), text_color=color.lime)
 
-// Plot SL Line on Chart
-plot(slAsset, "Asset SL Level", color=color.red, style=plot.style_linebr, linewidth=2)
+// --- PLOT STOP LOSS LINE ---
+// 1. Mark the price in the right scale
+plot(slAsset, "Scale Label", color=color.red, style=plot.style_linebr, trackprice=true, show_last=1, display=display.price_scale)
+
+// 2. Draw the dashed line and label extending to the right
+var line slLine = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.red, style=line.style_dashed, width=1)
+var label slLabel = label.new(na, na, "SL", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.red, style=label.style_label_left, size=size.small)
+
+if barstate.islast
+    // Extend line to the right (about 30 bars distance)
+    lineTimeEnd = time + (time - time[1]) * 30
+    line.set_xy1(slLine, time, slAsset)
+    line.set_xy2(slLine, lineTimeEnd, slAsset)
+    
+    // Position the label at the end of the line
+    label.set_xy(slLabel, lineTimeEnd, slAsset)
