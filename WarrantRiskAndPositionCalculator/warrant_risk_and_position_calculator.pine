@@ -2,7 +2,7 @@
 // © artishock
 
 //@version=6
-indicator("[ArtiShock] Universal Warrant Position Sizer (v1)", overlay=true)
+indicator("[ArtiShock] Universal Warrant Position Sizer Pro", overlay=true)
 
 // --- INPUTS ---
 grp_trade = "Trade Direction"
@@ -25,6 +25,7 @@ atrMult  = input.float(1.5, "ATR Multiplier", step=0.1, group=grp_sl)
 
 grp_ui = "User Interface"
 tablePos = input.string("Top Right", "Dashboard Placement", options=["Top Right", "Top Left", "Bottom Right", "Bottom Left", "Middle Right"], group=grp_ui)
+textSize = input.string("Small", "Table Text Size", options=["Tiny", "Small", "Normal", "Large", "Huge"], group=grp_ui, tooltip="Adjust the font size of the dashboard table.")
 
 // --- CALCULATIONS ---
 currentAssetPrice = close
@@ -65,10 +66,11 @@ calcAssetTP(targetOS) =>
     move = (osGainPct / osHebel)
     tradeDir == "Long" ? currentAssetPrice * (1 + move) : currentAssetPrice * (1 - move)
 
-// Helper function for Net Profit: (Target - Entry) * Qty - 2x Fees
+// Helper function for Net Profit
 calcNetProfit(targetPrice) => (targetPrice - osPrice) * quantity - (2 * fees)
 
-// --- POSITION MAPPING ---
+// --- MAPPING ---
+// Map Table Position
 var string actualPos = switch tablePos
     "Top Right"    => position.top_right
     "Top Left"     => position.top_left
@@ -77,7 +79,16 @@ var string actualPos = switch tablePos
     "Middle Right" => position.middle_right
     => position.top_right
 
-// --- DYNAMIC DASHBOARD (3-Column Layout) ---
+// Map Text Size
+var string actualSize = switch textSize
+    "Tiny"   => size.tiny
+    "Small"  => size.small
+    "Normal" => size.normal
+    "Large"  => size.large
+    "Huge"   => size.huge
+    => size.small
+
+// --- DYNAMIC DASHBOARD ---
 var table mainTable = table.new(actualPos, 3, 10, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
 
 if barstate.islast
@@ -85,46 +96,41 @@ if barstate.islast
     c_white = color.white
     c_gray  = color.gray
     
-    // Header Row 0: Info
-    table.cell(mainTable, 0, 0, "Direction: " + tradeDir, text_color=tradeDir == "Long" ? color.lime : color.red, text_halign=text.align_left)
-    table.cell(mainTable, 1, 0, "Qty: " + str.tostring(quantity, "#"), text_color=color.yellow)
-    table.cell(mainTable, 2, 0, "Risk: -" + str.tostring(maxRisk, "#.##"), text_color=color.red)
+    // Header Row 0
+    table.cell(mainTable, 0, 0, "Direction: " + tradeDir, text_color=tradeDir == "Long" ? color.lime : color.red, text_halign=text.align_left, text_size=actualSize)
+    table.cell(mainTable, 1, 0, "Qty: " + str.tostring(quantity, "#"), text_color=color.yellow, text_size=actualSize)
+    table.cell(mainTable, 2, 0, "Risk: -" + str.tostring(maxRisk, "#.##"), text_color=color.red, text_size=actualSize)
     
-    // Row 1: SL Info
-    table.cell(mainTable, 0, 1, "SL Mode: " + slMode, text_color=color.aqua, text_halign=text.align_left)
-    table.cell(mainTable, 1, 1, "Asset SL: " + str.tostring(slAsset, "#.##"), text_color=color.orange)
-    table.cell(mainTable, 2, 1, "OS SL: " + str.tostring(osSLPrice, "#.###"), text_color=color.orange)
+    // Row 1
+    table.cell(mainTable, 0, 1, "SL Mode: " + slMode, text_color=color.aqua, text_halign=text.align_left, text_size=actualSize)
+    table.cell(mainTable, 1, 1, "Asset SL: " + str.tostring(slAsset, "#.##"), text_color=color.orange, text_size=actualSize)
+    table.cell(mainTable, 2, 1, "OS SL: " + str.tostring(osSLPrice, "#.###"), text_color=color.orange, text_size=actualSize)
     
-    // Row 2: Targets Header (Separator)
-    table.cell(mainTable, 0, 2, "Target (RRR)", text_color=c_gray, text_halign=text.align_left)
-    table.cell(mainTable, 1, 2, "Asset Goal", text_color=c_gray)
-    table.cell(mainTable, 2, 2, "Net Profit", text_color=c_gray)
+    // Row 2: Headers
+    table.cell(mainTable, 0, 2, "Target (RRR)", text_color=c_gray, text_halign=text.align_left, text_size=actualSize)
+    table.cell(mainTable, 1, 2, "Asset Goal", text_color=c_gray, text_size=actualSize)
+    table.cell(mainTable, 2, 2, "Net Profit", text_color=c_gray, text_size=actualSize)
     
-    // Row 3: TP 1.0
-    table.cell(mainTable, 0, 3, "TP 1.0 (1:1)", text_color=c_white, text_halign=text.align_left)
-    table.cell(mainTable, 1, 3, str.tostring(calcAssetTP(tp1), "#.##"), text_color=color.lime)
-    table.cell(mainTable, 2, 3, "+" + str.tostring(calcNetProfit(tp1), "#.##"), text_color=color.lime)
+    // TP Rows
+    table.cell(mainTable, 0, 3, "TP 1.0 (1:1)", text_color=c_white, text_halign=text.align_left, text_size=actualSize)
+    table.cell(mainTable, 1, 3, str.tostring(calcAssetTP(tp1), "#.##"), text_color=color.lime, text_size=actualSize)
+    table.cell(mainTable, 2, 3, "+" + str.tostring(calcNetProfit(tp1), "#.##"), text_color=color.lime, text_size=actualSize)
 
-    // Row 4: TP 1.5
-    table.cell(mainTable, 0, 4, "TP 1.5 (1.5:1)", text_color=c_white, text_halign=text.align_left)
-    table.cell(mainTable, 1, 4, str.tostring(calcAssetTP(tp15), "#.##"), text_color=color.lime)
-    table.cell(mainTable, 2, 4, "+" + str.tostring(calcNetProfit(tp15), "#.##"), text_color=color.lime)
+    table.cell(mainTable, 0, 4, "TP 1.5 (1.5:1)", text_color=c_white, text_halign=text.align_left, text_size=actualSize)
+    table.cell(mainTable, 1, 4, str.tostring(calcAssetTP(tp15), "#.##"), text_color=color.lime, text_size=actualSize)
+    table.cell(mainTable, 2, 4, "+" + str.tostring(calcNetProfit(tp15), "#.##"), text_color=color.lime, text_size=actualSize)
     
-    // Row 5: TP 2.0
-    table.cell(mainTable, 0, 5, "TP 2.0 (2:1)", text_color=c_white, text_halign=text.align_left)
-    table.cell(mainTable, 1, 5, str.tostring(calcAssetTP(tp2), "#.##"), text_color=color.lime)
-    table.cell(mainTable, 2, 5, "+" + str.tostring(calcNetProfit(tp2), "#.##"), text_color=color.lime)
+    table.cell(mainTable, 0, 5, "TP 2.0 (2:1)", text_color=c_white, text_halign=text.align_left, text_size=actualSize)
+    table.cell(mainTable, 1, 5, str.tostring(calcAssetTP(tp2), "#.##"), text_color=color.lime, text_size=actualSize)
+    table.cell(mainTable, 2, 5, "+" + str.tostring(calcNetProfit(tp2), "#.##"), text_color=color.lime, text_size=actualSize)
 
-    // Row 6: TP 3.0
-    table.cell(mainTable, 0, 6, "TP 3.0 (3:1)", text_color=c_white, text_halign=text.align_left)
-    table.cell(mainTable, 1, 6, str.tostring(calcAssetTP(tp3), "#.##"), text_color=color.lime)
-    table.cell(mainTable, 2, 6, "+" + str.tostring(calcNetProfit(tp3), "#.##"), text_color=color.lime)
+    table.cell(mainTable, 0, 6, "TP 3.0 (3:1)", text_color=c_white, text_halign=text.align_left, text_size=actualSize)
+    table.cell(mainTable, 1, 6, str.tostring(calcAssetTP(tp3), "#.##"), text_color=color.lime, text_size=actualSize)
+    table.cell(mainTable, 2, 6, "+" + str.tostring(calcNetProfit(tp3), "#.##"), text_color=color.lime, text_size=actualSize)
 
 // --- PLOT STOP LOSS LINE ---
-// 1. Mark price in right scale
 plot(slAsset, "Scale Label", color=color.red, style=plot.style_linebr, trackprice=true, show_last=1, display=display.price_scale)
 
-// 2. Draw dashed line and label extending right
 var line slLine = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.red, style=line.style_dashed, width=1)
 var label slLabel = label.new(na, na, "SL", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.red, style=label.style_label_left, size=size.small)
 
