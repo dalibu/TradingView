@@ -1,37 +1,41 @@
-# Universal Warrant Position Sizer & Risk Manager (Pine Script v6)
+# Universal Warrant Position Sizer Pro (Pine Script v6)
 
-A professional-grade risk management tool for TradingView designed for traders using **leveraged warrants (Optionsscheine)** or other delta-1 derivatives. This script works across all asset classes, including stocks, indices, commodities, and forex.
+A professional-grade risk and position management tool for TradingView, suitable for all asset classes (stocks, indices, commodities, forex) and especially for leveraged derivatives such as warrants/options.
 
 ## Key Features
 
-*   **Directional Flexibility:** Supports both **Long (Calls)** and **Short (Puts)** trade directions.
-*   **Asset Agnostic:** Works on any chart (Gold, DAX, Apple, BTC, etc.) by calculating percentage-based price movements.
-*   **Precision Position Sizing:** Calculates the exact number of units to buy based on a fixed monetary risk budget (e.g., $100 or €100).
-*   **Cost & Spread Awareness:** Factors in transaction fees (buy/sell) and the bid-ask spread to ensure your real-world loss stays within your budget.
-*   **Derivative SL & TP Mapping:** 
-    *   Translates your technical chart Stop-Loss into the corresponding warrant price.
-    *   Projects Take-Profit targets for both the warrant and the underlying asset based on Risk/Reward Ratios (1:1, 2:1, 3:1).
+- **Long & Short Support:** Calculates position sizes for Calls (Long) and Puts (Short).
+- **Asset-agnostic:** Works on any chart, as all calculations are percentage-based.
+- **Precise Position Sizing:** Exact quantity based on a fixed risk budget (e.g., $100 or €100).
+- **Fee & Spread Awareness:** Transaction costs (buy/sell) and spread are realistically included.
+- **Flexible Stop-Loss Modes:**
+    - **Manual:** Fixed SL price and entry price.
+    - **ATR-based:** Automatic SL calculation based on volatility (ATR).
+- **Dynamic Dashboard:** Clear table with all key figures, freely placeable and with adjustable font size.
+- **Visualization:** SL and all TP levels are shown as labeled lines on the chart. In ATR mode, the SL path is plotted as a line.
+- **Fee-adjusted Take-Profit:** TP levels are calculated so that the desired risk/reward ratio is achieved after all costs.
 
-## How to Use
+## Usage
 
-1.  **Script Setup:** Copy the Pine Script code into the TradingView Pine Editor and add it to your chart.
-2.  **Input Data:** Open the script settings (gear icon):
-    *   **Trade Direction:** Select "Long" for Call warrants or "Short" for Put warrants.
-    *   **Warrant Data:** Enter the current Ask price, the Leverage (e.g., 15x), and the current Spread.
-    *   **Risk Settings:** Define your max risk budget and per-order fees.
-    *   **Technical SL:** Enter the price level of the underlying asset where you want to exit the trade.
-3.  **Execution:** The dashboard on the top-right will display:
-    *   **Optimal Quantity:** The exact number of warrants to purchase.
-    *   **Warrant SL:** The price at which you should set your Stop-Loss order at your broker.
-    *   **Asset Targets:** The price levels the underlying asset needs to reach to hit your TP goals.
+1. **Add Script:** Copy the Pine Script into the TradingView editor and add it to your chart.
+2. **Open Settings:**
+     - **Trade Direction:** Choose Long (Call) or Short (Put).
+     - **Warrant Data:** Enter current Ask price, leverage, and spread.
+     - **Risk Settings:** Set your maximum risk amount and per-order fees.
+     - **Stop-Loss Settings:**
+         - **Manual:** Enter entry price and SL price of the underlying asset.
+         - **ATR-Based:** Choose ATR length and multiplier; SL is calculated automatically.
+     - **User Interface:** Choose dashboard position and font size.
+3. **Read Results:**
+     - Optimal quantity, SL price, all TP levels (including net profit), and the corresponding asset prices are displayed.
+     - SL and TP lines appear directly on the chart.
 
 ## Calculation Logic
 
-The script follows a rigorous mathematical approach:
-1.  **Relative Distance:** Measures the % distance between the current asset price and the Stop-Loss.
-2.  **Leverage Multiplier:** Multiplies the asset's % move by the warrant's leverage to determine the warrant's price sensitivity.
-3.  **Net Budgeting:** Subtracts total transaction fees from the risk budget before calculating units.
-4.  **Spread Compensation:** Deducts the spread from the calculated Stop-Loss price to provide a realistic "Bid" exit price.
+- **Risk Budget:** Net risk after deducting all fees.
+- **Position Size:** Quantity so that the maximum loss (including fees & spread) does not exceed the budget.
+- **TP Levels:** Calculated so that, after fees, the desired RRR (e.g., 2:1) is achieved net.
+- **ATR Mode:** SL follows volatility and is shown as a line.
 
 ---
 *Disclaimer: Trading leveraged derivatives involves significant risk of capital loss. This script is intended for calculation and educational purposes only.*
