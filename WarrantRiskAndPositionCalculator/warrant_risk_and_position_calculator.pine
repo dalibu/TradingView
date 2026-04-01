@@ -75,13 +75,13 @@ assetTP2  = calcAssetTP(tp2)
 assetTP3  = calcAssetTP(tp3)
 
 // Helper function for Net Profit
-calcNetProfit(targetPrice) => (targetPrice - osPrice) * quantity - fees
+calcNetProfit(targetPrice) => (targetPrice - osPrice) * quantity - (2 * fees)
 
 // Helper function for R/P (target price should be ask; convert to bid inside)
 calcRP(targetPriceAsk) =>
     targetBid = targetPriceAsk - osSpread
     depositVal = quantity * osPrice
-    depositVal + (targetBid - osPrice) * quantity - fees
+    depositVal + (targetBid - osPrice) * quantity - (2 * fees)
 
 // --- MAPPING & UI ---
 var string actualPos = switch tablePos
