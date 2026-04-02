@@ -87,6 +87,11 @@ valColor(val, dep) =>
 profitColor(p) =>
     p > 0 ? color.lime : p < 0 ? color.red : color.silver
 
+// Helper: format profit string with percentage
+formatProfitStr(p, dep) =>
+    pct = dep > 0 ? (p / dep) * 100 : 0
+    str.tostring(p, "#.##") + " (" + str.tostring(pct, "#.#") + "%)"
+
 // --- MAPPING & UI ---
 var string actualPos = switch tablePos
     "Top Right"    => position.top_right
@@ -183,7 +188,7 @@ if barstate.islast
         table.cell(mainTable, 1, rowEntry, str.tostring(entryPrice, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
         table.cell(mainTable, 2, rowEntry, str.tostring(entry_bid, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
         table.cell(mainTable, 3, rowEntry, str.tostring(entry_bid_value, "#.##"), text_color=valColor(entry_bid_value, deposit), text_halign=text.align_center, text_size=actualSize)
-        table.cell(mainTable, 4, rowEntry, str.tostring(entry_profit, "#.##"), text_color=profitColor(entry_profit), text_halign=text.align_center, text_size=actualSize)
+        table.cell(mainTable, 4, rowEntry, formatProfitStr(entry_profit, deposit), text_color=profitColor(entry_profit), text_halign=text.align_center, text_size=actualSize)
 
     // ===== ACTUAL - dynamic values based on current asset price =====
     actualValue = currentWarrantBid * quantity
@@ -195,20 +200,18 @@ if barstate.islast
     table.cell(mainTable, 1, rowActual, str.tostring(currentAssetPrice, "#.##"), text_color=actual_color, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, rowActual, str.tostring(currentWarrantBid, "#.###"), text_color=actual_color, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 3, rowActual, str.tostring(actualValue, "#.##"), text_color=value_color, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowActual, str.tostring(actualProfit, "#.##"), text_color=profit_color, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowActual, formatProfitStr(actualProfit, deposit), text_color=profit_color, text_halign=text.align_center, text_size=actualSize)
 
     // ===== STOP LOSS ROW =====
     slBid = osSLPriceAsk - osSpread
     slValue = slBid * quantity
     slProfit = slValue - deposit - (2 * fees)
-    slPct = quantity > 0 ? (slProfit / deposit) * 100 : 0
     slLabel = slMode == "Manual" ? "SL (Manual)" : "SL (ATR x" + str.tostring(atrMult, "#.#") + ")"
-    slProfitStr = str.tostring(slProfit, "#.##") + " (" + str.tostring(slPct, "#.#") + "%)"
     table.cell(mainTable, 0, rowSL, slLabel, text_color=color.red, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, rowSL, str.tostring(slAsset, "#.##"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, rowSL, str.tostring(slBid, "#.###"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 3, rowSL, str.tostring(slValue, "#.##"), text_color=valColor(slValue, deposit), text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowSL, slProfitStr, text_color=profitColor(slProfit), text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowSL, formatProfitStr(slProfit, deposit), text_color=profitColor(slProfit), text_halign=text.align_center, text_size=actualSize)
     
     // ===== TP 1:1 ROW =====
     tp1Bid = tp1 - osSpread
@@ -218,7 +221,7 @@ if barstate.islast
     table.cell(mainTable, 1, rowTP1, str.tostring(assetTP1, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, rowTP1, str.tostring(tp1Bid, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 3, rowTP1, str.tostring(tp1Value, "#.##"), text_color=valColor(tp1Value, deposit), text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowTP1, str.tostring(tp1Profit, "#.##"), text_color=profitColor(tp1Profit), text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowTP1, formatProfitStr(tp1Profit, deposit), text_color=profitColor(tp1Profit), text_halign=text.align_center, text_size=actualSize)
 
     // ===== TP 2:1 ROW =====
     tp2Bid = tp2 - osSpread
@@ -228,7 +231,7 @@ if barstate.islast
     table.cell(mainTable, 1, rowTP2, str.tostring(assetTP2, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, rowTP2, str.tostring(tp2Bid, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 3, rowTP2, str.tostring(tp2Value, "#.##"), text_color=valColor(tp2Value, deposit), text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowTP2, str.tostring(tp2Profit, "#.##"), text_color=profitColor(tp2Profit), text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowTP2, formatProfitStr(tp2Profit, deposit), text_color=profitColor(tp2Profit), text_halign=text.align_center, text_size=actualSize)
 
     // ===== TP 3:1 ROW =====
     tp3Bid = tp3 - osSpread
@@ -238,7 +241,7 @@ if barstate.islast
     table.cell(mainTable, 1, rowTP3, str.tostring(assetTP3, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, rowTP3, str.tostring(tp3Bid, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 3, rowTP3, str.tostring(tp3Value, "#.##"), text_color=valColor(tp3Value, deposit), text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowTP3, str.tostring(tp3Profit, "#.##"), text_color=profitColor(tp3Profit), text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowTP3, formatProfitStr(tp3Profit, deposit), text_color=profitColor(tp3Profit), text_halign=text.align_center, text_size=actualSize)
 
 // --- VISUAL LINES ---
 
