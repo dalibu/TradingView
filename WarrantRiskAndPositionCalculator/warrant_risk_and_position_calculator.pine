@@ -79,8 +79,6 @@ assetTP15 = calcAssetTP(1.5)
 assetTP2  = calcAssetTP(2.0)
 assetTP3  = calcAssetTP(3.0)
 
-
-
 // --- MAPPING & UI ---
 var string actualPos = switch tablePos
     "Top Right"    => position.top_right
@@ -236,9 +234,6 @@ var slLabel = label.new(na, na, "SL", xloc=xloc.bar_time, color=color.new(color.
 var tp1Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
 var tp1Label = label.new(na, na, "TP 1", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
 
-//var tp15Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
-//var tp15Label = label.new(na, na, "TP 1.5", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
-
 var tp2Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
 var tp2Label = label.new(na, na, "TP 2", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
 
@@ -248,6 +243,5 @@ var tp3Label = label.new(na, na, "TP 3", xloc=xloc.bar_time, color=color.new(col
 if barstate.islast
     updateVisuals(slLine, slLabel, slAsset, "SL", color.red, lineTimeEnd)
     updateVisuals(tp1Line, tp1Label, assetTP1, "TP 1", color.lime, lineTimeEnd)
-//    updateVisuals(tp15Line, tp15Label, assetTP15, "TP 1.5", color.lime, lineTimeEnd)
     updateVisuals(tp2Line, tp2Label, assetTP2, "TP 2", color.lime, lineTimeEnd)
     updateVisuals(tp3Line, tp3Label, assetTP3, "TP 3", color.lime, lineTimeEnd)
