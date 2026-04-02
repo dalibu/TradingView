@@ -97,10 +97,11 @@ var string actualSize = switch textSize
     => size.small
 
 // --- DYNAMIC DASHBOARD ---
-var table mainTable = table.new(actualPos, 5, 9, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
+int numRows = slMode == "Manual" ? 9 : 8
+var table mainTable = table.new(actualPos, 5, numRows, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
 
 if barstate.islast
-    mainTable := table.new(actualPos, 5, 9, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
+    mainTable := table.new(actualPos, 5, numRows, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
     c_white = color.white
     c_gray  = color.gray
     c_orange = color.orange
@@ -129,38 +130,52 @@ if barstate.islast
     table.cell(mainTable, 3, 2, "Value", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
     table.cell(mainTable, 4, 2, "Profit", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
 
-    // Determine row positions based on direction
+    // Determine row positions based on direction and SL mode
+    // In ATR mode the entry (→) row is hidden → table has 8 rows, indices shift
     int rowSL = na
     int rowActual = na
     int rowTP1 = na
     int rowTP2 = na
     int rowTP3 = na
     int rowEntry = na
-    
+
+    bool isManual = slMode == "Manual"
+
     if tradeDir == "Long"
         rowTP3 := 3
         rowTP2 := 4
         rowTP1 := 5
-        rowEntry := 6
-        rowActual := 7
-        rowSL := 8
+        if isManual
+            rowEntry  := 6
+            rowActual := 7
+            rowSL     := 8
+        else
+            rowActual := 6
+            rowSL     := 7
     else  // Short
         rowSL := 3
-        rowEntry := 4
-        rowActual := 5
-        rowTP1 := 6
-        rowTP2 := 7
-        rowTP3 := 8
+        if isManual
+            rowEntry  := 4
+            rowActual := 5
+            rowTP1    := 6
+            rowTP2    := 7
+            rowTP3    := 8
+        else
+            rowActual := 4
+            rowTP1    := 5
+            rowTP2    := 6
+            rowTP3    := 7
 
-    // ===== ENTRY - arrow row (static values at entry) =====
+    // ===== ENTRY - arrow row (Manual mode only) =====
     entry_bid = osPrice - osSpread
     entry_bid_value = entry_bid * quantity
     entry_profit = entry_bid_value - deposit - (2 * fees)
-    table.cell(mainTable, 0, rowEntry, "→", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 1, rowEntry, str.tostring(entryPrice, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, rowEntry, str.tostring(entry_bid, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, rowEntry, str.tostring(entry_bid_value, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowEntry, str.tostring(entry_profit, "#.##"), text_color=color.orange, text_halign=text.align_center, text_size=actualSize)
+    if isManual
+        table.cell(mainTable, 0, rowEntry, "→", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+        table.cell(mainTable, 1, rowEntry, str.tostring(entryPrice, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+        table.cell(mainTable, 2, rowEntry, str.tostring(entry_bid, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+        table.cell(mainTable, 3, rowEntry, str.tostring(entry_bid_value, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+        table.cell(mainTable, 4, rowEntry, str.tostring(entry_profit, "#.##"), text_color=color.orange, text_halign=text.align_center, text_size=actualSize)
 
     // ===== ACTUAL - dynamic values based on current asset price =====
     actualValue = currentWarrantBid * quantity
