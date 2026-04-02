@@ -51,11 +51,11 @@ osSLPriceAsk = osPrice * (1 - osDropPct)
 osSLPrice = osSLPriceAsk - osSpread  // bid price at SL
 osLossPerUnit = osPrice - osSLPrice
 
-// Current warrant price: linear interpolation between entry and SL
-currentAssetProgress = tradeDir == "Long" 
-     ? (currentAssetPrice - entryPrice) / (slAsset - entryPrice) 
-     : (entryPrice - currentAssetPrice) / (entryPrice - slAsset)
-currentWarrantAsk = osPrice - (currentAssetProgress * osLossPerUnit)
+// Current warrant price: proportional to asset price change WITH leverage
+currentAssetMovePct = (currentAssetPrice - entryPrice) / entryPrice
+currentWarrantAsk = tradeDir == "Long" 
+     ? osPrice * (1 + currentAssetMovePct * osHebel)
+     : osPrice * (1 - currentAssetMovePct * osHebel)
 currentWarrantBid = currentWarrantAsk - osSpread
 
 // 5. Optimal Position Size
@@ -79,14 +79,7 @@ assetTP15 = calcAssetTP(1.5)
 assetTP2  = calcAssetTP(2.0)
 assetTP3  = calcAssetTP(3.0)
 
-// Helper function for Net Profit
-calcNetProfit(targetPrice) => (targetPrice - osPrice) * quantity - (2 * fees)
 
-// Helper function for R/P (target price should be ask; convert to bid inside)
-calcRP(targetPriceAsk) =>
-    targetBid = targetPriceAsk - osSpread
-    depositVal = quantity * osPrice
-    depositVal + (targetBid - osPrice) * quantity - (2 * fees)
 
 // --- MAPPING & UI ---
 var string actualPos = switch tablePos
@@ -163,11 +156,13 @@ if barstate.islast
 
     // ===== ENTRY - arrow row (static values at entry) =====
     entry_bid = osPrice - osSpread
+    entry_bid_value = entry_bid * quantity
+    entry_profit = entry_bid_value - deposit - (2 * fees)
     table.cell(mainTable, 0, rowEntry, "→", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, rowEntry, str.tostring(entryPrice, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, rowEntry, str.tostring(entry_bid, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, rowEntry, str.tostring(deposit, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowEntry, "0.00", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, rowEntry, str.tostring(entry_bid_value, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowEntry, str.tostring(entry_profit, "#.##"), text_color=color.orange, text_halign=text.align_center, text_size=actualSize)
 
     // ===== ACTUAL - dynamic values based on current asset price =====
     actualValue = currentWarrantBid * quantity
@@ -187,11 +182,12 @@ if barstate.islast
     slProfit = slValue - deposit - (2 * fees)
     slPct = quantity > 0 ? (slProfit / deposit) * 100 : 0
     slLabel = slMode == "Manual" ? "SL (Manual)" : "SL (ATR x" + str.tostring(atrMult, "#.#") + ")"
+    slProfitStr = str.tostring(slProfit, "#.##") + " (" + str.tostring(slPct, "#.#") + "%)"
     table.cell(mainTable, 0, rowSL, slLabel, text_color=color.red, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, rowSL, str.tostring(slAsset, "#.##"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, rowSL, str.tostring(slBid, "#.###"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 3, rowSL, str.tostring(slValue, "#.##"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowSL, str.tostring(slProfit, "#.##"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowSL, slProfitStr, text_color=color.red, text_halign=text.align_center, text_size=actualSize)
     
     // ===== TP 1:1 ROW =====
     tp1Bid = tp1 - osSpread
