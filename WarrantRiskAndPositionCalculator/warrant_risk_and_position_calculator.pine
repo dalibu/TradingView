@@ -13,7 +13,7 @@ maxRisk  = input.float(100.0, "Max. Risk Budget", group=grp_risk, tooltip="The m
 fees     = input.float(1.0, "Fee per Order", group=grp_risk, tooltip="Broker fee per transaction (buy/sell).")
 
 grp_os = "Warrant / Derivative Data"
-osPrice  = input.float(1.0, "Warrant Price (Ask)", step=0.01, group=grp_os, tooltip="Current purchase price in your broker terminal.")
+osPrice  = input.float(1.0, "Warrant Price (Ask)", step=0.01, group=grp_os, tooltip="Your purchase price (Ask) - set once at entry.")
 osHebel  = input.int(15, "Leverage", step=1, group=grp_os, tooltip="Current warrant leverage.")
 osSpread = input.float(0.01, "Spread", step=0.01, group=grp_os, tooltip="Difference between Ask (buy) and Bid (sell) price.")
 
@@ -50,6 +50,13 @@ osDropPct = assetMovePct * osHebel
 osSLPriceAsk = osPrice * (1 - osDropPct)
 osSLPrice = osSLPriceAsk - osSpread  // bid price at SL
 osLossPerUnit = osPrice - osSLPrice
+
+// Current warrant price: linear interpolation between entry and SL
+currentAssetProgress = tradeDir == "Long" 
+     ? (currentAssetPrice - entryPrice) / (slAsset - entryPrice) 
+     : (entryPrice - currentAssetPrice) / (entryPrice - slAsset)
+currentWarrantAsk = osPrice - (currentAssetProgress * osLossPerUnit)
+currentWarrantBid = currentWarrantAsk - osSpread
 
 // 5. Optimal Position Size
 netRiskBudget = maxRisk - (2 * fees)
@@ -152,15 +159,15 @@ if barstate.islast
         rowTP3 := 7
 
     // ===== CURRENT - arrow row =====
-    currentBid = osPrice
-    currentValue = currentBid * quantity
+    currentValue = currentWarrantBid * quantity
     currentProfit = currentValue - deposit - (2 * fees)
     currentPct = quantity > 0 ? (currentProfit / deposit) * 100 : 0
+    current_color = currentWarrantBid >= osPrice - osSpread ? color.silver : color.orange
     value_color = currentValue >= deposit ? color.silver : color.red
-    profit_color = currentProfit >= 0 ? color.silver : color.red
-    table.cell(mainTable, 0, rowCurrent, "→", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 1, rowCurrent, str.tostring(entryPrice, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, rowCurrent, str.tostring(currentBid, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    profit_color = currentProfit >= 0 ? color.lime : color.red
+    table.cell(mainTable, 0, rowCurrent, "→", text_color=current_color, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 1, rowCurrent, str.tostring(entryPrice, "#.##"), text_color=current_color, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, rowCurrent, str.tostring(currentWarrantBid, "#.###"), text_color=current_color, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 3, rowCurrent, str.tostring(currentValue, "#.##"), text_color=value_color, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 4, rowCurrent, str.tostring(currentProfit, "#.##"), text_color=profit_color, text_halign=text.align_center, text_size=actualSize)
 
