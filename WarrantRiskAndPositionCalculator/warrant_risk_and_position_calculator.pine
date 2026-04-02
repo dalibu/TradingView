@@ -13,7 +13,7 @@ maxRisk  = input.float(100.0, "Max. Risk Budget", group=grp_risk, tooltip="The m
 fees     = input.float(1.0, "Fee per Order", group=grp_risk, tooltip="Broker fee per transaction (buy/sell).")
 
 grp_os = "Warrant / Derivative Data"
-osPrice  = input.float(1.0, "Warrant Price (Ask)", step=0.1, group=grp_os, tooltip="Current purchase price in your broker terminal.")
+osPrice  = input.float(1.0, "Warrant Price (Ask)", step=0.01, group=grp_os, tooltip="Current purchase price in your broker terminal.")
 osHebel  = input.int(15, "Leverage", step=1, group=grp_os, tooltip="Current warrant leverage.")
 osSpread = input.float(0.01, "Spread", step=0.01, group=grp_os, tooltip="Difference between Ask (buy) and Bid (sell) price.")
 
@@ -56,23 +56,20 @@ netRiskBudget = maxRisk - (2 * fees)
 quantity = osLossPerUnit > 0 ? math.floor(netRiskBudget / osLossPerUnit) : 0
 quantity := math.max(0, int(quantity))
 
-// 6. Target calculations (Fee-Adjusted for Net Profit)
-// Formula: EntryPrice + ((Required Net Profit + Total Fees) / Quantity)
-float totalFees = 0
-tp1  = quantity > 0 ? osPrice + ((maxRisk * 1.0 + totalFees) / quantity) : na
-tp15 = quantity > 0 ? osPrice + ((maxRisk * 1.5 + totalFees) / quantity) : na
-tp2  = quantity > 0 ? osPrice + ((maxRisk * 2.0 + totalFees) / quantity) : na
-tp3  = quantity > 0 ? osPrice + ((maxRisk * 3.0 + totalFees) / quantity) : na
+// 6. Target calculations - Warrant TP based on osLossPerUnit (1R = max risk)
+tp1  = osPrice + (osLossPerUnit * 1.0)
+tp15 = osPrice + (osLossPerUnit * 1.5)
+tp2  = osPrice + (osLossPerUnit * 2.0)
+tp3  = osPrice + (osLossPerUnit * 3.0)
 
-calcAssetTP(targetOS) =>
-    osGainPct = (targetOS - osPrice) / osPrice
-    move = (osGainPct / osHebel)
-    tradeDir == "Long" ? entryPrice * (1 + move) : entryPrice * (1 - move)
+calcAssetTP(ratio) =>
+    slDistance = math.abs(entryPrice - slAsset)
+    tradeDir == "Long" ? entryPrice + (slDistance * ratio) : entryPrice - (slDistance * ratio)
 
-assetTP1  = calcAssetTP(tp1)
-assetTP15 = calcAssetTP(tp15)
-assetTP2  = calcAssetTP(tp2)
-assetTP3  = calcAssetTP(tp3)
+assetTP1  = calcAssetTP(1.0)
+assetTP15 = calcAssetTP(1.5)
+assetTP2  = calcAssetTP(2.0)
+assetTP3  = calcAssetTP(3.0)
 
 // Helper function for Net Profit
 calcNetProfit(targetPrice) => (targetPrice - osPrice) * quantity - (2 * fees)
@@ -110,28 +107,28 @@ if barstate.islast
     c_orange = color.orange
     
     // ===== HEADER ROW =====
-    table.cell(mainTable, 0, 0, "Direction", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 1, 0, "Leverage", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 2, 0, "Ask", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 3, 0, "Deposit", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 4, 0, "Quantity", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 0, 0, "Direction", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 1, 0, "Leverage", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 2, 0, "Ask", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 3, 0, "Deposit", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 4, 0, "Quantity", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
     
     // ===== ENTRY ROW =====
     entry_color = tradeDir == "Long" ? color.lime : color.red
     deposit = quantity * osPrice
     direction_icon = tradeDir == "Long" ? "↑" : "↓"
     table.cell(mainTable, 0, 1, tradeDir + " " + direction_icon, text_color=entry_color, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 1, 1, str.tostring(osHebel, "#") + "x", text_color=c_white, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, 1, str.tostring(osPrice, "#.###"), text_color=c_white, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, 1, str.tostring(deposit, "#.##"), text_color=c_white, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 1, 1, str.tostring(osHebel, "#") + "x", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, 1, str.tostring(osPrice, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, 1, str.tostring(deposit, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 4, 1, str.tostring(quantity, "#"), text_color=color.yellow, text_halign=text.align_center, text_size=actualSize)
     
     // ===== LABELS ROW (RRR) =====
-    table.cell(mainTable, 0, 2, "RRR", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
-    table.cell(mainTable, 1, 2, "Asset", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
-    table.cell(mainTable, 2, 2, "Warrant", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
-    table.cell(mainTable, 3, 2, "R/P", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
-    table.cell(mainTable, 4, 2, "%", text_color=c_gray, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    table.cell(mainTable, 0, 2, "RRR", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    table.cell(mainTable, 1, 2, "Asset", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    table.cell(mainTable, 2, 2, "Bid", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    table.cell(mainTable, 3, 2, "Value", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    table.cell(mainTable, 4, 2, "Profit", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
 
     // Determine row positions based on direction
     int rowSL = na
@@ -154,54 +151,63 @@ if barstate.islast
         rowTP3 := 7
 
     // ===== CURRENT - arrow row =====
-    currentRp = calcRP(osPrice)
-    currentPct = quantity > 0 ? ((currentRp - deposit) / deposit) * 100 : 0
-    table.cell(mainTable, 0, rowCurrent, "→", text_color=c_white, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 1, rowCurrent, str.tostring(entryPrice, "#.##"), text_color=c_white, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, rowCurrent, str.tostring(osPrice, "#.###"), text_color=c_white, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, rowCurrent, str.tostring(currentRp, "#.##"), text_color=c_white, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowCurrent, str.tostring(currentPct, "#.##") + "%", text_color=color.white, text_halign=text.align_center, text_size=actualSize)
+    currentBid = osPrice
+    currentValue = currentBid * quantity
+    currentProfit = currentValue - deposit - (2 * fees)
+    currentPct = quantity > 0 ? (currentProfit / deposit) * 100 : 0
+    value_color = currentValue >= deposit ? color.silver : color.red
+    profit_color = currentProfit >= 0 ? color.silver : color.red
+    table.cell(mainTable, 0, rowCurrent, "→", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 1, rowCurrent, str.tostring(entryPrice, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, rowCurrent, str.tostring(currentBid, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, rowCurrent, str.tostring(currentValue, "#.##"), text_color=value_color, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowCurrent, str.tostring(currentProfit, "#.##"), text_color=profit_color, text_halign=text.align_center, text_size=actualSize)
 
     // ===== STOP LOSS ROW =====
-    slRp = calcRP(osSLPriceAsk)
-    slPct = quantity > 0 ? ((slRp - deposit) / deposit) * 100 : 0
+    slBid = osSLPriceAsk - osSpread
+    slValue = slBid * quantity
+    slProfit = slValue - deposit - (2 * fees)
+    slPct = quantity > 0 ? (slProfit / deposit) * 100 : 0
     slLabel = slMode == "Manual" ? "SL (Manual)" : "SL (ATR x" + str.tostring(atrMult, "#.#") + ")"
     table.cell(mainTable, 0, rowSL, slLabel, text_color=color.red, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, rowSL, str.tostring(slAsset, "#.##"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, rowSL, str.tostring(osSLPrice, "#.###"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, rowSL, str.tostring(slRp, "#.##"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowSL, str.tostring(slPct, "#.##") + "%", text_color=color.red, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, rowSL, str.tostring(slBid, "#.###"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, rowSL, str.tostring(slValue, "#.##"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowSL, str.tostring(slProfit, "#.##"), text_color=color.red, text_halign=text.align_center, text_size=actualSize)
     
     // ===== TP 1:1 ROW =====
-    tp1Rp = calcRP(tp1)
-    tp1Pct = quantity > 0 ? ((tp1Rp - deposit) / deposit) * 100 : 0
+    tp1Bid = tp1 - osSpread
+    tp1Value = tp1Bid * quantity
+    tp1Profit = tp1Value - deposit - (2 * fees)
     table.cell(mainTable, 0, rowTP1, "TP 1:1", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, rowTP1, str.tostring(assetTP1, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, rowTP1, str.tostring(tp1, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, rowTP1, str.tostring(tp1Rp, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowTP1, str.tostring(tp1Pct, "#.##") + "%", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, rowTP1, str.tostring(tp1Bid, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, rowTP1, str.tostring(tp1Value, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowTP1, str.tostring(tp1Profit, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
 
     // ===== TP 1:2 ROW =====
-    tp2Rp = calcRP(tp2)
-    tp2Pct = quantity > 0 ? ((tp2Rp - deposit) / deposit) * 100 : 0
+    tp2Bid = tp2 - osSpread
+    tp2Value = tp2Bid * quantity
+    tp2Profit = tp2Value - deposit - (2 * fees)
     table.cell(mainTable, 0, rowTP2, "TP 1:2", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, rowTP2, str.tostring(assetTP2, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, rowTP2, str.tostring(tp2, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, rowTP2, str.tostring(tp2Rp, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowTP2, str.tostring(tp2Pct, "#.##") + "%", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, rowTP2, str.tostring(tp2Bid, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, rowTP2, str.tostring(tp2Value, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowTP2, str.tostring(tp2Profit, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
 
     // ===== TP 1:3 ROW =====
-    tp3Rp = calcRP(tp3)
-    tp3Pct = quantity > 0 ? ((tp3Rp - deposit) / deposit) * 100 : 0
+    tp3Bid = tp3 - osSpread
+    tp3Value = tp3Bid * quantity
+    tp3Profit = tp3Value - deposit - (2 * fees)
     table.cell(mainTable, 0, rowTP3, "TP 1:3", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, rowTP3, str.tostring(assetTP3, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, rowTP3, str.tostring(tp3, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, rowTP3, str.tostring(tp3Rp, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowTP3, str.tostring(tp3Pct, "#.##") + "%", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, rowTP3, str.tostring(tp3Bid, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, rowTP3, str.tostring(tp3Value, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowTP3, str.tostring(tp3Profit, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
 
 // --- VISUAL LINES ---
 
-plot(slAsset, "Scale Label", color=color.red, style=plot.style_linebr, trackprice=true, show_last=1, display=display.price_scale)
+plot(slAsset, "Scale Label", color=color.red, style=plot.style_linebr, trackprice=true, show_last=1)
 
 updateVisuals(lineObj, labelObj, price, txt, lColor, endTime) =>
     line.set_xy1(lineObj, time, price)
@@ -216,8 +222,8 @@ var slLabel = label.new(na, na, "SL", xloc=xloc.bar_time, color=color.new(color.
 var tp1Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
 var tp1Label = label.new(na, na, "TP 1.0", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
 
-var tp15Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
-var tp15Label = label.new(na, na, "TP 1.5", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
+//var tp15Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
+//var tp15Label = label.new(na, na, "TP 1.5", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
 
 var tp2Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
 var tp2Label = label.new(na, na, "TP 2.0", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
@@ -228,6 +234,6 @@ var tp3Label = label.new(na, na, "TP 3.0", xloc=xloc.bar_time, color=color.new(c
 if barstate.islast
     updateVisuals(slLine, slLabel, slAsset, "SL", color.red, lineTimeEnd)
     updateVisuals(tp1Line, tp1Label, assetTP1, "TP 1.0", color.lime, lineTimeEnd)
-    updateVisuals(tp15Line, tp15Label, assetTP15, "TP 1.5", color.lime, lineTimeEnd)
+//    updateVisuals(tp15Line, tp15Label, assetTP15, "TP 1.5", color.lime, lineTimeEnd)
     updateVisuals(tp2Line, tp2Label, assetTP2, "TP 2.0", color.lime, lineTimeEnd)
     updateVisuals(tp3Line, tp3Label, assetTP3, "TP 3.0", color.lime, lineTimeEnd)
