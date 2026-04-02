@@ -110,7 +110,7 @@ var string actualSize = switch textSize
     => size.small
 
 // --- DYNAMIC DASHBOARD ---
-int numRows = slMode == "Manual" ? 9 : 8
+int numRows = slMode == "Manual" ? 10 : 9
 var table mainTable = table.new(actualPos, 5, numRows, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
 
 if barstate.islast
@@ -119,30 +119,34 @@ if barstate.islast
     c_gray  = color.gray
     c_orange = color.orange
     
+    // ===== TITLE ROW =====
+    table.cell(mainTable, 0, 0, "Warrant Position Calculator", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.blue, 70))
+    table.merge_cells(mainTable, 0, 0, 4, 0)
+
     // ===== HEADER ROW =====
-    table.cell(mainTable, 0, 0, "Direction", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 1, 0, "Leverage", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 2, 0, "Ask", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 3, 0, "Quantity", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 4, 0, "Deposit", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 0, 1, "Direction", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 1, 1, "Leverage", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 2, 1, "Ask", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 3, 1, "Quantity", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 4, 1, "Deposit", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
     
     // ===== ENTRY ROW =====
     entry_color = tradeDir == "Long" ? color.lime : color.red
     deposit = quantity * osPrice
     direction_icon = tradeDir == "Long" ? "↑" : "↓"
-    table.cell(mainTable, 0, 1, tradeDir + " " + direction_icon, text_color=entry_color, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 1, 1, str.tostring(osHebel, "#") + "x", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, 1, str.tostring(osPrice, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, 1, str.tostring(quantity, "#"), text_color=color.yellow, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, 1, str.tostring(deposit, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 0, 2, tradeDir + " " + direction_icon, text_color=entry_color, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 1, 2, str.tostring(osHebel, "#") + "x", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, 2, str.tostring(osPrice, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, 2, str.tostring(quantity, "#"), text_color=color.yellow, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, 2, str.tostring(deposit, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
     
     // ===== LABELS ROW (RRR) =====
-    table.cell(mainTable, 0, 2, "RRR", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
-    table.cell(mainTable, 1, 2, "Asset", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
-    table.cell(mainTable, 2, 2, "Bid", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
-    table.cell(mainTable, 3, 2, "Value", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
-    table.cell(mainTable, 4, 2, "Profit", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
-
+    table.cell(mainTable, 0, 3, "RRR", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    table.cell(mainTable, 1, 3, "Asset", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    table.cell(mainTable, 2, 3, "Bid", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    table.cell(mainTable, 3, 3, "Value", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    table.cell(mainTable, 4, 3, "Profit", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
+    
     // Determine row positions based on direction and SL mode
     // In ATR mode the entry (→) row is hidden → table has 8 rows, indices shift
     int rowSL = na
@@ -155,29 +159,29 @@ if barstate.islast
     bool isManual = slMode == "Manual"
 
     if tradeDir == "Long"
-        rowTP3 := 3
-        rowTP2 := 4
-        rowTP1 := 5
+        rowTP3 := 4
+        rowTP2 := 5
+        rowTP1 := 6
         if isManual
-            rowEntry  := 6
+            rowEntry  := 7
+            rowActual := 8
+            rowSL     := 9
+        else
             rowActual := 7
             rowSL     := 8
-        else
-            rowActual := 6
-            rowSL     := 7
     else  // Short
-        rowSL := 3
+        rowSL := 4
         if isManual
-            rowEntry  := 4
+            rowEntry  := 5
+            rowActual := 6
+            rowTP1    := 7
+            rowTP2    := 8
+            rowTP3    := 9
+        else
             rowActual := 5
             rowTP1    := 6
             rowTP2    := 7
             rowTP3    := 8
-        else
-            rowActual := 4
-            rowTP1    := 5
-            rowTP2    := 6
-            rowTP3    := 7
 
     // ===== ENTRY - arrow row (Manual mode only) =====
     entry_bid = osPrice - osSpread
