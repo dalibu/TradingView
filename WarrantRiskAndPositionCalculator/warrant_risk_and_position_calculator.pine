@@ -63,19 +63,16 @@ netRiskBudget = maxRisk - (2 * fees)
 quantity = osLossPerUnit > 0 ? math.floor(netRiskBudget / osLossPerUnit) : 0
 quantity := math.max(0, int(quantity))
 
-// 6. Target calculations - Warrant TP based on profit = maxRisk (1R)
-// Formula: TP_ask = osPrice + osSpread + (maxRisk + 2*fees) / quantity
-tp1  = quantity > 0 ? osPrice + osSpread + ((maxRisk * 1.0 + 2 * fees) / quantity) : na
-tp15 = quantity > 0 ? osPrice + osSpread + ((maxRisk * 1.5 + 2 * fees) / quantity) : na
-tp2  = quantity > 0 ? osPrice + osSpread + ((maxRisk * 2.0 + 2 * fees) / quantity) : na
-tp3  = quantity > 0 ? osPrice + osSpread + ((maxRisk * 3.0 + 2 * fees) / quantity) : na
+// 6. Target calculations - Warrant TP based on geometric asset movement (1R, 2R, 3R)
+tp1 = quantity > 0 ? osPrice * (1 + osDropPct * 1.0) : na
+tp2 = quantity > 0 ? osPrice * (1 + osDropPct * 2.0) : na
+tp3 = quantity > 0 ? osPrice * (1 + osDropPct * 3.0) : na
 
 calcAssetTP(ratio) =>
     slDistance = math.abs(entryPrice - slAsset)
     tradeDir == "Long" ? entryPrice + (slDistance * ratio) : entryPrice - (slDistance * ratio)
 
 assetTP1  = calcAssetTP(1.0)
-assetTP15 = calcAssetTP(1.5)
 assetTP2  = calcAssetTP(2.0)
 assetTP3  = calcAssetTP(3.0)
 
