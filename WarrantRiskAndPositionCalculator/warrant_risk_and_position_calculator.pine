@@ -243,6 +243,7 @@ if barstate.islast
 // --- VISUAL LINES ---
 
 plot(slAsset, "Scale Label", color=color.red, style=plot.style_linebr, trackprice=true, show_last=1)
+plot(slMode == "Manual" ? entryPrice : na, "Entry Scale Label", color=color.silver, style=plot.style_linebr, trackprice=true, show_last=1)
 
 updateVisuals(lineObj, labelObj, price, txt, lColor, endTime) =>
     line.set_xy1(lineObj, time, price)
@@ -253,6 +254,9 @@ updateVisuals(lineObj, labelObj, price, txt, lColor, endTime) =>
 
 var slLine = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.red, style=line.style_dashed, width=1)
 var slLabel = label.new(na, na, "SL", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.red, style=label.style_label_left, size=size.small)
+
+var entryLine = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.silver, style=line.style_dashed, width=1)
+var entryLabel = label.new(na, na, "Entry", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.silver, style=label.style_label_left, size=size.small)
 
 var tp1Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
 var tp1Label = label.new(na, na, "TP 1", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
@@ -265,6 +269,7 @@ var tp3Label = label.new(na, na, "TP 3", xloc=xloc.bar_time, color=color.new(col
 
 if barstate.islast
     updateVisuals(slLine, slLabel, slAsset, "SL", color.red, lineTimeEnd)
+    updateVisuals(entryLine, entryLabel, slMode == "Manual" ? entryPrice : na, "Entry", color.silver, lineTimeEnd)
     updateVisuals(tp1Line, tp1Label, assetTP1, "TP 1", color.lime, lineTimeEnd)
     updateVisuals(tp2Line, tp2Label, assetTP2, "TP 2", color.lime, lineTimeEnd)
     updateVisuals(tp3Line, tp3Label, assetTP3, "TP 3", color.lime, lineTimeEnd)
