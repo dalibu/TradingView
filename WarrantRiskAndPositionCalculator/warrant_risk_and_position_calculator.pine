@@ -106,10 +106,10 @@ var string actualSize = switch textSize
     => size.small
 
 // --- DYNAMIC DASHBOARD ---
-var table mainTable = table.new(actualPos, 5, 8, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
+var table mainTable = table.new(actualPos, 5, 9, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
 
 if barstate.islast
-    mainTable := table.new(actualPos, 5, 8, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
+    mainTable := table.new(actualPos, 5, 9, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.gray)
     c_white = color.white
     c_gray  = color.gray
     c_orange = color.orange
@@ -118,8 +118,8 @@ if barstate.islast
     table.cell(mainTable, 0, 0, "Direction", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
     table.cell(mainTable, 1, 0, "Leverage", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
     table.cell(mainTable, 2, 0, "Ask", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 3, 0, "Deposit", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
-    table.cell(mainTable, 4, 0, "Quantity", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 3, 0, "Quantity", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
+    table.cell(mainTable, 4, 0, "Deposit", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 60))
     
     // ===== ENTRY ROW =====
     entry_color = tradeDir == "Long" ? color.lime : color.red
@@ -128,8 +128,8 @@ if barstate.islast
     table.cell(mainTable, 0, 1, tradeDir + " " + direction_icon, text_color=entry_color, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, 1, str.tostring(osHebel, "#") + "x", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, 1, str.tostring(osPrice, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, 1, str.tostring(deposit, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, 1, str.tostring(quantity, "#"), text_color=color.yellow, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, 1, str.tostring(quantity, "#"), text_color=color.yellow, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, 1, str.tostring(deposit, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
     
     // ===== LABELS ROW (RRR) =====
     table.cell(mainTable, 0, 2, "RRR", text_color=color.white, text_halign=text.align_center, text_size=actualSize, bgcolor=color.new(color.gray, 80))
@@ -140,36 +140,46 @@ if barstate.islast
 
     // Determine row positions based on direction
     int rowSL = na
-    int rowCurrent = na
+    int rowActual = na
     int rowTP1 = na
     int rowTP2 = na
     int rowTP3 = na
+    int rowEntry = na
     
     if tradeDir == "Long"
         rowTP3 := 3
         rowTP2 := 4
         rowTP1 := 5
-        rowCurrent := 6
-        rowSL := 7
+        rowEntry := 6
+        rowActual := 7
+        rowSL := 8
     else  // Short
         rowSL := 3
-        rowCurrent := 4
-        rowTP1 := 5
-        rowTP2 := 6
-        rowTP3 := 7
+        rowEntry := 4
+        rowActual := 5
+        rowTP1 := 6
+        rowTP2 := 7
+        rowTP3 := 8
 
-    // ===== CURRENT - arrow row =====
-    currentValue = currentWarrantBid * quantity
-    currentProfit = currentValue - deposit - (2 * fees)
-    currentPct = quantity > 0 ? (currentProfit / deposit) * 100 : 0
-    current_color = currentWarrantBid >= osPrice - osSpread ? color.silver : color.orange
-    value_color = currentValue >= deposit ? color.silver : color.red
-    profit_color = currentProfit >= 0 ? color.lime : color.red
-    table.cell(mainTable, 0, rowCurrent, "→", text_color=current_color, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 1, rowCurrent, str.tostring(entryPrice, "#.##"), text_color=current_color, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 2, rowCurrent, str.tostring(currentWarrantBid, "#.###"), text_color=current_color, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 3, rowCurrent, str.tostring(currentValue, "#.##"), text_color=value_color, text_halign=text.align_center, text_size=actualSize)
-    table.cell(mainTable, 4, rowCurrent, str.tostring(currentProfit, "#.##"), text_color=profit_color, text_halign=text.align_center, text_size=actualSize)
+    // ===== ENTRY - arrow row (static values at entry) =====
+    entry_bid = osPrice - osSpread
+    table.cell(mainTable, 0, rowEntry, "→", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 1, rowEntry, str.tostring(entryPrice, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, rowEntry, str.tostring(entry_bid, "#.###"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, rowEntry, str.tostring(deposit, "#.##"), text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowEntry, "0.00", text_color=color.silver, text_halign=text.align_center, text_size=actualSize)
+
+    // ===== ACTUAL - dynamic values based on current asset price =====
+    actualValue = currentWarrantBid * quantity
+    actualProfit = actualValue - deposit - (2 * fees)
+    actual_color = currentWarrantBid >= osPrice - osSpread ? color.white : color.orange
+    value_color = actualValue >= deposit ? color.silver : color.red
+    profit_color = actualProfit >= 0 ? color.lime : color.red
+    table.cell(mainTable, 0, rowActual, "Actual", text_color=actual_color, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 1, rowActual, str.tostring(currentAssetPrice, "#.##"), text_color=actual_color, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 2, rowActual, str.tostring(currentWarrantBid, "#.###"), text_color=actual_color, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 3, rowActual, str.tostring(actualValue, "#.##"), text_color=value_color, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 4, rowActual, str.tostring(actualProfit, "#.##"), text_color=profit_color, text_halign=text.align_center, text_size=actualSize)
 
     // ===== STOP LOSS ROW =====
     slBid = osSLPriceAsk - osSpread
@@ -193,21 +203,21 @@ if barstate.islast
     table.cell(mainTable, 3, rowTP1, str.tostring(tp1Value, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 4, rowTP1, str.tostring(tp1Profit, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
 
-    // ===== TP 1:2 ROW =====
+    // ===== TP 2:1 ROW =====
     tp2Bid = tp2 - osSpread
     tp2Value = tp2Bid * quantity
     tp2Profit = tp2Value - deposit - (2 * fees)
-    table.cell(mainTable, 0, rowTP2, "TP 1:2", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 0, rowTP2, "TP 2:1", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, rowTP2, str.tostring(assetTP2, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, rowTP2, str.tostring(tp2Bid, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 3, rowTP2, str.tostring(tp2Value, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 4, rowTP2, str.tostring(tp2Profit, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
 
-    // ===== TP 1:3 ROW =====
+    // ===== TP 3:1 ROW =====
     tp3Bid = tp3 - osSpread
     tp3Value = tp3Bid * quantity
     tp3Profit = tp3Value - deposit - (2 * fees)
-    table.cell(mainTable, 0, rowTP3, "TP 1:3", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
+    table.cell(mainTable, 0, rowTP3, "TP 3:1", text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 1, rowTP3, str.tostring(assetTP3, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 2, rowTP3, str.tostring(tp3Bid, "#.###"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
     table.cell(mainTable, 3, rowTP3, str.tostring(tp3Value, "#.##"), text_color=color.lime, text_halign=text.align_center, text_size=actualSize)
@@ -228,20 +238,20 @@ var slLine = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.red, style
 var slLabel = label.new(na, na, "SL", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.red, style=label.style_label_left, size=size.small)
 
 var tp1Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
-var tp1Label = label.new(na, na, "TP 1.0", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
+var tp1Label = label.new(na, na, "TP 1", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
 
 //var tp15Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
 //var tp15Label = label.new(na, na, "TP 1.5", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
 
 var tp2Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
-var tp2Label = label.new(na, na, "TP 2.0", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
+var tp2Label = label.new(na, na, "TP 2", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
 
 var tp3Line = line.new(na, na, na, na, xloc=xloc.bar_time, color=color.lime, style=line.style_dashed, width=1)
-var tp3Label = label.new(na, na, "TP 3.0", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
+var tp3Label = label.new(na, na, "TP 3", xloc=xloc.bar_time, color=color.new(color.white, 100), textcolor=color.lime, style=label.style_label_left, size=size.small)
 
 if barstate.islast
     updateVisuals(slLine, slLabel, slAsset, "SL", color.red, lineTimeEnd)
-    updateVisuals(tp1Line, tp1Label, assetTP1, "TP 1.0", color.lime, lineTimeEnd)
+    updateVisuals(tp1Line, tp1Label, assetTP1, "TP 1", color.lime, lineTimeEnd)
 //    updateVisuals(tp15Line, tp15Label, assetTP15, "TP 1.5", color.lime, lineTimeEnd)
-    updateVisuals(tp2Line, tp2Label, assetTP2, "TP 2.0", color.lime, lineTimeEnd)
-    updateVisuals(tp3Line, tp3Label, assetTP3, "TP 3.0", color.lime, lineTimeEnd)
+    updateVisuals(tp2Line, tp2Label, assetTP2, "TP 2", color.lime, lineTimeEnd)
+    updateVisuals(tp3Line, tp3Label, assetTP3, "TP 3", color.lime, lineTimeEnd)
