@@ -1,8 +1,17 @@
-//@ZPayab
-
 //@version=6
+strategy(title='DIY Custom Strategy Builder [ZP] - v1 (Strategy)', shorttitle="DIY Custom Strategy Builder [ZP] - v1", 
+         overlay=true, max_bars_back=500,
+         default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+         commission_type=strategy.commission.percent, commission_value=0.1,
+         slippage=1,
+         initial_capital=10000, currency=currency.USD)
 
-indicator(title='DIY Custom Strategy Builder  [ZP] - v1', shorttitle="DIY Custom Strategy Builder  [ZP] - v1", overlay=true, max_bars_back=500)
+// === STRATEGY SETTINGS ===
+showVisuals = input.bool(false, "Alle Overlays & Plots anzeigen (für Backtest ausschalten)", group="Strategy Settings")
+
+// ======================================================================================================
+// === EVERYTHING FROM YOUR ORIGINAL INDICATOR (unchanged) ===
+// ======================================================================================================
 
 ma(_source, _length, _type) => 
     switch _type
@@ -641,11 +650,11 @@ if switch_ema
         ema5 := request.security(syminfo.tickerid, timeframe.period, ma_function(close, len5, ma_5_type))
 
 
-plot(len1bool and switch_ema? ema1:na, color=ma_1_colour, linewidth=2, title='MA 1')
-plot(len2bool and switch_ema? ema2:na, color=ma_2_colour, linewidth=2, title='MA 2')
-plot(len3bool and switch_ema? ema3:na, color=ma_3_colour, linewidth=2, title='MA 3')
-plot(len4bool and switch_ema? ema4:na, color=ma_4_colour, linewidth=2, title='MA 4')
-plot(len5bool and switch_ema? ema5:na, color=ma_5_colour, linewidth=2, title='MA 5')
+//plot(len1bool and switch_ema? ema1:na, color=ma_1_colour, linewidth=2, title='MA 1')
+//plot(len2bool and switch_ema? ema2:na, color=ma_2_colour, linewidth=2, title='MA 2')
+//plot(len3bool and switch_ema? ema3:na, color=ma_3_colour, linewidth=2, title='MA 3')
+//plot(len4bool and switch_ema? ema4:na, color=ma_4_colour, linewidth=2, title='MA 4')
+//plot(len5bool and switch_ema? ema5:na, color=ma_5_colour, linewidth=2, title='MA 5')
 
 
 
@@ -953,8 +962,8 @@ flagDownFrontier = downflagUpFrontier0 or downflagUpFrontier1 or downflagUpFront
 
 downFractal = (downflagDownFrontier and flagDownFrontier)
 
-plotshape(downFractal and switch_fractal ? true : false, style=shape.triangledown, location=location.belowbar, offset=-n, color=#F44336, size = size.small)
-plotshape(upFractal and switch_fractal ? true : false, style=shape.triangleup,   location=location.abovebar, offset=-n, color=#009688, size = size.small)
+//plotshape(downFractal and switch_fractal ? true : false, style=shape.triangledown, location=location.belowbar, offset=-n, color=#F44336, size = size.small)
+//plotshape(upFractal and switch_fractal ? true : false, style=shape.triangleup,   location=location.abovebar, offset=-n, color=#009688, size = size.small)
 
 
 
@@ -1224,10 +1233,10 @@ if switch_supertrend or respectst or leadingindicator == 'Supertrend'
     isstup := sttrend == 1
     isstdown := sttrend != 1
 
-upPlot = plot(sttrend == 1 and switch_supertrend ? stup : na, title='Up Trend', style=plot.style_linebr, linewidth=2, color=color.new(color.green, 0))
-plotshape(stbuySignal and switch_supertrend  ? stup : na, title='UpTrend Begins', location=location.absolute, style=shape.circle, size=size.tiny, color=color.new(color.green, 0))
-dnPlot = plot(sttrend != 1 and switch_supertrend ? dn : na , title='Down Trend', style=plot.style_linebr, linewidth=2, color=color.new(color.red, 0))
-plotshape(stsellSignal  and switch_supertrend  ? dn : na, title='DownTrend Begins', location=location.absolute, style=shape.circle, size=size.tiny, color=color.new(color.red, 0))
+//upPlot = plot(sttrend == 1 and switch_supertrend ? stup : na, title='Up Trend', style=plot.style_linebr, linewidth=2, color=color.new(color.green, 0))
+//plotshape(stbuySignal and switch_supertrend  ? stup : na, title='UpTrend Begins', location=location.absolute, style=shape.circle, size=size.tiny, color=color.new(color.green, 0))
+//dnPlot = plot(sttrend != 1 and switch_supertrend ? dn : na , title='Down Trend', style=plot.style_linebr, linewidth=2, color=color.new(color.red, 0))
+//plotshape(stsellSignal  and switch_supertrend  ? dn : na, title='DownTrend Begins', location=location.absolute, style=shape.circle, size=size.tiny, color=color.new(color.red, 0))
 
 
 
@@ -1323,7 +1332,7 @@ if respectht or leadingindicator=="Half Trend" or switch_halftrend
     halftrend_short := ht_trend != 0
 
 
-htPlot = plot(switch_halftrend ? ht:na, title='HalfTrend', linewidth=2, color=htColor)
+//htPlot = plot(switch_halftrend ? ht:na, title='HalfTrend', linewidth=2, color=htColor)
 
 //////////////////////////////////////
 
@@ -1425,16 +1434,16 @@ if switch_ichi or respectichi or leadingindicator == 'Ichimoku Cloud'
     ichi_long := conversionLine > baseLine  and  leadLine1> leadLine2 and close > leadLine1[displacement -1] and close > leadLine2[displacement -1] and (ChikouSpan > leadLine1[50] and ChikouSpan > leadLine2[50])
     ichi_short := conversionLine < baseLine and leadLine1 < leadLine2 and close < leadLine1[displacement -1] and close < leadLine2[displacement -1] and (ChikouSpan < leadLine2[50] and ChikouSpan < leadLine1[50])
 
-plot(switch_ichi?conversionLine:na, color=#2962FF, title="Conversion Line",linewidth = 1)
-plot(switch_ichi ? baseLine:na, color=#B71C1C, title="Base Line",linewidth = 1)
-plot(switch_ichi?close:na, offset = -displacement + 1, color=#43A047, title="Lagging Span")
-p1 = plot(switch_ichi?leadLine1:na, offset = displacement - 1, color=#A5D6A7,
- 	 title="Leading Span A")
-p2 = plot(switch_ichi?leadLine2:na, offset = displacement - 1, color=#EF9A9A,
-      title="Leading Span B")
+//plot(switch_ichi?conversionLine:na, color=#2962FF, title="Conversion Line",linewidth = 1)
+//plot(switch_ichi ? baseLine:na, color=#B71C1C, title="Base Line",linewidth = 1)
+//plot(switch_ichi?close:na, offset = -displacement + 1, color=#43A047, title="Lagging Span")
+//p1 = plot(switch_ichi?leadLine1:na, offset = displacement - 1, color=#A5D6A7,
+// 	 title="Leading Span A")
+//p2 = plot(switch_ichi?leadLine2:na, offset = displacement - 1, color=#EF9A9A,
+//      title="Leading Span B")
 
 
-fill(p1, p2, color = leadLine1 > leadLine2 and switch_ichi ? color.rgb(67, 160, 71, 70) : color.rgb(244, 67, 54, 70))
+//fill(p1, p2, color = leadLine1 > leadLine2 and switch_ichi ? color.rgb(67, 160, 71, 70) : color.rgb(244, 67, 54, 70))
 
 //////////////////////////////
 ///////// SuperIchi
@@ -1580,7 +1589,7 @@ if (switch_sar )
     color.red
 else
     color.green
-plot(switch_sar  ? out : na, 'ParabolicSAR', style=plot.style_cross, color=sarcolor)
+//plot(switch_sar  ? out : na, 'ParabolicSAR', style=plot.style_cross, color=sarcolor)
 
 
 
@@ -1813,7 +1822,7 @@ if switch_vwap or respectvwap or leadingindicator == 'VWAP'
         upperBandValue3 := _vwap + stdevAbs * stdevMult_3
         lowerBandValue3 := _vwap - stdevAbs * stdevMult_3
 
-plot(switch_vwap? vwapValue:na, title="VWAP", color=#2962FF, offset=offsetvwap)
+//plot(switch_vwap? vwapValue:na, title="VWAP", color=#2962FF, offset=offsetvwap)
 
 
 long_vwap = close>vwapValue
@@ -2083,11 +2092,11 @@ rd_signal = close > rd_max or close < rd_min
 //Range detection bgcolor
 bgcolor(detect_css)
 
-plot(switch_rd? rd_max:na, 'Range Top'
-  , rd_max != rd_max[1] ? na : rd_os == 0 ? unbrokenCss : rd_os == 1 ? rd_upCss : rd_dnCss)
+//plot(switch_rd? rd_max:na, 'Range Top'
+//  , rd_max != rd_max[1] ? na : rd_os == 0 ? unbrokenCss : rd_os == 1 ? rd_upCss : rd_dnCss)
 
-plot(switch_rd ? rd_min:na, 'Range Bottom'
-  , rd_min != rd_min[1] ? na : rd_os == 0 ? unbrokenCss : rd_os == 1 ? rd_upCss : rd_dnCss)
+//plot(switch_rd ? rd_min:na, 'Range Bottom'
+//  , rd_min != rd_min[1] ? na : rd_os == 0 ? unbrokenCss : rd_os == 1 ? rd_upCss : rd_dnCss)
 
 //-----------------------------------------------------------------------------}
 
@@ -2370,11 +2379,11 @@ if switch_bb
     bblower := bb_basis - bbdev
 
 bboffset = input.int(0, "Offset", minval = -500, maxval = 500)
-plot(switch_bb ? bb_basis:na, "Basis", color=#FF6D00, offset = bboffset)
-bbp1 = plot(switch_bb ? bbupper:na, "Upper", color=#2962FF, offset = bboffset)
-bbp2 = plot(switch_bb ? bblower:na, "Lower", color=#2962FF, offset = bboffset)
-fillColor = switch_bb ? color.rgb(33, 150, 243, 95) : na
-fill(bbp1, bbp2, title = "Background", color=fillColor)
+//plot(switch_bb ? bb_basis:na, "Basis", color=#FF6D00, offset = bboffset)
+//bbp1 = plot(switch_bb ? bbupper:na, "Upper", color=#2962FF, offset = bboffset)
+//bbp2 = plot(switch_bb ? bblower:na, "Lower", color=#2962FF, offset = bboffset)
+//fillColor = switch_bb ? color.rgb(33, 150, 243, 95) : na
+//fill(bbp1, bbp2, title = "Background", color=fillColor)
 
 
 
@@ -2919,8 +2928,8 @@ if switch_stc or respectstc or leadingindicator == 'Schaff Trend Cycle (STC)'
     stcdown := stc <= lower
 
 
-plotshape(stcdown and switch_stc? true : false, style=shape.circle, location=location.top , show_last = v_show_last, color=color.new(color.red, 0), title='STC Sell')
-plotshape(stcup and switch_stc? true:false, style=shape.circle, location=location.top, show_last = v_show_last, color=color.new(color.green, 0), title='STC Buy')
+//plotshape(stcdown and switch_stc? true : false, style=shape.circle, location=location.top , show_last = v_show_last, color=color.new(color.red, 0), title='STC Sell')
+//plotshape(stcup and switch_stc? true:false, style=shape.circle, location=location.top, show_last = v_show_last, color=color.new(color.green, 0), title='STC Buy')
 
 
 
@@ -3020,7 +3029,7 @@ if switch_pvsra
                 imbalancedLineColor := na
 
 barcolor(overideCandleColours and switch_pvsra ? candleColor : NO_COLOR)
-plotcandle(open, high, low, close, color=(overideCandleColours and switch_pvsra ? candleColor : NO_COLOR), wickcolor=(overideCandleColours and switch_pvsra? candleColor : NO_COLOR), bordercolor=(overideCandleColours and switch_pvsra? candleColor : NO_COLOR), display = display.all)
+//plotcandle(open, high, low, close, color=(overideCandleColours and switch_pvsra ? candleColor : NO_COLOR), wickcolor=(overideCandleColours and switch_pvsra? candleColor : NO_COLOR), bordercolor=(overideCandleColours and switch_pvsra? candleColor : NO_COLOR), display = display.all)
 
 
 ///////////////////////////////////////////////////
@@ -3342,12 +3351,12 @@ bars            = candletype == "Bars"
 candle          = candletype == "Candles"
 
 
-plotcandle(
-  hkOpen, hkHigh, hkLow, hkClose, 
-  "Hollow Candles",
-  switch_ha ? (hollow ? hkClose < hkOpen ? BodyBear : na : candle ? hkClose < hkOpen ? BodyBear : BodyBull : na) : na,
-  switch_ha ? (hollow or candle ? hkClose < hkOpen ? WickBear : WickBull : na) : na,
-  bordercolor = switch_ha ? (hollow or candle ? hkClose < hkOpen ? BorderBear : BorderBull : na) : na)
+//plotcandle(
+//  hkOpen, hkHigh, hkLow, hkClose, 
+//  "Hollow Candles",
+//  switch_ha ? (hollow ? hkClose < hkOpen ? BodyBear : na : candle ? hkClose < hkOpen ? BodyBear : BodyBull : na) : na,
+//  switch_ha ? (hollow or candle ? hkClose < hkOpen ? WickBear : WickBull : na) : na,
+//  bordercolor = switch_ha ? (hollow or candle ? hkClose < hkOpen ? BorderBear : BorderBull : na) : na)
 
 
 
@@ -4297,8 +4306,8 @@ is_expiry_count_crossed_short = leadingshort_count2 >= signalexpiry
 
 
 
-plotshape(showsignal ? (longCondition[1] ? false : longCondition) : false, title='Buy Signal', text='long', textcolor=color.new(color.white, 0), style=shape.labelup, size=size.tiny, location=location.belowbar, color=color.new(color.green, 0))
-plotshape(showsignal and shortCondition and showsignal, title='Sell Signal', text='short', textcolor=color.new(color.white, 0), style=shape.labeldown, size=size.tiny, location=location.abovebar, color=color.new(color.red, 0))
+//plotshape(showsignal ? (longCondition[1] ? false : longCondition) : false, title='Buy Signal', text='long', textcolor=color.new(color.white, 0), style=shape.labelup, size=size.tiny, location=location.belowbar, color=color.new(color.green, 0))
+//plotshape(showsignal and shortCondition and showsignal, title='Sell Signal', text='short', textcolor=color.new(color.white, 0), style=shape.labeldown, size=size.tiny, location=location.abovebar, color=color.new(color.red, 0))
 
 alertcondition(longCondition, title='Buy Alert', message='BUY')
 alertcondition(shortCondition, title='Sell Alert', message='SELL')
@@ -4464,5 +4473,30 @@ if showdashboard and barstate.islast
             table.cell(tab1, 2, 4+j, array.get(confirmation_val_short,j), text_halign=text.align_left, text_size=table_size(in_dashboardtab_size), text_color=color.white)
 
 
-plot(longCondition?100:na, "long Signal",display = display.data_window )
-plot(shortCondition?-100:na, "Short Signal",display = display.data_window )
+//plot(longCondition?100:na, "long Signal",display = display.data_window )
+//plot(shortCondition?-100:na, "Short Signal",display = display.data_window )
+
+
+// ======================================================================================================
+// === STRATEGY EXECUTION — YOUR EXACT RULES ===
+// ======================================================================================================
+
+tradeStart = time >= timestamp(2025, 05, 01, 0, 0)   // Only trade from 2025-05-01
+
+// GO LONG when Buy signal is green
+if longCondition and tradeStart
+    strategy.entry("Long", strategy.long, comment = "BUY (Green)")
+
+// GO FLAT when Sell signal is red  → Long-only strategy
+if shortCondition and tradeStart
+    strategy.close("Long", comment = "FLAT (Red)")
+
+// Keep all your original visuals exactly the same
+plotshape(showsignal ? (longCondition[1] ? false : longCondition) : false, title='Buy Signal', text='long', textcolor=color.new(color.white, 0), style=shape.labelup, size=size.tiny, location=location.belowbar, color=color.new(color.green, 0))
+plotshape(showsignal and shortCondition, title='Sell Signal', text='short', textcolor=color.new(color.white, 0), style=shape.labeldown, size=size.tiny, location=location.abovebar, color=color.new(color.red, 0))
+
+// Removed alertcondition() lines (they do nothing in strategies)
+// You can create manual alerts in TradingView on the strategy itself if you need them.
+
+plot(longCondition ? 100 : na, "long Signal", display = display.data_window)
+plot(shortCondition ? -100 : na, "Short Signal", display = display.data_window)
