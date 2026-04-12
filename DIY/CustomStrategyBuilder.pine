@@ -8,6 +8,11 @@ strategy(title='DIY Custom Strategy Builder [ZP] - v1 (Strategy)', shorttitle="D
 
 // === STRATEGY SETTINGS ===
 showVisuals = input.bool(false, "Alle Overlays & Plots anzeigen (für Backtest ausschalten)", group="Strategy Settings")
+slActive    = input.bool(true,  "Stop-Loss aktivieren", group="Stop-Loss")
+slType      = input.string("Percent", "SL-Typ", options=["Percent", "ATR", "Points"], group="Stop-Loss")
+slPercent   = input.float(1.5, "SL in % vom Entry", minval=0.1, step=0.1, group="Stop-Loss") 
+slAtrMult   = input.float(2.0, "SL = x ATR", minval=0.5, step=0.1, group="Stop-Loss")
+slPoints    = input.float(50,  "SL in Punkten", minval=1, group="Stop-Loss")
 
 // ======================================================================================================
 // === EVERYTHING FROM YOUR ORIGINAL INDICATOR (unchanged) ===
@@ -4483,20 +4488,29 @@ if showdashboard and barstate.islast
 
 tradeStart = time >= timestamp(2025, 05, 01, 0, 0)   // Only trade from 2025-05-01
 
-// GO LONG when Buy signal is green
-if longCondition and tradeStart
-    strategy.entry("Long", strategy.long, comment = "BUY (Green)")
+longEntry  = longCondition and tradeStart
+flatSignal = shortCondition and tradeStart
 
-// GO FLAT when Sell signal is red  → Long-only strategy
-if shortCondition and tradeStart
+if longEntry
+    strategy.entry("Long", strategy.long, comment = "BUY (Green)")
+    
+    // Stop-Loss direkt beim Einstieg setzen
+    if slActive
+        float slPrice = na
+        if slType == "Percent"
+            slPrice := strategy.position_avg_price * (1 - slPercent / 100)
+        else if slType == "ATR"
+            slPrice := strategy.position_avg_price - slAtrMult * ta.atr(14)
+        else if slType == "Points"
+            slPrice := strategy.position_avg_price - slPoints * syminfo.pointvalue
+        strategy.exit("SL Long", "Long", stop = slPrice, comment = "SL")
+
+if flatSignal
     strategy.close("Long", comment = "FLAT (Red)")
 
-// Keep all your original visuals exactly the same
-plotshape(showsignal ? (longCondition[1] ? false : longCondition) : false, title='Buy Signal', text='long', textcolor=color.new(color.white, 0), style=shape.labelup, size=size.tiny, location=location.belowbar, color=color.new(color.green, 0))
-plotshape(showsignal and shortCondition, title='Sell Signal', text='short', textcolor=color.new(color.white, 0), style=shape.labeldown, size=size.tiny, location=location.abovebar, color=color.new(color.red, 0))
-
-// Removed alertcondition() lines (they do nothing in strategies)
-// You can create manual alerts in TradingView on the strategy itself if you need them.
+// Visuelle Signale (bleiben gleich)
+plotshape(showsignal and showVisuals ? (longCondition[1] ? false : longCondition) : false, title='Buy Signal', text='long', textcolor=color.new(color.white, 0), style=shape.labelup, size=size.tiny, location=location.belowbar, color=color.new(color.green, 0))
+plotshape(showsignal and showVisuals and shortCondition, title='Sell Signal', text='short', textcolor=color.new(color.white, 0), style=shape.labeldown, size=size.tiny, location=location.abovebar, color=color.new(color.red, 0))
 
 plot(longCondition ? 100 : na, "long Signal", display = display.data_window)
 plot(shortCondition ? -100 : na, "Short Signal", display = display.data_window)
