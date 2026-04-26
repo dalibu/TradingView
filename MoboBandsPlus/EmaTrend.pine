@@ -1,0 +1,15 @@
+//@version=4
+study("EMA Trend", overlay = true)
+Curly_Fries = input(150, title = "Fast")
+Popeyes = input(200, title = "Medium")
+Chicken_Sandwich = input(250,"Slow")
+ema_150 = ema(close,Curly_Fries)
+ema_200 = ema(close,Popeyes)
+ema_250 = ema(close,Chicken_Sandwich)
+a = plot(ema_150, transp = 100)
+b = plot(ema_200,transp = 100)
+c = plot(ema_250,transp = 100)
+up = ema_150 > ema_250
+down = ema_150 < ema_250
+mycolor = up ? color.green : down ? color.red : na
+fill(a,c, color = mycolor, transp = 70)
