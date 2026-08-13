@@ -8,6 +8,8 @@ strategy(title='DIY Custom Strategy Builder [ZP] - v1 (Strategy)', shorttitle="D
 
 // === STRATEGY SETTINGS ===
 showVisuals = input.bool(false, "Alle Overlays & Plots anzeigen (für Backtest ausschalten)", group="Strategy Settings")
+
+// === STOP-LOSS SETTINGS ===
 slActive    = input.bool(true,  "Stop-Loss aktivieren", group="Stop-Loss")
 slType      = input.string("Percent", "SL-Typ", options=["Percent", "ATR", "Points"], group="Stop-Loss")
 slPercent   = input.float(1.5, "SL in % vom Entry", minval=0.1, step=0.1, group="Stop-Loss") 
@@ -4478,15 +4480,15 @@ if showdashboard and barstate.islast
             table.cell(tab1, 2, 4+j, array.get(confirmation_val_short,j), text_halign=text.align_left, text_size=table_size(in_dashboardtab_size), text_color=color.white)
 
 
-//plot(longCondition?100:na, "long Signal",display = display.data_window )
-//plot(shortCondition?-100:na, "Short Signal",display = display.data_window )
+plot(longCondition?100:na, "long Signal",display = display.data_window )
+plot(shortCondition?-100:na, "Short Signal",display = display.data_window )
 
 
 // ======================================================================================================
-// === STRATEGY EXECUTION — YOUR EXACT RULES ===
+// === STRATEGY EXECUTION ===
 // ======================================================================================================
 
-tradeStart = time >= timestamp(2025, 05, 01, 0, 0)   // Only trade from 2025-05-01
+tradeStart = time >= timestamp(2025, 05, 01, 0, 0)
 
 longEntry  = longCondition and tradeStart
 flatSignal = shortCondition and tradeStart
@@ -4494,7 +4496,6 @@ flatSignal = shortCondition and tradeStart
 if longEntry
     strategy.entry("Long", strategy.long, comment = "BUY (Green)")
     
-    // Stop-Loss direkt beim Einstieg setzen
     if slActive
         float slPrice = na
         if slType == "Percent"
@@ -4503,14 +4504,26 @@ if longEntry
             slPrice := strategy.position_avg_price - slAtrMult * ta.atr(14)
         else if slType == "Points"
             slPrice := strategy.position_avg_price - slPoints * syminfo.pointvalue
-        strategy.exit("SL Long", "Long", stop = slPrice, comment = "SL")
+        strategy.exit("SL Long", from_entry="Long", stop=slPrice, comment="SL Hit")
 
 if flatSignal
     strategy.close("Long", comment = "FLAT (Red)")
 
-// Visuelle Signale (bleiben gleich)
-plotshape(showsignal and showVisuals ? (longCondition[1] ? false : longCondition) : false, title='Buy Signal', text='long', textcolor=color.new(color.white, 0), style=shape.labelup, size=size.tiny, location=location.belowbar, color=color.new(color.green, 0))
-plotshape(showsignal and showVisuals and shortCondition, title='Sell Signal', text='short', textcolor=color.new(color.white, 0), style=shape.labeldown, size=size.tiny, location=location.abovebar, color=color.new(color.red, 0))
+// === LABELS ===
+plotshape(showsignal and showVisuals ? (longCondition[1] ? false : longCondition) : false,
+          title='Buy Signal', text='long', textcolor=color.white,
+          style=shape.labelup, size=size.tiny, location=location.belowbar, color=color.new(color.green, 0))
+
+// Rotes Sell-Signal (normal)
+plotshape(showsignal and showVisuals and flatSignal,
+          title='Sell Signal Red', text="FLAT (Red)", textcolor=color.white,
+          style=shape.labeldown, size=size.tiny, location=location.abovebar, color=color.new(color.red, 0))
+
+// SL-Auslösung (orange mit (SL))
+bool slExit = strategy.position_size[1] > 0 and strategy.position_size == 0 and not flatSignal[1]
+plotshape(showsignal and showVisuals and slExit,
+          title='Sell Signal SL', text="FLAT (SL)", textcolor=color.white,
+          style=shape.labeldown, size=size.tiny, location=location.abovebar, color=color.new(color.orange, 0))
 
 plot(longCondition ? 100 : na, "long Signal", display = display.data_window)
 plot(shortCondition ? -100 : na, "Short Signal", display = display.data_window)
