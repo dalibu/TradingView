@@ -60,6 +60,8 @@ showOBs        = input.bool  (group=obSettings, defval=true,    title="Show Orde
 stretchOBs     = input.bool  (group=obSettings, defval=true,    title="📏 Stretch OBs until filled?")
 autoDeleteOBs  = input.bool  (group=obSettings, defval=true,    title="🗑️ Auto-delete when filled?")
 obTouchMode    = input.string(group=obSettings, defval="Wicks", title="OB fill trigger", options=["Wicks","Corps"])
+showObLiquidityFilter = input.bool(group=obSettings, defval=false, title="Only OBs that sweep left liquidity?")
+obLiquidityLookback = input.int(group=obSettings, defval=10, title="Liquidity lookback", minval=1, maxval=100)
 obBullText     = input.string(group=obSettings, defval="+OB",   title="Order Block ↑", inline="+OB")
 obBullColor    = input.color (group=obSettings, defval=color.green,   title="", inline="+OB")
 obBearText     = input.string(group=obSettings, defval="-OB",   title="Order Block ↓", inline="-OB")
@@ -417,11 +419,13 @@ resizeFVGBoxes(inRange) =>
 drawOrderBlocks(inRange) =>
     isBearCandle      = close[1] < open[1]
     isBullDisplacement= close > high[1]
-    bullOB = inRange and isBearCandle and isBullDisplacement
+    bullOBLiquiditySweep = low[1] < ta.lowest(low[2], obLiquidityLookback)
+    bearOBLiquiditySweep = high[1] > ta.highest(high[2], obLiquidityLookback)
+    bullOB = inRange and isBearCandle and isBullDisplacement and (not showObLiquidityFilter or bullOBLiquiditySweep)
 
     isBullCandle      = close[1] > open[1]
     isBearDisplacement= close < low[1]
-    bearOB = inRange and isBullCandle and isBearDisplacement
+    bearOB = inRange and isBullCandle and isBearDisplacement and (not showObLiquidityFilter or bearOBLiquiditySweep)
 
     if bullOB or bearOB
         topVal    = high[1]
@@ -1457,6 +1461,7 @@ if showFvgs and inRange
     drawFVGBoxes(inRange)
     resizeFVGBoxes(inRange)
 
+drawOrderBlocks(showOBs and inRange)
+
 if showOBs and inRange
-    drawOrderBlocks(inRange)
     resizeOrderBlocks(inRange)
