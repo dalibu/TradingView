@@ -91,23 +91,28 @@ kzSettings = "═══════ KILLZONES ═══════"
 showKillzones = input.bool(group=kzSettings, defval=true, title="Show Killzones?")
 kzOpacity     = input.int (group=kzSettings, defval=88,   title="Background Opacity", minval=0, maxval=100)
 
-kz1On    = input.bool  (group=kzSettings, defval=true,  title="KZ 1", inline="kz1")
+kz1On    = input.bool  (group=kzSettings, defval=true, title="KZ 1", inline="kz1")
+kz1Text  = input.string(group=kzSettings, defval="NY PM", title="", inline="kz1")
 kz1Start = input.session(group=kzSettings, defval="1400-1900", title="", inline="kz1")
-kz1Color = input.color (group=kzSettings, defval=color.purple, title="",inline="kz1")
+kz1Color = input.color (group=kzSettings, defval=color.purple, title="", inline="kz1")
 
 kz2On    = input.bool  (group=kzSettings, defval=true,  title="KZ 2", inline="kz2")
+kz2Text  = input.string(group=kzSettings, defval="Asia", title="", inline="kz2")
 kz2Start = input.session(group=kzSettings, defval="2000-0000", title="", inline="kz2")
 kz2Color = input.color (group=kzSettings, defval=color.orange, title="",inline="kz2")
 
 kz3On    = input.bool  (group=kzSettings, defval=true,  title="KZ 3", inline="kz3")
+kz3Text  = input.string(group=kzSettings, defval="Europe", title="", inline="kz3")
 kz3Start = input.session(group=kzSettings, defval="0200-0500", title="", inline="kz3")
 kz3Color = input.color (group=kzSettings, defval=color.red,    title="",inline="kz3")
 
 kz4On    = input.bool  (group=kzSettings, defval=true,  title="KZ 4", inline="kz4")
+kz4Text  = input.string(group=kzSettings, defval="NY AM", title="", inline="kz4")
 kz4Start = input.session(group=kzSettings, defval="0700-1200", title="", inline="kz4")
 kz4Color = input.color (group=kzSettings, defval=color.blue,   title="",inline="kz4")
 
 kz5On    = input.bool  (group=kzSettings, defval=false, title="KZ 5", inline="kz5")
+kz5Text  = input.string(group=kzSettings, defval="KZ 5", title="", inline="kz5")
 kz5Start = input.session(group=kzSettings, defval="1000-1200", title="", inline="kz5")
 kz5Color = input.color (group=kzSettings, defval=color.gray,   title="",inline="kz5")
 
@@ -1022,9 +1027,9 @@ if showSessLevels and _tfOk
             line.delete(kz1LowLine)
             label.delete(kz1LowLbl)
             kz1HighLine := line.new(bar_index, kz1High, bar_index+1, kz1High, color=_col1, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz1HighLbl  := label.new(bar_index+_slOffset, kz1High, "KZ1H", color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.tiny)
+            kz1HighLbl  := label.new(bar_index+_slOffset, kz1High, kz1Text + " ↑", color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.small)
             kz1LowLine  := line.new(bar_index, kz1Low,  bar_index+1, kz1Low,  color=_col1, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz1LowLbl   := label.new(bar_index+_slOffset, kz1Low,  "KZ1L", color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.tiny)
+            kz1LowLbl   := label.new(bar_index+_slOffset, kz1Low, kz1Text + " ↓", color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.small)
             kz1High := na
             kz1Low  := na
         // Extend the lines — delete if price touches the level
@@ -1062,9 +1067,9 @@ if showSessLevels and _tfOk
             line.delete(kz2LowLine)
             label.delete(kz2LowLbl)
             kz2HighLine := line.new(bar_index, kz2High, bar_index+1, kz2High, color=_col2, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz2HighLbl  := label.new(bar_index+_slOffset, kz2High, "KZ2H", color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.tiny)
+            kz2HighLbl  := label.new(bar_index+_slOffset, kz2High, kz2Text + " ↑", color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.small)
             kz2LowLine  := line.new(bar_index, kz2Low,  bar_index+1, kz2Low,  color=_col2, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz2LowLbl   := label.new(bar_index+_slOffset, kz2Low,  "KZ2L", color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.tiny)
+            kz2LowLbl   := label.new(bar_index+_slOffset, kz2Low, kz2Text + " ↓", color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.small)
             kz2High := na
             kz2Low  := na
         else if not _s2
@@ -1101,9 +1106,9 @@ if showSessLevels and _tfOk
             line.delete(kz3LowLine)
             label.delete(kz3LowLbl)
             kz3HighLine := line.new(bar_index, kz3High, bar_index+1, kz3High, color=_col3, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz3HighLbl  := label.new(bar_index+_slOffset, kz3High, "KZ3H", color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.tiny)
+            kz3HighLbl  := label.new(bar_index+_slOffset, kz3High, kz3Text + " ↑", color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.small)
             kz3LowLine  := line.new(bar_index, kz3Low,  bar_index+1, kz3Low,  color=_col3, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz3LowLbl   := label.new(bar_index+_slOffset, kz3Low,  "KZ3L", color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.tiny)
+            kz3LowLbl   := label.new(bar_index+_slOffset, kz3Low, kz3Text + " ↓", color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.small)
             kz3High := na
             kz3Low  := na
         else if not _s3
@@ -1140,9 +1145,9 @@ if showSessLevels and _tfOk
             line.delete(kz4LowLine)
             label.delete(kz4LowLbl)
             kz4HighLine := line.new(bar_index, kz4High, bar_index+1, kz4High, color=_col4, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz4HighLbl  := label.new(bar_index+_slOffset, kz4High, "KZ4H", color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.tiny)
+            kz4HighLbl  := label.new(bar_index+_slOffset, kz4High, kz4Text + " ↑", color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.small)
             kz4LowLine  := line.new(bar_index, kz4Low,  bar_index+1, kz4Low,  color=_col4, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz4LowLbl   := label.new(bar_index+_slOffset, kz4Low,  "KZ4L", color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.tiny)
+            kz4LowLbl   := label.new(bar_index+_slOffset, kz4Low, kz4Text + " ↓", color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.small)
             kz4High := na
             kz4Low  := na
         else if not _s4
@@ -1179,9 +1184,9 @@ if showSessLevels and _tfOk
             line.delete(kz5LowLine)
             label.delete(kz5LowLbl)
             kz5HighLine := line.new(bar_index, kz5High, bar_index+1, kz5High, color=_col5, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz5HighLbl  := label.new(bar_index+_slOffset, kz5High, "KZ5H", color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.tiny)
+            kz5HighLbl  := label.new(bar_index+_slOffset, kz5High, kz5Text + " ↑", color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.small)
             kz5LowLine  := line.new(bar_index, kz5Low,  bar_index+1, kz5Low,  color=_col5, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz5LowLbl   := label.new(bar_index+_slOffset, kz5Low,  "KZ5L", color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.tiny)
+            kz5LowLbl   := label.new(bar_index+_slOffset, kz5Low, kz5Text + " ↓", color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.small)
             kz5High := na
             kz5Low  := na
         else if not _s5
