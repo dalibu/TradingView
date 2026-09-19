@@ -419,8 +419,10 @@ resizeFVGBoxes(inRange) =>
 drawOrderBlocks(inRange) =>
     isBearCandle      = close[1] < open[1]
     isBullDisplacement= close > high[1]
-    bullOBLiquiditySweep = low[1] < ta.lowest(low[2], obLiquidityLookback)
-    bearOBLiquiditySweep = high[1] > ta.highest(high[2], obLiquidityLookback)
+    bullSweepLevel = ta.lowest(low[2], obLiquidityLookback)
+    bearSweepLevel = ta.highest(high[2], obLiquidityLookback)
+    bullOBLiquiditySweep = low[1] < bullSweepLevel and close[1] > bullSweepLevel
+    bearOBLiquiditySweep = high[1] > bearSweepLevel and close[1] < bearSweepLevel
     bullOB = inRange and isBearCandle and isBullDisplacement and (not showObLiquidityFilter or bullOBLiquiditySweep)
 
     isBullCandle      = close[1] > open[1]
