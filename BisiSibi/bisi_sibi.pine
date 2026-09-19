@@ -60,6 +60,33 @@ fvgMidlineOpacity = input.int(group=fvgSettings, defval=0, title="Opacity", minv
 fvgMidlineWidth = input.int(group=fvgSettings, defval=1, title="Width", minval=1, maxval=4, inline="fvgMid")
 
 // ═══════════════════════════════════════════════════════════════
+// 🛠 INVERSION FVG SETTINGS
+// ═══════════════════════════════════════════════════════════════
+ifvgSettings = "═══════ INVERSION FVG SETTINGS ═══════"
+showIFvgs        = input.bool  (group=ifvgSettings, defval=true,   title="Show IFVGs?")
+stretchIFvgs     = input.bool  (group=ifvgSettings, defval=true,   title="📏 Stretch IFVGs until filled?")
+autoDeleteIFvgs  = input.bool  (group=ifvgSettings, defval=true,   title="🗑️ Auto-delete when filled?")
+ifvgTouchMode    = input.string(group=ifvgSettings, defval="Wicks", title="IFVG fill trigger", options=["Wicks","Corps"])
+ifvgBullText     = input.string(group=ifvgSettings, defval="+IFVG", title="Bullish IFVG ↑", inline="+IFVG")
+ifvgBullColor    = input.color (group=ifvgSettings, defval=color.rgb(80,180,120), title="", inline="+IFVG")
+ifvgBearText     = input.string(group=ifvgSettings, defval="-IFVG", title="Bearish IFVG ↓", inline="-IFVG")
+ifvgBearColor    = input.color (group=ifvgSettings, defval=color.rgb(220,100,100), title="", inline="-IFVG")
+showIFvgBackground = input.bool(group=ifvgSettings, defval=true, title="Show IFVG background?")
+ifvgBackgroundOpacity = input.int(group=ifvgSettings, defval=90, title="Background Opacity", minval=0, maxval=100)
+ifvgBullBorderColor = input.color(group=ifvgSettings, defval=color.rgb(80,180,120), title="Bullish border", inline="ifvgBullBorder")
+ifvgBullBorderOpacity = input.int(group=ifvgSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="ifvgBullBorder")
+ifvgBearBorderColor = input.color(group=ifvgSettings, defval=color.rgb(220,100,100), title="Bearish border", inline="ifvgBearBorder")
+ifvgBearBorderOpacity = input.int(group=ifvgSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="ifvgBearBorder")
+ifvgBorderStyle = input.string(group=ifvgSettings, defval="Solid", title="Border Style", options=["Solid", "Dashed", "Dotted"])
+ifvgBorderWidth = input.int(group=ifvgSettings, defval=1, title="Border Width", minval=1, maxval=4)
+ifvgTextOpacity = input.int(group=ifvgSettings, defval=0, title="Text Opacity", minval=0, maxval=100)
+showIFvgBorders = input.bool(group=ifvgSettings, defval=true, title="Show IFVG borders?")
+showIFvgMidline = input.bool(group=ifvgSettings, defval=true, title="Show IFVG middle line?")
+ifvgMidlineStyle = input.string(group=ifvgSettings, defval="Solid", title="Style", options=["Solid", "Dashed", "Dotted"], inline="ifvgMid")
+ifvgMidlineOpacity = input.int(group=ifvgSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="ifvgMid")
+ifvgMidlineWidth = input.int(group=ifvgSettings, defval=1, title="Width", minval=1, maxval=4, inline="ifvgMid")
+
+// ═══════════════════════════════════════════════════════════════
 // 🛠 ORDER BLOCK SETTINGS
 // ═══════════════════════════════════════════════════════════════
 obSettings = "═══════ ORDER BLOCK SETTINGS ═══════"
@@ -217,6 +244,15 @@ type fvg
     int   startCheck
     bool  bullish
 
+type ifvg
+    box   boxObject
+    line  midLine
+    float top
+    float bottom
+    bool  filled
+    int   startCheck
+    bool  bullish
+
 type orderBlock
     box   boxObject
     line  midLine
@@ -231,6 +267,7 @@ type orderBlock
 // 📂 VARIABLES
 // ═══════════════════════════════════════════════════════════════
 var fvg[]        fvgs        = array.new<fvg>()
+var ifvg[]       ifvgs       = array.new<ifvg>()
 var orderBlock[] orderBlocks = array.new<orderBlock>()
 
 // Liquidity level lines + labels (stored for transport)
@@ -403,18 +440,74 @@ resizeFVGBoxes(inRange) =>
         for i = array.size(fvgs) - 1 to 0
             gap = array.get(fvgs, i)
             if not gap.filled
-                if bar_index >= gap.startCheck
-                    cHigh   = candleHigh(fvgTouchMode)
-                    cLow    = candleLow(fvgTouchMode)
-                    touched = cLow < gap.top and cHigh > gap.bottom
-                    if touched
-                        gap.filled := true
-                        if autoDeleteFvgs
-                            box.delete(gap.boxObject)
-                            if not na(gap.midLine)
-                                line.delete(gap.midLine)
-                            array.remove(fvgs, i)
-                            continue
+                // An FVG becomes an IFVG only after price CLOSES through
+                // the opposite edge of the gap. A wick/touch alone does not invert it.
+                bool inversion = gap.bullish ? close < gap.bottom : close > gap.top
+
+                if inversion
+                    gap.filled := true
+
+                    if showIFvgs
+                        float ifvgTop = gap.top
+                        float ifvgBottom = gap.bottom
+                        bool ifvgBullish = not gap.bullish
+                        color ifvgColor = ifvgBullish ? ifvgBullColor : ifvgBearColor
+                        color ifvgBorderColor = ifvgBullish ? ifvgBullBorderColor : ifvgBearBorderColor
+                        int ifvgBorderOpacity = ifvgBullish ? ifvgBullBorderOpacity : ifvgBearBorderOpacity
+                        string ifvgText = ifvgBullish ? ifvgBullText : ifvgBearText
+
+                        b = box.new(
+                             left=bar_index, right=bar_index + 1,
+                             top=ifvgTop, bottom=ifvgBottom,
+                             bgcolor=showIFvgBackground ? color.new(ifvgColor, ifvgBackgroundOpacity) : na,
+                             border_color=showIFvgBorders ? color.new(ifvgBorderColor, ifvgBorderOpacity) : color.new(ifvgColor, 100),
+                             border_style=lineStyleFromString(ifvgBorderStyle),
+                             border_width=ifvgBorderWidth,
+                             text=ifvgText,
+                             text_color=color.new(ifvgColor, ifvgTextOpacity),
+                             text_size=size.tiny)
+
+                        ifvgMidLine = showIFvgMidline ? line.new(
+                             x1=bar_index, y1=(ifvgTop + ifvgBottom) / 2,
+                             x2=bar_index + 1, y2=(ifvgTop + ifvgBottom) / 2,
+                             color=color.new(ifvgColor, ifvgMidlineOpacity),
+                             style=lineStyleFromString(ifvgMidlineStyle),
+                             width=ifvgMidlineWidth) : na
+
+                        if array.size(ifvgs) >= maxBoxes
+                            oldIFVG = array.shift(ifvgs)
+                            box.delete(oldIFVG.boxObject)
+                            if not na(oldIFVG.midLine)
+                                line.delete(oldIFVG.midLine)
+
+                        array.push(ifvgs, ifvg.new(b, ifvgMidLine, ifvgTop, ifvgBottom, false, bar_index + 1, ifvgBullish))
+
+                    if autoDeleteFvgs
+                        box.delete(gap.boxObject)
+                        if not na(gap.midLine)
+                            line.delete(gap.midLine)
+                        array.remove(fvgs, i)
+                        continue
+                else
+                    if bar_index >= gap.startCheck
+                        cHigh   = candleHigh(fvgTouchMode)
+                        cLow    = candleLow(fvgTouchMode)
+                        touched = cLow < gap.top and cHigh > gap.bottom
+                        if touched
+                            gap.filled := true
+                            if autoDeleteFvgs
+                                box.delete(gap.boxObject)
+                                if not na(gap.midLine)
+                                    line.delete(gap.midLine)
+                                array.remove(fvgs, i)
+                                continue
+                        else
+                            if stretchFvgs
+                                newRight = bar_index + 1
+                                if box.get_right(gap.boxObject) != newRight
+                                    box.set_right(gap.boxObject, newRight)
+                                    if not na(gap.midLine)
+                                        line.set_x2(gap.midLine, newRight)
                     else
                         if stretchFvgs
                             newRight = bar_index + 1
@@ -422,18 +515,48 @@ resizeFVGBoxes(inRange) =>
                                 box.set_right(gap.boxObject, newRight)
                                 if not na(gap.midLine)
                                     line.set_x2(gap.midLine, newRight)
-                else
-                    if stretchFvgs
-                        newRight = bar_index + 1
-                        if box.get_right(gap.boxObject) != newRight
-                            box.set_right(gap.boxObject, newRight)
-                            if not na(gap.midLine)
-                                line.set_x2(gap.midLine, newRight)
+
                 if not na(gap.midLine)
                     line.set_color(gap.midLine, color.new(gap.bullish ? fvgBullColor : fvgBearColor, fvgMidlineOpacity))
                     line.set_style(gap.midLine, lineStyleFromString(fvgMidlineStyle))
                     line.set_width(gap.midLine, fvgMidlineWidth)
                 array.set(fvgs, i, gap)
+
+resizeIFVGBoxes(inRange) =>
+    if array.size(ifvgs) > 0
+        for i = array.size(ifvgs) - 1 to 0
+            gap = array.get(ifvgs, i)
+            if not gap.filled
+                if bar_index >= gap.startCheck
+                    cHigh = candleHigh(ifvgTouchMode)
+                    cLow = candleLow(ifvgTouchMode)
+                    touched = cLow < gap.top and cHigh > gap.bottom
+                    if touched
+                        gap.filled := true
+                        if autoDeleteIFvgs
+                            box.delete(gap.boxObject)
+                            if not na(gap.midLine)
+                                line.delete(gap.midLine)
+                            array.remove(ifvgs, i)
+                            continue
+                    else if stretchIFvgs
+                        newRight = bar_index + 1
+                        if box.get_right(gap.boxObject) != newRight
+                            box.set_right(gap.boxObject, newRight)
+                            if not na(gap.midLine)
+                                line.set_x2(gap.midLine, newRight)
+                else if stretchIFvgs
+                    newRight = bar_index + 1
+                    if box.get_right(gap.boxObject) != newRight
+                        box.set_right(gap.boxObject, newRight)
+                        if not na(gap.midLine)
+                            line.set_x2(gap.midLine, newRight)
+
+                if not na(gap.midLine)
+                    line.set_color(gap.midLine, color.new(gap.bullish ? ifvgBullColor : ifvgBearColor, ifvgMidlineOpacity))
+                    line.set_style(gap.midLine, lineStyleFromString(ifvgMidlineStyle))
+                    line.set_width(gap.midLine, ifvgMidlineWidth)
+                array.set(ifvgs, i, gap)
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 ORDER BLOCK LOGIC
@@ -1529,6 +1652,9 @@ inRange = isBarInRange()
 if showFvgs and inRange
     drawFVGBoxes(inRange)
     resizeFVGBoxes(inRange)
+
+if showIFvgs and inRange
+    resizeIFVGBoxes(inRange)
 
 drawOrderBlocks(showOBs and inRange)
 
