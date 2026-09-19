@@ -47,10 +47,10 @@ fvgBearColor    = input.color (group=fvgSettings, defval=color.rgb(252,188,94), 
 fvgBackgroundOpacity = input.int(group=fvgSettings, defval=90, title="Background Opacity", minval=0, maxval=100)
 fvgTextOpacity       = input.int(group=fvgSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
 showFvgBorders  = input.bool  (group=fvgSettings, defval=true,  title="Show FVG borders?")
-showFvgMidline = input.bool(group=fvgSettings, defval=true, title="FVG middle line", inline="fvgMid")
-fvgMidlineOpacity = input.int(group=fvgSettings, defval=0, title="", inline="fvgMid", minval=0, maxval=100)
-fvgMidlineStyle = input.string(group=fvgSettings, defval="Solid", title="", inline="fvgMid", options=["Solid", "Dashed", "Dotted"])
-fvgMidlineWidth = input.int(group=fvgSettings, defval=1, title="", inline="fvgMid", minval=1, maxval=4)
+showFvgMidline = input.bool(group=fvgSettings, defval=true, title="Show FVG middle line?")
+fvgMidlineStyle = input.string(group=fvgSettings, defval="Solid", title="Style", options=["Solid", "Dashed", "Dotted"], inline="fvgMid")
+fvgMidlineOpacity = input.int(group=fvgSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="fvgMid")
+fvgMidlineWidth = input.int(group=fvgSettings, defval=1, title="Width", minval=1, maxval=4, inline="fvgMid")
 
 // ═══════════════════════════════════════════════════════════════
 // 🛠 ORDER BLOCK SETTINGS
@@ -69,10 +69,10 @@ obBearColor    = input.color (group=obSettings, defval=color.orange,  title="", 
 obBackgroundOpacity = input.int(group=obSettings, defval=85, title="Background Opacity", minval=0, maxval=100)
 obTextOpacity       = input.int(group=obSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
 showObBorders  = input.bool  (group=obSettings, defval=true,  title="Show OB borders?")
-showObMidline = input.bool(group=obSettings, defval=true, title="OB middle line", inline="obMid")
-obMidlineOpacity = input.int(group=obSettings, defval=0, title="", inline="obMid", minval=0, maxval=100)
-obMidlineStyle = input.string(group=obSettings, defval="Solid", title="", inline="obMid", options=["Solid", "Dashed", "Dotted"])
-obMidlineWidth = input.int(group=obSettings, defval=1, title="", inline="obMid", minval=1, maxval=4)
+showObMidline = input.bool(group=obSettings, defval=true, title="Show OB middle line?")
+obMidlineStyle = input.string(group=obSettings, defval="Solid", title="Style", options=["Solid", "Dashed", "Dotted"], inline="obMid")
+obMidlineOpacity = input.int(group=obSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="obMid")
+obMidlineWidth = input.int(group=obSettings, defval=1, title="Width", minval=1, maxval=4, inline="obMid")
 
 
 
