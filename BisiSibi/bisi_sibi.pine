@@ -6,7 +6,7 @@
 // ———————————————————————————————————————————————————————————————
 
 //@version=6
-indicator("BISI SIBI OB + Killzones + Liquidity Levels + BOS/CHoCH",
+indicator("[ArtiShock] BISI SIBI OB + Killzones + Liquidity Levels + BoS/CHoCH 2026",
      overlay=true,
      max_bars_back=5000,
      max_boxes_count=1000,
@@ -39,7 +39,7 @@ fvgSettings = "═══════ FVG SETTINGS ═══════"
 showFvgs        = input.bool  (group=fvgSettings, defval=true,   title="Show FVGs?")
 stretchFvgs     = input.bool  (group=fvgSettings, defval=true,   title="📏 Stretch FVGs until filled?")
 autoDeleteFvgs  = input.bool  (group=fvgSettings, defval=true,   title="🗑️ Auto-delete when filled?")
-fvgTouchMode    = input.string(group=fvgSettings, defval="Mèche",title="FVG fill trigger", options=["Mèche","Corps"])
+fvgTouchMode    = input.string(group=fvgSettings, defval="Wicks",title="FVG fill trigger", options=["Wicks","Corps"])
 fvgBullText     = input.string(group=fvgSettings, defval="+FVG", title="BISI ↑",  inline="+FVG")
 fvgBullColor    = input.color (group=fvgSettings, defval=color.rgb(119,193,253),  title="", inline="+FVG")
 fvgBearText     = input.string(group=fvgSettings, defval="-FVG", title="SIBI ↓",  inline="-FVG")
@@ -55,7 +55,7 @@ obSettings = "═══════ ORDER BLOCK SETTINGS ═══════"
 showOBs        = input.bool  (group=obSettings, defval=true,    title="Show Order Blocks?")
 stretchOBs     = input.bool  (group=obSettings, defval=true,    title="📏 Stretch OBs until filled?")
 autoDeleteOBs  = input.bool  (group=obSettings, defval=true,    title="🗑️ Auto-delete when filled?")
-obTouchMode    = input.string(group=obSettings, defval="Mèche", title="OB fill trigger", options=["Mèche","Corps"])
+obTouchMode    = input.string(group=obSettings, defval="Wicks", title="OB fill trigger", options=["Wicks","Corps"])
 obBullText     = input.string(group=obSettings, defval="+OB",   title="Order Block ↑", inline="+OB")
 obBullColor    = input.color (group=obSettings, defval=color.green,   title="", inline="+OB")
 obBearText     = input.string(group=obSettings, defval="-OB",   title="Order Block ↓", inline="-OB")
@@ -165,13 +165,13 @@ midnightOpenColor= input.color (group=openSettings, defval=color.rgb(30,30,30), 
 midnightOpenStyle= input.string(group=openSettings, defval="dotted",          title="",         inline="mnopen", options=["solid","dashed","dotted"])
 
 // ═══════════════════════════════════════════════════════════════
-// 🛠 BOS / CHoCH SETTINGS
+// 🛠 BoS / CHoCH SETTINGS
 // ═══════════════════════════════════════════════════════════════
-structSettings = "═══════ BOS / CHoCH ═══════"
-showStruct       = input.bool  (group=structSettings, defval=true,  title="Show BOS / CHoCH?")
+structSettings = "═══════ BoS / CHoCH ═══════"
+showStruct       = input.bool  (group=structSettings, defval=true,  title="Show BoS / CHoCH?")
 structSwingLen   = input.int   (group=structSettings, defval=5,     title="Swing Length", minval=1, maxval=50)
-bosColorBull     = input.color (group=structSettings, defval=color.green, title="BOS Bull color")
-bosColorBear     = input.color (group=structSettings, defval=color.red,   title="BOS Bear color")
+bosColorBull     = input.color (group=structSettings, defval=color.green, title="BoS Bull color")
+bosColorBear     = input.color (group=structSettings, defval=color.red,   title="BoS Bear color")
 chochColorBull   = input.color (group=structSettings, defval=color.green, title="CHoCH Bull color")
 chochColorBear   = input.color (group=structSettings, defval=color.red,   title="CHoCH Bear color")
 structLineWidth  = input.int   (group=structSettings, defval=1,     title="Line width", minval=1, maxval=4)
@@ -201,7 +201,7 @@ type orderBlock
 var fvg[]        fvgs        = array.new<fvg>()
 var orderBlock[] orderBlocks = array.new<orderBlock>()
 
-// Liquidity level lines + labels (stockés pour déplacement)
+// Liquidity level lines + labels (stored for transport)
 var line  pdhLine  = na
 var line  pdlLine  = na
 var line  pwhLine  = na
@@ -215,14 +215,14 @@ var label pwlLabel = na
 var label pmhLabel = na
 var label pmlLabel = na
 
-// Session Volume tracking (accumulé barre par barre, affiché à la clôture)
+// Session Volume tracking (accumulated bar by bar, displayed at the close)
 var float kz1Vol = 0.0
 var float kz2Vol = 0.0
 var float kz3Vol = 0.0
 var float kz4Vol = 0.0
 var float kz5Vol = 0.0
 
-// Session High/Low lines + labels (couleur = bordure de la killzone correspondante)
+// Session High/Low lines + labels (color = border of the corresponding killzone)
 var line  kz1HighLine = na
 var line  kz1LowLine  = na
 var label kz1HighLbl  = na
@@ -258,7 +258,7 @@ var label kz5LowLbl   = na
 var float kz5High     = na
 var float kz5Low      = na
 
-// Open lines + labels (label stocké pour déplacement à chaque barre)
+// Open lines + labels (Label stored for displacement at each bar)
 var line  dailyOpenLine    = na
 var line  weeklyOpenLine   = na
 var line  monthlyOpenLine  = na
@@ -272,7 +272,7 @@ var label monthlyOpenLabel = na
 var label yearlyOpenLabel  = na
 var label midnightLabel    = na
 
-// BOS/CHoCH state
+// BoS/CHoCH state
 var int   structDir      = 0      // 1 = bullish, -1 = bearish, 0 = undefined
 var float lastSwingHigh  = na
 var float lastSwingLow   = na
@@ -445,9 +445,9 @@ resizeOrderBlocks(inRange) =>
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 DISPLACEMENT CANDLE DETECTOR
-// Colore UNIQUEMENT la bougie qui casse un swing pivot confirmé
-// = même logique que BOS/CHoCH, mais exprimée en couleur de bougie
-// Une seule bougie colorée par cassure — pas de répétition
+// Color ONLY the candle that breaks a confirmed swing pivot
+// = same logic as BoS/CHoCH, but expressed via candle color
+// Only one colored candle per break — no repetition
 // ═══════════════════════════════════════════════════════════════
 var float _dispLastHigh    = na
 var float _dispLastLow     = na
@@ -457,28 +457,28 @@ var bool  _dispBearFired   = false
 _dispSwingH = ta.pivothigh(high, structSwingLen, structSwingLen)
 _dispSwingL = ta.pivotlow (low,  structSwingLen, structSwingLen)
 
-// Mise à jour du dernier swing confirmé
+// Update of the last confirmed swing
 if not na(_dispSwingH)
     _dispLastHigh  := _dispSwingH
-    _dispBullFired := false   // nouveau swing = reset du flag
+    _dispBullFired := false   // new swing = flag reset
 
 if not na(_dispSwingL)
     _dispLastLow   := _dispSwingL
     _dispBearFired := false
 
-// Cassure haussière : close franchit le swing high ET pas encore coloré
+// Bullish breakout: close exceeds the swing high AND not yet colored
 _isBullDispBreak = enableDisplacement
      and not na(_dispLastHigh)
      and close > _dispLastHigh
      and not _dispBullFired
 
-// Cassure baissière
+// Bearish breakout
 _isBearDispBreak = enableDisplacement
      and not na(_dispLastLow)
      and close < _dispLastLow
      and not _dispBearFired
 
-// Marquer comme déclenché pour éviter la répétition
+// Mark as triggered to avoid repetition
 if _isBullDispBreak
     _dispBullFired := true
 
@@ -490,12 +490,12 @@ barcolor(enableDisplacement ? (_isBullDispBreak ? color.new(bullDispColor, 0) : 
 // ═══════════════════════════════════════════════════════════════
 // 📊 KILLZONES
 // ═══════════════════════════════════════════════════════════════
-// bgcolor des killzones géré au niveau racine plus bas
+// Killzone background color handled at the root level below
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 LIQUIDITY LEVELS
 // ═══════════════════════════════════════════════════════════════
-// Calcul des changements de période (ta.change au niveau racine — requis Pine v6)
+// Calculation of period changes (ta.change at the root level — requires Pine v6)
 _chgD   = ta.change(time("D"))
 _chgW   = ta.change(time("W"))
 _chgM   = ta.change(time("M"))
@@ -551,16 +551,16 @@ else
 
 // ─────────────────────────────────────────────────────────────
 // Draw liquidity lines
-// • Créées à la transition de période (extend.none)
-// • Étirées barre par barre via line.set_x2
-// • Label déplacé à droite à chaque barre
-// • À la PROCHAINE transition : l'ancienne ligne est supprimée
-//   → seule la période EN COURS est visible
+// • Created at the period transition (extend.none)
+// • Extended bar by bar via line.set_x2
+// • Label moved to the right on each bar
+// • At the NEXT transition: the old line is deleted
+//   → only the CURRENT period is visible
 // ─────────────────────────────────────────────────────────────
 _liqOffset = 3
 
 if showLiq
-    // ── PDH / PDL : seulement le jour précédent ──
+    // ── PDH / PDL : only the day before ──
     if showPDH
         if isNewDay and not na(prevDayHigh)
             line.delete(pdhLine)
@@ -585,7 +585,7 @@ if showLiq
         else if not na(pdlLine)
             line.set_x2(pdlLine, bar_index)
 
-    // ── PWH / PWL : seulement la semaine précédente ──
+    // ── PWH / PWL : only the previous week ──
     if showPWH
         if isNewWeek and not na(prevWeekHigh)
             line.delete(pwhLine)
@@ -610,7 +610,7 @@ if showLiq
         else if not na(pwlLine)
             line.set_x2(pwlLine, bar_index)
 
-    // ── PMH / PML : seulement le mois précédent ──
+    // ── PMH / PML : only the previous month ──
     if showPMH
         if isNewMonth and not na(prevMonthHigh)
             line.delete(pmhLine)
@@ -637,14 +637,14 @@ if showLiq
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 OPENS
-// • Ligne créée à la transition, étendue barre par barre (extend.none)
-// • Label stocké et déplacé à bar_index + offset à chaque barre
-//   → toujours visible à droite de la ligne, proprement espacé
+// • Line created at the transition, extended bar by bar (extend.none)
+// • Label stored and moved to bar_index + offset on each bar
+//   → always visible to the right of the line, properly spaced
 // ═══════════════════════════════════════════════════════════════
 isNewYear  = timeframe.isintraday and _chg12M != 0
 isMidnight = timeframe.isintraday and hour(time, "America/New_York") == 0 and minute(time, "America/New_York") == 0
 
-// Décalage du label par rapport à l'extrémité droite (en bars)
+// Offset of the label relative to the right end (in bars)
 _labelOffset = 3
 
 if showOpens
@@ -662,7 +662,7 @@ if showOpens
         else if not na(dailyOpenLine)
             line.set_x2(dailyOpenLine, bar_index)
 
-    // ── Weekly Open — uniquement la semaine en cours ──
+    // ── Weekly Open — only the current week ──
     if showWeeklyOpen
         if isNewWeek
             line.delete(weeklyOpenLine)
@@ -676,7 +676,7 @@ if showOpens
         else if not na(weeklyOpenLine)
             line.set_x2(weeklyOpenLine, bar_index)
 
-    // ── Monthly Open — uniquement le mois en cours ──
+    // ── Monthly Open — only the current month ──
     if showMonthlyOpen
         if isNewMonth
             line.delete(monthlyOpenLine)
@@ -707,7 +707,7 @@ if showOpens
     // ── Midnight Open — N days history (maxMidnightDays) ──
     if showMidnightOpen
         if isMidnight
-            // Créer nouvelle ligne + label
+            // Create new line + label
             _mLine  = line.new(bar_index, open, bar_index + 1, open,
                  color=midnightOpenColor, style=lineStyleFromString(midnightOpenStyle),
                  width=1, extend=extend.none)
@@ -716,11 +716,11 @@ if showOpens
                  style=label.style_label_left, size=size.small)
             array.push(midnightLines,  _mLine)
             array.push(midnightLabels, _mLabel)
-            // Supprimer les plus anciennes si on dépasse maxMidnightDays
+            // Delete the oldest ones if maxMidnightDays is exceeded
             if array.size(midnightLines) > maxMidnightDays
                 line.delete(array.shift(midnightLines))
                 label.delete(array.shift(midnightLabels))
-            // Mettre à jour la référence courante
+            // Update the current reference
             midnightLine  := _mLine
             midnightLabel := _mLabel
         else if not na(midnightLine)
@@ -728,14 +728,14 @@ if showOpens
             label.set_x(midnightLabel, bar_index + _labelOffset)
 
 // ═══════════════════════════════════════════════════════════════
-// 📊 BOS / CHoCH
-// Logique MSS ICT :
-//   • pivot confirmé N bars après sa formation (structSwingLen)
-//   • close qui franchit le dernier swing opposé = signal
-//   • même direction que structDir → BOS (continuation)
-//   • direction opposée → CHoCH (inversion)
-//   • on ne reset pas le swing après le break : le prochain pivot
-//     confirmé écrasera naturellement la référence
+// 📊 BoS / CHoCH
+// MSS ICT logic:
+//   • pivot confirmed N bars after its formation (structSwingLen)
+//   • close breaking the last opposing swing = signal
+//   • same direction as structDir → BoS (continuation)
+//   • opposite direction → CHoCH (reversal)
+//   • swing is not reset after the break: the next confirmed
+//     pivot will naturally overwrite the reference
 // ═══════════════════════════════════════════════════════════════
 swingH    = ta.pivothigh(high, structSwingLen, structSwingLen)
 swingL    = ta.pivotlow (low,  structSwingLen, structSwingLen)
@@ -743,7 +743,7 @@ pivotHBar = bar_index - structSwingLen
 pivotLBar = bar_index - structSwingLen
 
 if showStruct
-    // Mise à jour des pivots confirmés
+    // Update the confirmed pivots
     if not na(swingH)
         lastSwingHigh    := swingH
         lastSwingHighBar := pivotHBar
@@ -752,30 +752,30 @@ if showStruct
         lastSwingLow    := swingL
         lastSwingLowBar := pivotLBar
 
-    // ── Cassure haussière : close franchit le dernier swing high ──
-    // Label AU-DESSUS de la ligne (label_down pointe vers le bas = texte au-dessus du prix)
+    // ── Bullish breakout: close crosses above the last swing high ──
+    // Label ABOVE the line (label_down points downwards = text above the price)
     if not na(lastSwingHigh) and not na(lastSwingHighBar)
         bullBreak = close > lastSwingHigh and close[1] <= lastSwingHigh[1]
         if bullBreak
             lColor = structDir == 1 ? bosColorBull : chochColorBull
-            lText  = structDir == 1 ? "bos"        : "ChoCH"
+            lText  = structDir == 1 ? "BoS"        : "CHoCH"
             line.new(lastSwingHighBar, lastSwingHigh, bar_index, lastSwingHigh,
                  color=lColor, style=line.style_solid, width=structLineWidth)
             label.new(bar_index, lastSwingHigh, lText,
                  color=color.new(color.black, 100), textcolor=lColor,
                  style=label.style_label_lower_right, size=size.small)
             structDir    := 1
-            // On écrase la référence pour éviter un double signal
+            // Overwrite the reference to avoid a double signal
             lastSwingHigh    := na
             lastSwingHighBar := na
 
-    // ── Cassure baissière : close franchit le dernier swing low ──
-    // Label EN-DESSOUS de la ligne (label_up pointe vers le haut = texte sous le prix)
+    // ── Bearish breakout: close crosses last swing low ── 
+    // Label BELOW the line (label_up points up = text below the price)
     if not na(lastSwingLow) and not na(lastSwingLowBar)
         bearBreak = close < lastSwingLow and close[1] >= lastSwingLow[1]
         if bearBreak
             lColor = structDir == -1 ? bosColorBear : chochColorBear
-            lText  = structDir == -1 ? "bos"        : "ChoCH"
+            lText  = structDir == -1 ? "BoS"        : "CHoCH"
             line.new(lastSwingLowBar, lastSwingLow, bar_index, lastSwingLow,
                  color=lColor, style=line.style_solid, width=structLineWidth)
             label.new(bar_index, lastSwingLow, lText,
@@ -786,16 +786,16 @@ if showStruct
             lastSwingLowBar := na
 
 // ═══════════════════════════════════════════════════════════════
-// 📊 KILLZONES — box délimitées par la session (début → fin)
-// On crée une box au premier bar de la session et on étire
-// sa bordure droite jusqu'au dernier bar de la session
+// 📊 KILLZONES — boxes defined by the session (start → end)
+// A box is created at the first bar of the session, and its
+// right border is extended to the last bar of the session
 // ═══════════════════════════════════════════════════════════════
 var box  kzBox1 = na
 var box  kzBox2 = na
 var box  kzBox3 = na
 var box  kzBox4 = na
 var box  kzBox5 = na
-// Lignes de bordure haut/bas pour chaque KZ (côtés masqués)
+// Top/bottom border lines for each KZ (hidden sides)
 var line kzTop1 = na
 var line kzBot1 = na
 var line kzTop2 = na
@@ -942,14 +942,14 @@ if showKillzones and kz5On and _tfOk
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 SESSION HIGH / LOW LINES
-// Tracées à la fin de chaque session (premier bar hors session)
-// Couleur = couleur de bordure de la KZ correspondante (opacity 40)
-// Étirées barre par barre jusqu'à la prochaine session du même type
+// Drawn at the end of each session (first bar outside the session)
+// Color = border color of the corresponding KZ (40% opacity)
+// Extended bar by bar until the next session of the same type
 // ═══════════════════════════════════════════════════════════════
 _slOffset = 3
 
-// Helper : dessine ou étire les lignes H/L d'une session
-// Appelé inline pour chaque KZ — compatible Pine v6
+// Helper: draws or extends session H/L lines
+// Called inline for each KZ — Pine v6 compatible
 if showSessLevels and _tfOk
 
     // ── Session 1 ──
@@ -957,11 +957,11 @@ if showSessLevels and _tfOk
         _s1     = not na(time(timeframe.period, kz1Start, "America/New_York"))
         _s1prev = not na(time(timeframe.period, kz1Start, "America/New_York")[1])
         _col1   = color.new(kz1Color, 40)
-        // Dans la session : tracker le high/low
+        // During the session: track the high/low
         if _s1
             kz1High := na(kz1High) or not _s1prev ? high : math.max(kz1High, high)
             kz1Low  := na(kz1Low)  or not _s1prev ? low  : math.min(kz1Low,  low)
-        // Premier bar HORS session : tracer les lignes
+        // First bar OUTSIDE the session: draw the lines
         if not _s1 and _s1prev and not na(kz1High)
             line.delete(kz1HighLine)
             label.delete(kz1HighLbl)
@@ -973,7 +973,7 @@ if showSessLevels and _tfOk
             kz1LowLbl   := label.new(bar_index+_slOffset, kz1Low,  "KZ1L", color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.tiny)
             kz1High := na
             kz1Low  := na
-        // Étirer les lignes — supprimer si le prix touche le niveau
+        // Extend the lines — delete if price touches the level
         else if not _s1
             if not na(kz1HighLine)
                 if high >= line.get_y1(kz1HighLine)
@@ -1152,11 +1152,11 @@ if showSessLevels and _tfOk
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 SESSION VOLUME
-// Visible sur TF <= H1 uniquement
-// Historique 1 semaine (604800 secondes)
+// Visible on TF <= H1 only
+// 1-week history (604,800 seconds)
 // ═══════════════════════════════════════════════════════════════
 _volTfOk    = timeframe.in_seconds() <= 3600 and timeframe.in_seconds() >= 60
-// Compatible replay : pas de timenow, Pine gère l'historique via max_labels_count
+// Replay compatible: no timenow; Pine manages history via max_labels_count
 _inVolWindow = true
 
 if showSessVol and _volTfOk
@@ -1165,17 +1165,17 @@ if showSessVol and _volTfOk
     if kz1On
         _sv1     = not na(time(timeframe.period, kz1Start, "America/New_York"))
         _sv1prev = not na(time(timeframe.period, kz1Start, "America/New_York")[1])
-        // Accumuler le volume pendant la session
+        // Accumulate volume during the session
         if _sv1
             if not _sv1prev
-                kz1Vol := volume  // premier bar : reset
+                kz1Vol := volume  // first bar : reset
             else
                 kz1Vol += volume
-        // Fin de session : afficher le label si dans la semaine
+        // End of session: display the label if within the week
         if not _sv1 and _sv1prev and _inVolWindow
             _kz1top = not na(kzBox1) ? box.get_top(kzBox1) : na
             if not na(_kz1top)
-                // Centrer horizontalement : milieu entre début et fin de la box
+                // Center horizontally: midpoint between the start and end of the box
                 _kz1left  = box.get_left(kzBox1)
                 _kz1mid   = _kz1left + math.round((bar_index - _kz1left) / 2)
                 label.new(
@@ -1199,7 +1199,7 @@ if showSessVol and _volTfOk
         if not _sv2 and _sv2prev and _inVolWindow
             _kz2top = not na(kzBox2) ? box.get_top(kzBox2) : na
             if not na(_kz2top)
-                // Centrer horizontalement : milieu entre début et fin de la box
+                // Center horizontally: midpoint between the start and end of the box
                 _kz2left  = box.get_left(kzBox2)
                 _kz2mid   = _kz2left + math.round((bar_index - _kz2left) / 2)
                 label.new(
@@ -1223,7 +1223,7 @@ if showSessVol and _volTfOk
         if not _sv3 and _sv3prev and _inVolWindow
             _kz3top = not na(kzBox3) ? box.get_top(kzBox3) : na
             if not na(_kz3top)
-                // Centrer horizontalement : milieu entre début et fin de la box
+                // Center horizontally: midpoint between the start and end of the box
                 _kz3left  = box.get_left(kzBox3)
                 _kz3mid   = _kz3left + math.round((bar_index - _kz3left) / 2)
                 label.new(
@@ -1247,7 +1247,7 @@ if showSessVol and _volTfOk
         if not _sv4 and _sv4prev and _inVolWindow
             _kz4top = not na(kzBox4) ? box.get_top(kzBox4) : na
             if not na(_kz4top)
-                // Centrer horizontalement : milieu entre début et fin de la box
+                // Center horizontally: midpoint between the start and end of the box
                 _kz4left  = box.get_left(kzBox4)
                 _kz4mid   = _kz4left + math.round((bar_index - _kz4left) / 2)
                 label.new(
@@ -1271,7 +1271,7 @@ if showSessVol and _volTfOk
         if not _sv5 and _sv5prev and _inVolWindow
             _kz5top = not na(kzBox5) ? box.get_top(kzBox5) : na
             if not na(_kz5top)
-                // Centrer horizontalement : milieu entre début et fin de la box
+                // Center horizontally: midpoint between the start and end of the box
                 _kz5left  = box.get_left(kzBox5)
                 _kz5mid   = _kz5left + math.round((bar_index - _kz5left) / 2)
                 label.new(
@@ -1295,7 +1295,7 @@ _bearFVG = high < low[2]
 alertcondition(_bullFVG,  title="FVG — BISI Created",    message="BISI (Bullish FVG) created — potential support zone")
 alertcondition(_bearFVG,  title="FVG — SIBI Created",    message="SIBI (Bearish FVG) created — potential resistance zone")
 
-// FVG mitigated : détecté quand une box est touchée (on surveille le dernier FVG de l'array)
+// FVG mitigated: detected when a box is touched (we monitor the last FVG in the array)
 _lastFVGBull   = array.size(fvgs) > 0 ? array.get(fvgs, array.size(fvgs)-1).bullish : false
 _lastFVGTop    = array.size(fvgs) > 0 ? array.get(fvgs, array.size(fvgs)-1).top    : na
 _lastFVGBot    = array.size(fvgs) > 0 ? array.get(fvgs, array.size(fvgs)-1).bottom : na
@@ -1321,15 +1321,15 @@ _obBearMit     = not _lastOBBull and not na(_lastOBTop) and low < _lastOBTop and
 alertcondition(_obBullMit, title="OB — Bullish OB Mitigated", message="Bullish Order Block mitigated")
 alertcondition(_obBearMit, title="OB — Bearish OB Mitigated", message="Bearish Order Block mitigated")
 
-// ── BOS / CHoCH ──
-// On détecte sur la barre courante via les mêmes conditions que le tracé
+// ── BoS / CHoCH ──
+// Detection on the current bar uses the same conditions as the plotting
 _bosBull   = showStruct and not na(lastSwingHigh) and close > lastSwingHigh and close[1] <= lastSwingHigh[1] and structDir == 1
 _chochBull = showStruct and not na(lastSwingHigh) and close > lastSwingHigh and close[1] <= lastSwingHigh[1] and structDir != 1
 _bosBear   = showStruct and not na(lastSwingLow)  and close < lastSwingLow  and close[1] >= lastSwingLow[1]  and structDir == -1
 _chochBear = showStruct and not na(lastSwingLow)  and close < lastSwingLow  and close[1] >= lastSwingLow[1]  and structDir != -1
 
-alertcondition(_bosBull,   title="Structure — BOS Bullish",         message="Break of Structure — Bullish continuation")
-alertcondition(_bosBear,   title="Structure — BOS Bearish",         message="Break of Structure — Bearish continuation")
+alertcondition(_bosBull,   title="Structure — BoS Bullish",         message="Break of Structure — Bullish continuation")
+alertcondition(_bosBear,   title="Structure — BoS Bearish",         message="Break of Structure — Bearish continuation")
 alertcondition(_chochBull, title="Structure — CHoCH Bullish",       message="Change of Character — Potential bullish reversal")
 alertcondition(_chochBear, title="Structure — CHoCH Bearish",       message="Change of Character — Potential bearish reversal")
 
@@ -1351,7 +1351,7 @@ alertcondition(_kz4Open, title="Killzone — KZ4 Session Open", message="KZ4 ses
 alertcondition(_kz5Open, title="Killzone — KZ5 Session Open", message="KZ5 session is now open")
 
 // ── SESSION H/L TOUCHED ──
-// Détectés au moment où le prix atteint la ligne (avant suppression)
+// DDetected at the moment when the price reaches the line (before removal)
 _kz1HTouched = not na(kz1HighLine) and high >= line.get_y1(kz1HighLine)
 _kz1LTouched = not na(kz1LowLine)  and low  <= line.get_y1(kz1LowLine)
 _kz2HTouched = not na(kz2HighLine) and high >= line.get_y1(kz2HighLine)
