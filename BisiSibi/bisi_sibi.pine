@@ -40,6 +40,7 @@ showFvgs        = input.bool  (group=fvgSettings, defval=true,   title="Show FVG
 stretchFvgs     = input.bool  (group=fvgSettings, defval=true,   title="📏 Stretch FVGs until filled?")
 autoDeleteFvgs  = input.bool  (group=fvgSettings, defval=true,   title="🗑️ Auto-delete when filled?")
 fvgTouchMode    = input.string(group=fvgSettings, defval="Wicks",title="FVG fill trigger", options=["Wicks","Corps"])
+fvgFillPercent  = input.int   (group=fvgSettings, defval=0, title="FVG mitigation depth (%)", minval=0, maxval=100, step=25)
 fvgBullText     = input.string(group=fvgSettings, defval="+FVG", title="BISI ↑",  inline="+FVG")
 fvgBullColor    = input.color (group=fvgSettings, defval=color.rgb(119,193,253),  title="", inline="+FVG")
 fvgBearText     = input.string(group=fvgSettings, defval="-FVG", title="SIBI ↓",  inline="-FVG")
@@ -67,6 +68,7 @@ showIFvgs        = input.bool  (group=ifvgSettings, defval=true,   title="Show I
 stretchIFvgs     = input.bool  (group=ifvgSettings, defval=true,   title="📏 Stretch IFVGs until filled?")
 autoDeleteIFvgs  = input.bool  (group=ifvgSettings, defval=true,   title="🗑️ Auto-delete when filled?")
 ifvgTouchMode    = input.string(group=ifvgSettings, defval="Wicks", title="IFVG fill trigger", options=["Wicks","Corps"])
+ifvgFillPercent  = input.int   (group=ifvgSettings, defval=0, title="IFVG mitigation depth (%)", minval=0, maxval=100, step=25)
 ifvgBullText     = input.string(group=ifvgSettings, defval="+IFVG", title="Bullish IFVG ↑", inline="+IFVG")
 ifvgBullColor    = input.color (group=ifvgSettings, defval=color.rgb(80,180,120), title="", inline="+IFVG")
 ifvgBearText     = input.string(group=ifvgSettings, defval="-IFVG", title="Bearish IFVG ↓", inline="-IFVG")
@@ -94,6 +96,7 @@ showOBs        = input.bool  (group=obSettings, defval=true,    title="Show Orde
 stretchOBs     = input.bool  (group=obSettings, defval=true,    title="📏 Stretch OBs until filled?")
 autoDeleteOBs  = input.bool  (group=obSettings, defval=true,    title="🗑️ Auto-delete when filled?")
 obTouchMode    = input.string(group=obSettings, defval="Wicks", title="OB fill trigger", options=["Wicks","Corps"])
+obFillPercent  = input.int   (group=obSettings, defval=0, title="OB mitigation depth (%)", minval=0, maxval=100, step=25)
 showObLiquidityFilter = input.bool(group=obSettings, defval=false, title="Only OBs that sweep left liquidity?")
 obLiquidityLookback = input.int(group=obSettings, defval=10, title="Liquidity lookback", minval=1, maxval=100)
 obBullText     = input.string(group=obSettings, defval="+OB",   title="Order Block ↑", inline="+OB")
@@ -492,7 +495,9 @@ resizeFVGBoxes(inRange) =>
                     if bar_index >= gap.startCheck
                         cHigh   = candleHigh(fvgTouchMode)
                         cLow    = candleLow(fvgTouchMode)
-                        touched = cLow < gap.top and cHigh > gap.bottom
+                        float fvgRange = gap.top - gap.bottom
+                        float fvgDepth = gap.bullish ? (gap.top - cLow) / fvgRange : (cHigh - gap.bottom) / fvgRange
+                        touched = fvgDepth >= fvgFillPercent / 100.0
                         if touched
                             gap.filled := true
                             if autoDeleteFvgs
@@ -530,7 +535,9 @@ resizeIFVGBoxes(inRange) =>
                 if bar_index >= gap.startCheck
                     cHigh = candleHigh(ifvgTouchMode)
                     cLow = candleLow(ifvgTouchMode)
-                    touched = cLow < gap.top and cHigh > gap.bottom
+                    float ifvgRange = gap.top - gap.bottom
+                    float ifvgDepth = gap.bullish ? (gap.top - cLow) / ifvgRange : (cHigh - gap.bottom) / ifvgRange
+                    touched = ifvgDepth >= ifvgFillPercent / 100.0
                     if touched
                         gap.filled := true
                         if autoDeleteIFvgs
@@ -658,7 +665,9 @@ resizeOrderBlocks(inRange) =>
                 if bar_index >= ob.startCheck
                     cHigh   = candleHigh(obTouchMode)
                     cLow    = candleLow(obTouchMode)
-                    touched = cLow < ob.top and cHigh > ob.bottom
+                    float obRange = ob.top - ob.bottom
+                    float obDepth = ob.bullish ? (ob.top - cLow) / obRange : (cHigh - ob.bottom) / obRange
+                    touched = obDepth >= obFillPercent / 100.0
                     if touched
                         ob.filled := true
                         if autoDeleteOBs
