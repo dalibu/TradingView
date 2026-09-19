@@ -44,7 +44,14 @@ fvgBullText     = input.string(group=fvgSettings, defval="+FVG", title="BISI ↑
 fvgBullColor    = input.color (group=fvgSettings, defval=color.rgb(119,193,253),  title="", inline="+FVG")
 fvgBearText     = input.string(group=fvgSettings, defval="-FVG", title="SIBI ↓",  inline="-FVG")
 fvgBearColor    = input.color (group=fvgSettings, defval=color.rgb(252,188,94),   title="", inline="-FVG")
+showFvgBackground = input.bool(group=fvgSettings, defval=true, title="Show FVG background?")
 fvgBackgroundOpacity = input.int(group=fvgSettings, defval=90, title="Background Opacity", minval=0, maxval=100)
+fvgBullBorderColor = input.color(group=fvgSettings, defval=color.rgb(119,193,253), title="BISI border", inline="fvgBullBorder")
+fvgBullBorderOpacity = input.int(group=fvgSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="fvgBullBorder")
+fvgBearBorderColor = input.color(group=fvgSettings, defval=color.rgb(252,188,94), title="SIBI border", inline="fvgBearBorder")
+fvgBearBorderOpacity = input.int(group=fvgSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="fvgBearBorder")
+fvgBorderStyle = input.string(group=fvgSettings, defval="Solid", title="Border Style", options=["Solid", "Dashed", "Dotted"])
+fvgBorderWidth = input.int(group=fvgSettings, defval=1, title="Border Width", minval=1, maxval=4)
 fvgTextOpacity       = input.int(group=fvgSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
 showFvgBorders  = input.bool  (group=fvgSettings, defval=true,  title="Show FVG borders?")
 showFvgMidline = input.bool(group=fvgSettings, defval=true, title="Show FVG middle line?")
@@ -66,7 +73,14 @@ obBullText     = input.string(group=obSettings, defval="+OB",   title="Order Blo
 obBullColor    = input.color (group=obSettings, defval=color.green,   title="", inline="+OB")
 obBearText     = input.string(group=obSettings, defval="-OB",   title="Order Block ↓", inline="-OB")
 obBearColor    = input.color (group=obSettings, defval=color.orange,  title="", inline="-OB")
+showObBackground = input.bool(group=obSettings, defval=true, title="Show OB background?")
 obBackgroundOpacity = input.int(group=obSettings, defval=85, title="Background Opacity", minval=0, maxval=100)
+obBullBorderColor = input.color(group=obSettings, defval=color.green, title="Bullish border", inline="obBullBorder")
+obBullBorderOpacity = input.int(group=obSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="obBullBorder")
+obBearBorderColor = input.color(group=obSettings, defval=color.orange, title="Bearish border", inline="obBearBorder")
+obBearBorderOpacity = input.int(group=obSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="obBearBorder")
+obBorderStyle = input.string(group=obSettings, defval="Solid", title="Border Style", options=["Solid", "Dashed", "Dotted"])
+obBorderWidth = input.int(group=obSettings, defval=1, title="Border Width", minval=1, maxval=4)
 obTextOpacity       = input.int(group=obSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
 showObBorders  = input.bool  (group=obSettings, defval=true,  title="Show OB borders?")
 showObMidline = input.bool(group=obSettings, defval=true, title="Show OB middle line?")
@@ -356,13 +370,15 @@ drawFVGBoxes(inRange) =>
         bottomVal = bullFVG ? high[2]: high
         colorFVG  = bullFVG ? fvgBullColor : fvgBearColor
         textFVG   = bullFVG ? fvgBullText  : fvgBearText
-        borderColorFVG = showFvgBorders ? color.new(colorFVG, 0) : color.new(colorFVG, 100)
+        borderColorFVG = showFvgBorders ? color.new(bullFVG ? fvgBullBorderColor : fvgBearBorderColor, bullFVG ? fvgBullBorderOpacity : fvgBearBorderOpacity) : color.new(colorFVG, 100)
 
         b = box.new(
              left=bar_index - 2, right=bar_index,
              top=topVal, bottom=bottomVal,
-             bgcolor=color.new(colorFVG, fvgBackgroundOpacity),
+             bgcolor=showFvgBackground ? color.new(colorFVG, fvgBackgroundOpacity) : na,
              border_color=borderColorFVG,
+             border_style=lineStyleFromString(fvgBorderStyle),
+             border_width=fvgBorderWidth,
              text=textFVG,
              text_color=color.new(colorFVG, fvgTextOpacity),
              text_size=size.tiny)
@@ -483,13 +499,15 @@ drawOrderBlocks(inRange) =>
             bottomVal = low[obOffset]
             colorOB   = bullOB ? obBullColor : obBearColor
             textOB    = bullOB ? obBullText  : obBearText
-            borderColorOB = showObBorders ? color.new(colorOB, 0) : color.new(colorOB, 100)
+            borderColorOB = showObBorders ? color.new(bullOB ? obBullBorderColor : obBearBorderColor, bullOB ? obBullBorderOpacity : obBearBorderOpacity) : color.new(colorOB, 100)
 
             b = box.new(
              left=bar_index - obOffset, right=bar_index,
              top=topVal, bottom=bottomVal,
-             bgcolor=color.new(colorOB, obBackgroundOpacity),
+             bgcolor=showObBackground ? color.new(colorOB, obBackgroundOpacity) : na,
              border_color=borderColorOB,
+             border_style=lineStyleFromString(obBorderStyle),
+             border_width=obBorderWidth,
              text=textOB,
              text_color=color.new(colorOB, obTextOpacity),
              text_size=size.tiny)
