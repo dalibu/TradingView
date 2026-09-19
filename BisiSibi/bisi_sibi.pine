@@ -47,6 +47,10 @@ fvgBearColor    = input.color (group=fvgSettings, defval=color.rgb(252,188,94), 
 fvgBackgroundOpacity = input.int(group=fvgSettings, defval=90, title="Background Opacity", minval=0, maxval=100)
 fvgTextOpacity       = input.int(group=fvgSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
 showFvgBorders  = input.bool  (group=fvgSettings, defval=true,  title="Show FVG borders?")
+showFvgMidline = input.bool(group=fvgSettings, defval=true, title="FVG middle line", inline="fvgMid")
+fvgMidlineColor = input.color(group=fvgSettings, defval=color.white, title="", inline="fvgMid")
+fvgMidlineStyle = input.string(group=fvgSettings, defval="Solid", title="", inline="fvgMid", options=["Solid", "Dashed", "Dotted"])
+fvgMidlineWidth = input.int(group=fvgSettings, defval=1, title="", inline="fvgMid", minval=1, maxval=4)
 
 // ═══════════════════════════════════════════════════════════════
 // 🛠 ORDER BLOCK SETTINGS
@@ -63,6 +67,10 @@ obBearColor    = input.color (group=obSettings, defval=color.orange,  title="", 
 obBackgroundOpacity = input.int(group=obSettings, defval=85, title="Background Opacity", minval=0, maxval=100)
 obTextOpacity       = input.int(group=obSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
 showObBorders  = input.bool  (group=obSettings, defval=true,  title="Show OB borders?")
+showObMidline = input.bool(group=obSettings, defval=true, title="OB middle line", inline="obMid")
+obMidlineColor = input.color(group=obSettings, defval=color.white, title="", inline="obMid")
+obMidlineStyle = input.string(group=obSettings, defval="Solid", title="", inline="obMid", options=["Solid", "Dashed", "Dotted"])
+obMidlineWidth = input.int(group=obSettings, defval=1, title="", inline="obMid", minval=1, maxval=4)
 
 
 
@@ -181,6 +189,7 @@ structLineWidth  = input.int   (group=structSettings, defval=1,     title="Line 
 // ═══════════════════════════════════════════════════════════════
 type fvg
     box   boxObject
+    line  midLine
     float top
     float bottom
     bool  filled
@@ -189,6 +198,7 @@ type fvg
 
 type orderBlock
     box   boxObject
+    line  midLine
     float top
     float bottom
     bool  filled
@@ -292,7 +302,7 @@ candleLow(touchMode) =>
     touchMode == "Corps" ? math.min(open, close) : low
 
 lineStyleFromString(s) =>
-    s == "dashed" ? line.style_dashed : s == "dotted" ? line.style_dotted : line.style_solid
+    s == "dashed" or s == "Dashed" ? line.style_dashed : s == "dotted" or s == "Dotted" ? line.style_dotted : line.style_solid
 
 // Draw or update a persistent horizontal line with label
 drawLevel(enabled, price, lColor, lStyle, lLabel, existingLine) =>
@@ -349,11 +359,20 @@ drawFVGBoxes(inRange) =>
              text_color=color.new(colorFVG, fvgTextOpacity),
              text_size=size.tiny)
 
+        fvgMidLine = showFvgMidline ? line.new(
+             x1=bar_index - 2, y1=(topVal + bottomVal) / 2,
+             x2=bar_index, y2=(topVal + bottomVal) / 2,
+             color=fvgMidlineColor,
+             style=lineStyleFromString(fvgMidlineStyle),
+             width=fvgMidlineWidth) : na
+
         if array.size(fvgs) >= maxBoxes
             old = array.shift(fvgs)
             box.delete(old.boxObject)
+            if not na(old.midLine)
+                line.delete(old.midLine)
 
-        array.push(fvgs, fvg.new(b, topVal, bottomVal, false, bar_index + 1, bullFVG))
+        array.push(fvgs, fvg.new(b, fvgMidLine, topVal, bottomVal, false, bar_index + 1, bullFVG))
 
 resizeFVGBoxes(inRange) =>
     if array.size(fvgs) > 0
@@ -368,6 +387,8 @@ resizeFVGBoxes(inRange) =>
                         gap.filled := true
                         if autoDeleteFvgs
                             box.delete(gap.boxObject)
+                            if not na(gap.midLine)
+                                line.delete(gap.midLine)
                             array.remove(fvgs, i)
                             continue
                     else
@@ -375,11 +396,19 @@ resizeFVGBoxes(inRange) =>
                             newRight = bar_index + 1
                             if box.get_right(gap.boxObject) != newRight
                                 box.set_right(gap.boxObject, newRight)
+                                if not na(gap.midLine)
+                                    line.set_x2(gap.midLine, newRight)
                 else
                     if stretchFvgs
                         newRight = bar_index + 1
                         if box.get_right(gap.boxObject) != newRight
                             box.set_right(gap.boxObject, newRight)
+                            if not na(gap.midLine)
+                                line.set_x2(gap.midLine, newRight)
+                if not na(gap.midLine)
+                    line.set_color(gap.midLine, fvgMidlineColor)
+                    line.set_style(gap.midLine, lineStyleFromString(fvgMidlineStyle))
+                    line.set_width(gap.midLine, fvgMidlineWidth)
                 array.set(fvgs, i, gap)
 
 // ═══════════════════════════════════════════════════════════════
@@ -410,11 +439,20 @@ drawOrderBlocks(inRange) =>
              text_color=color.new(colorOB, obTextOpacity),
              text_size=size.tiny)
 
+        obMidLine = showObMidline ? line.new(
+             x1=bar_index - 1, y1=(topVal + bottomVal) / 2,
+             x2=bar_index, y2=(topVal + bottomVal) / 2,
+             color=obMidlineColor,
+             style=lineStyleFromString(obMidlineStyle),
+             width=obMidlineWidth) : na
+
         if array.size(orderBlocks) >= maxBoxes
             old = array.shift(orderBlocks)
             box.delete(old.boxObject)
+            if not na(old.midLine)
+                line.delete(old.midLine)
 
-        array.push(orderBlocks, orderBlock.new(b, topVal, bottomVal, false, bar_index + 1, bullOB))
+        array.push(orderBlocks, orderBlock.new(b, obMidLine, topVal, bottomVal, false, bar_index + 1, bullOB))
 
 resizeOrderBlocks(inRange) =>
     if array.size(orderBlocks) > 0
@@ -429,6 +467,8 @@ resizeOrderBlocks(inRange) =>
                         ob.filled := true
                         if autoDeleteOBs
                             box.delete(ob.boxObject)
+                            if not na(ob.midLine)
+                                line.delete(ob.midLine)
                             array.remove(orderBlocks, i)
                             continue
                     else
@@ -436,11 +476,19 @@ resizeOrderBlocks(inRange) =>
                             newRight = bar_index + 1
                             if box.get_right(ob.boxObject) != newRight
                                 box.set_right(ob.boxObject, newRight)
+                                if not na(ob.midLine)
+                                    line.set_x2(ob.midLine, newRight)
                 else
                     if stretchOBs
                         newRight = bar_index + 1
                         if box.get_right(ob.boxObject) != newRight
                             box.set_right(ob.boxObject, newRight)
+                            if not na(ob.midLine)
+                                line.set_x2(ob.midLine, newRight)
+                if not na(ob.midLine)
+                    line.set_color(ob.midLine, obMidlineColor)
+                    line.set_style(ob.midLine, lineStyleFromString(obMidlineStyle))
+                    line.set_width(ob.midLine, obMidlineWidth)
                 array.set(orderBlocks, i, ob)
 
 // ═══════════════════════════════════════════════════════════════
