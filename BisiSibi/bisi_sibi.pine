@@ -48,7 +48,7 @@ fvgBackgroundOpacity = input.int(group=fvgSettings, defval=90, title="Background
 fvgTextOpacity       = input.int(group=fvgSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
 showFvgBorders  = input.bool  (group=fvgSettings, defval=true,  title="Show FVG borders?")
 showFvgMidline = input.bool(group=fvgSettings, defval=true, title="FVG middle line", inline="fvgMid")
-fvgMidlineColor = input.color(group=fvgSettings, defval=color.white, title="", inline="fvgMid")
+fvgMidlineOpacity = input.int(group=fvgSettings, defval=0, title="", inline="fvgMid", minval=0, maxval=100)
 fvgMidlineStyle = input.string(group=fvgSettings, defval="Solid", title="", inline="fvgMid", options=["Solid", "Dashed", "Dotted"])
 fvgMidlineWidth = input.int(group=fvgSettings, defval=1, title="", inline="fvgMid", minval=1, maxval=4)
 
@@ -68,7 +68,7 @@ obBackgroundOpacity = input.int(group=obSettings, defval=85, title="Background O
 obTextOpacity       = input.int(group=obSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
 showObBorders  = input.bool  (group=obSettings, defval=true,  title="Show OB borders?")
 showObMidline = input.bool(group=obSettings, defval=true, title="OB middle line", inline="obMid")
-obMidlineColor = input.color(group=obSettings, defval=color.white, title="", inline="obMid")
+obMidlineOpacity = input.int(group=obSettings, defval=0, title="", inline="obMid", minval=0, maxval=100)
 obMidlineStyle = input.string(group=obSettings, defval="Solid", title="", inline="obMid", options=["Solid", "Dashed", "Dotted"])
 obMidlineWidth = input.int(group=obSettings, defval=1, title="", inline="obMid", minval=1, maxval=4)
 
@@ -362,7 +362,7 @@ drawFVGBoxes(inRange) =>
         fvgMidLine = showFvgMidline ? line.new(
              x1=bar_index - 2, y1=(topVal + bottomVal) / 2,
              x2=bar_index, y2=(topVal + bottomVal) / 2,
-             color=fvgMidlineColor,
+             color=color.new(bullFVG ? fvgBullColor : fvgBearColor, fvgMidlineOpacity),
              style=lineStyleFromString(fvgMidlineStyle),
              width=fvgMidlineWidth) : na
 
@@ -406,7 +406,7 @@ resizeFVGBoxes(inRange) =>
                             if not na(gap.midLine)
                                 line.set_x2(gap.midLine, newRight)
                 if not na(gap.midLine)
-                    line.set_color(gap.midLine, fvgMidlineColor)
+                    line.set_color(gap.midLine, color.new(gap.bullish ? fvgBullColor : fvgBearColor, fvgMidlineOpacity))
                     line.set_style(gap.midLine, lineStyleFromString(fvgMidlineStyle))
                     line.set_width(gap.midLine, fvgMidlineWidth)
                 array.set(fvgs, i, gap)
@@ -442,7 +442,7 @@ drawOrderBlocks(inRange) =>
         obMidLine = showObMidline ? line.new(
              x1=bar_index - 1, y1=(topVal + bottomVal) / 2,
              x2=bar_index, y2=(topVal + bottomVal) / 2,
-             color=obMidlineColor,
+             color=color.new(bullOB ? obBullColor : obBearColor, obMidlineOpacity),
              style=lineStyleFromString(obMidlineStyle),
              width=obMidlineWidth) : na
 
@@ -486,7 +486,7 @@ resizeOrderBlocks(inRange) =>
                             if not na(ob.midLine)
                                 line.set_x2(ob.midLine, newRight)
                 if not na(ob.midLine)
-                    line.set_color(ob.midLine, obMidlineColor)
+                    line.set_color(ob.midLine, color.new(ob.bullish ? obBullColor : obBearColor, obMidlineOpacity))
                     line.set_style(ob.midLine, lineStyleFromString(obMidlineStyle))
                     line.set_width(ob.midLine, obMidlineWidth)
                 array.set(orderBlocks, i, ob)
