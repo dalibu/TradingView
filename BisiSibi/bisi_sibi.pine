@@ -211,6 +211,7 @@ type orderBlock
     bool  filled
     int   startCheck
     bool  bullish
+    int   originBar
 
 // ═══════════════════════════════════════════════════════════════
 // 📂 VARIABLES
@@ -422,27 +423,70 @@ resizeFVGBoxes(inRange) =>
 // 📊 ORDER BLOCK LOGIC
 // ═══════════════════════════════════════════════════════════════
 drawOrderBlocks(inRange) =>
-    isBearCandle      = close[1] < open[1]
-    isBullDisplacement= close > high[1]
-    bullSweepLevel = ta.lowest(low[2], obLiquidityLookback)
-    bearSweepLevel = ta.highest(high[2], obLiquidityLookback)
-    bullOBLiquiditySweep = low[1] < bullSweepLevel and close[1] > bullSweepLevel
-    bearOBLiquiditySweep = high[1] > bearSweepLevel and close[1] < bearSweepLevel
-    bullOB = inRange and isBearCandle and isBullDisplacement and (not showObLiquidityFilter or bullOBLiquiditySweep)
+    // Displacement is determined first. The OB candle can be further back than [1].
+    isBullDisplacement = close > high[1]
+    isBearDisplacement = close < low[1]
 
-    isBullCandle      = close[1] > open[1]
-    isBearDisplacement= close < low[1]
-    bearOB = inRange and isBullCandle and isBearDisplacement and (not showObLiquidityFilter or bearOBLiquiditySweep)
+    int bullOBCandleOffset = na
+    int bearOBCandleOffset = na
+
+    if isBullDisplacement
+        for i = 1 to obLiquidityLookback
+            if na(bullOBCandleOffset) and close[i] < open[i]
+                bullOBCandleOffset := i
+
+    if isBearDisplacement
+        for i = 1 to obLiquidityLookback
+            if na(bearOBCandleOffset) and close[i] > open[i]
+                bearOBCandleOffset := i
+
+    bool bullOBLiquiditySweep = false
+    bool bearOBLiquiditySweep = false
+
+    // Liquidity sweep may occur on the OB candle itself OR on the
+    // displacement/reversal candle that creates the OB.
+    if not na(bullOBCandleOffset)
+        float bullSweepLevel = low[bullOBCandleOffset + 1]
+        for i = 2 to obLiquidityLookback + 1
+            bullSweepLevel := math.min(bullSweepLevel, low[bullOBCandleOffset + i - 1])
+
+        bool bullOBEntrySweep = low[bullOBCandleOffset] < bullSweepLevel and close[bullOBCandleOffset] > bullSweepLevel
+        bool bullDisplacementSweep = low < bullSweepLevel and close > bullSweepLevel
+        bullOBLiquiditySweep := bullOBEntrySweep or bullDisplacementSweep
+
+    if not na(bearOBCandleOffset)
+        float bearSweepLevel = high[bearOBCandleOffset + 1]
+        for i = 2 to obLiquidityLookback + 1
+            bearSweepLevel := math.max(bearSweepLevel, high[bearOBCandleOffset + i - 1])
+
+        bool bearOBEntrySweep = high[bearOBCandleOffset] > bearSweepLevel and close[bearOBCandleOffset] < bearSweepLevel
+        bool bearDisplacementSweep = high > bearSweepLevel and close < bearSweepLevel
+        bearOBLiquiditySweep := bearOBEntrySweep or bearDisplacementSweep
+
+    bullOB = inRange and isBullDisplacement and not na(bullOBCandleOffset) and (not showObLiquidityFilter or bullOBLiquiditySweep)
+    bearOB = inRange and isBearDisplacement and not na(bearOBCandleOffset) and (not showObLiquidityFilter or bearOBLiquiditySweep)
 
     if bullOB or bearOB
-        topVal    = high[1]
-        bottomVal = low[1]
-        colorOB   = bullOB ? obBullColor : obBearColor
-        textOB    = bullOB ? obBullText  : obBearText
-        borderColorOB = showObBorders ? color.new(colorOB, 0) : color.new(colorOB, 100)
+        int obOffset = bullOB ? bullOBCandleOffset : bearOBCandleOffset
+        int obOriginBar = bar_index - obOffset
+        bool obAlreadyExists = false
 
-        b = box.new(
-             left=bar_index - 1, right=bar_index,
+        if array.size(orderBlocks) > 0
+            for j = 0 to array.size(orderBlocks) - 1
+                existingOB = array.get(orderBlocks, j)
+                if existingOB.originBar == obOriginBar and existingOB.bullish == bullOB
+                    obAlreadyExists := true
+                    break
+
+        if not obAlreadyExists
+            topVal    = high[obOffset]
+            bottomVal = low[obOffset]
+            colorOB   = bullOB ? obBullColor : obBearColor
+            textOB    = bullOB ? obBullText  : obBearText
+            borderColorOB = showObBorders ? color.new(colorOB, 0) : color.new(colorOB, 100)
+
+            b = box.new(
+             left=bar_index - obOffset, right=bar_index,
              top=topVal, bottom=bottomVal,
              bgcolor=color.new(colorOB, obBackgroundOpacity),
              border_color=borderColorOB,
@@ -450,20 +494,20 @@ drawOrderBlocks(inRange) =>
              text_color=color.new(colorOB, obTextOpacity),
              text_size=size.tiny)
 
-        obMidLine = showObMidline ? line.new(
-             x1=bar_index - 1, y1=(topVal + bottomVal) / 2,
+            obMidLine = showObMidline ? line.new(
+             x1=bar_index - obOffset, y1=(topVal + bottomVal) / 2,
              x2=bar_index, y2=(topVal + bottomVal) / 2,
              color=color.new(bullOB ? obBullColor : obBearColor, obMidlineOpacity),
              style=lineStyleFromString(obMidlineStyle),
              width=obMidlineWidth) : na
 
-        if array.size(orderBlocks) >= maxBoxes
-            old = array.shift(orderBlocks)
-            box.delete(old.boxObject)
-            if not na(old.midLine)
-                line.delete(old.midLine)
+            if array.size(orderBlocks) >= maxBoxes
+                old = array.shift(orderBlocks)
+                box.delete(old.boxObject)
+                if not na(old.midLine)
+                    line.delete(old.midLine)
 
-        array.push(orderBlocks, orderBlock.new(b, obMidLine, topVal, bottomVal, false, bar_index + 1, bullOB))
+            array.push(orderBlocks, orderBlock.new(b, obMidLine, topVal, bottomVal, false, bar_index + 1, bullOB, obOriginBar))
 
 resizeOrderBlocks(inRange) =>
     if array.size(orderBlocks) > 0
