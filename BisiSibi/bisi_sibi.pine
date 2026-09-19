@@ -1,0 +1,1414 @@
+// ———————————————————————————————————————————————————————————————
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// Made by Rafen
+// Last update: 2026.06.05
+// ———————————————————————————————————————————————————————————————
+
+//@version=6
+indicator("BISI SIBI OB + Killzones + Liquidity Levels + BOS/CHoCH",
+     overlay=true,
+     max_bars_back=5000,
+     max_boxes_count=1000,
+     max_lines_count=500,
+     max_labels_count=500)
+
+// ═══════════════════════════════════════════════════════════════
+// 🛠 GENERAL SETTINGS
+// ═══════════════════════════════════════════════════════════════
+generalSettings = "═══════ GENERAL SETTINGS ═══════"
+
+lookbackBars = input.int(
+     group=generalSettings,
+     defval=5000,
+     title="Lookback Bars",
+     minval=1,
+     maxval=50000)
+
+maxBoxes = input.int(
+     group=generalSettings,
+     defval=500,
+     title="Max PD Arrays",
+     minval=1,
+     maxval=5000)
+
+// ═══════════════════════════════════════════════════════════════
+// 🛠 FVG SETTINGS
+// ═══════════════════════════════════════════════════════════════
+fvgSettings = "═══════ FVG SETTINGS ═══════"
+showFvgs        = input.bool  (group=fvgSettings, defval=true,   title="Show FVGs?")
+stretchFvgs     = input.bool  (group=fvgSettings, defval=true,   title="📏 Stretch FVGs until filled?")
+autoDeleteFvgs  = input.bool  (group=fvgSettings, defval=true,   title="🗑️ Auto-delete when filled?")
+fvgTouchMode    = input.string(group=fvgSettings, defval="Mèche",title="FVG fill trigger", options=["Mèche","Corps"])
+fvgBullText     = input.string(group=fvgSettings, defval="+FVG", title="BISI ↑",  inline="+FVG")
+fvgBullColor    = input.color (group=fvgSettings, defval=color.rgb(119,193,253),  title="", inline="+FVG")
+fvgBearText     = input.string(group=fvgSettings, defval="-FVG", title="SIBI ↓",  inline="-FVG")
+fvgBearColor    = input.color (group=fvgSettings, defval=color.rgb(252,188,94),   title="", inline="-FVG")
+fvgBackgroundOpacity = input.int(group=fvgSettings, defval=90, title="Background Opacity", minval=0, maxval=100)
+fvgTextOpacity       = input.int(group=fvgSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
+showFvgBorders  = input.bool  (group=fvgSettings, defval=true,  title="Show FVG borders?")
+
+// ═══════════════════════════════════════════════════════════════
+// 🛠 ORDER BLOCK SETTINGS
+// ═══════════════════════════════════════════════════════════════
+obSettings = "═══════ ORDER BLOCK SETTINGS ═══════"
+showOBs        = input.bool  (group=obSettings, defval=true,    title="Show Order Blocks?")
+stretchOBs     = input.bool  (group=obSettings, defval=true,    title="📏 Stretch OBs until filled?")
+autoDeleteOBs  = input.bool  (group=obSettings, defval=true,    title="🗑️ Auto-delete when filled?")
+obTouchMode    = input.string(group=obSettings, defval="Mèche", title="OB fill trigger", options=["Mèche","Corps"])
+obBullText     = input.string(group=obSettings, defval="+OB",   title="Order Block ↑", inline="+OB")
+obBullColor    = input.color (group=obSettings, defval=color.green,   title="", inline="+OB")
+obBearText     = input.string(group=obSettings, defval="-OB",   title="Order Block ↓", inline="-OB")
+obBearColor    = input.color (group=obSettings, defval=color.orange,  title="", inline="-OB")
+obBackgroundOpacity = input.int(group=obSettings, defval=85, title="Background Opacity", minval=0, maxval=100)
+obTextOpacity       = input.int(group=obSettings, defval=0,  title="Text Opacity",       minval=0, maxval=100)
+showObBorders  = input.bool  (group=obSettings, defval=true,  title="Show OB borders?")
+
+
+
+// ═══════════════════════════════════════════════════════════════
+// 🛠 DISPLACEMENT CANDLE
+// ═══════════════════════════════════════════════════════════════
+dispSettings       = "═══════ DISPLACEMENT CANDLE ═══════"
+enableDisplacement = input.bool (group=dispSettings, defval=true,                     title="Show displacement candles?")
+bullDispColor      = input.color(group=dispSettings, defval=color.rgb(119, 193, 253), title="Bullish displacement color")
+bearDispColor      = input.color(group=dispSettings, defval=color.rgb(252, 188, 94),  title="Bearish displacement color")
+
+// ═══════════════════════════════════════════════════════════════
+// 🛠 KILLZONES
+// ═══════════════════════════════════════════════════════════════
+kzSettings = "═══════ KILLZONES ═══════"
+showKillzones = input.bool(group=kzSettings, defval=true, title="Show Killzones?")
+kzOpacity     = input.int (group=kzSettings, defval=88,   title="Background Opacity", minval=0, maxval=100)
+
+kz1On    = input.bool  (group=kzSettings, defval=true,  title="KZ 1", inline="kz1")
+kz1Start = input.session(group=kzSettings, defval="1400-1900", title="", inline="kz1")
+kz1Color = input.color (group=kzSettings, defval=color.purple, title="",inline="kz1")
+
+kz2On    = input.bool  (group=kzSettings, defval=true,  title="KZ 2", inline="kz2")
+kz2Start = input.session(group=kzSettings, defval="2000-0000", title="", inline="kz2")
+kz2Color = input.color (group=kzSettings, defval=color.orange, title="",inline="kz2")
+
+kz3On    = input.bool  (group=kzSettings, defval=true,  title="KZ 3", inline="kz3")
+kz3Start = input.session(group=kzSettings, defval="0200-0500", title="", inline="kz3")
+kz3Color = input.color (group=kzSettings, defval=color.red,    title="",inline="kz3")
+
+kz4On    = input.bool  (group=kzSettings, defval=true,  title="KZ 4", inline="kz4")
+kz4Start = input.session(group=kzSettings, defval="0700-1200", title="", inline="kz4")
+kz4Color = input.color (group=kzSettings, defval=color.blue,   title="",inline="kz4")
+
+kz5On    = input.bool  (group=kzSettings, defval=false, title="KZ 5", inline="kz5")
+kz5Start = input.session(group=kzSettings, defval="1000-1200", title="", inline="kz5")
+kz5Color = input.color (group=kzSettings, defval=color.gray,   title="",inline="kz5")
+
+
+// ═══════════════════════════════════════════════════════════════
+// 🛠 LIQUIDITY LEVELS (PDH / PDL / PWH / PWL / PMH / PML)
+// ═══════════════════════════════════════════════════════════════
+liqSettings = "═══════ LIQUIDITY LEVELS ═══════"
+showLiq = input.bool(group=liqSettings, defval=true, title="Show Liquidity Levels?")
+
+showPDH    = input.bool  (group=liqSettings, defval=true,               title="PDH", inline="pdh")
+pdhColor   = input.color (group=liqSettings, defval=color.teal,         title="",    inline="pdh")
+pdhStyle   = input.string(group=liqSettings, defval="dotted",           title="",    inline="pdh", options=["solid","dashed","dotted"])
+
+showPDL    = input.bool  (group=liqSettings, defval=true,               title="PDL", inline="pdl")
+pdlColor   = input.color (group=liqSettings, defval=color.teal,         title="",    inline="pdl")
+pdlStyle   = input.string(group=liqSettings, defval="dotted",           title="",    inline="pdl", options=["solid","dashed","dotted"])
+
+showPWH    = input.bool  (group=liqSettings, defval=true,               title="PWH", inline="pwh")
+pwhColor   = input.color (group=liqSettings, defval=color.blue,         title="",    inline="pwh")
+pwhStyle   = input.string(group=liqSettings, defval="dashed",           title="",    inline="pwh", options=["solid","dashed","dotted"])
+
+showPWL    = input.bool  (group=liqSettings, defval=true,               title="PWL", inline="pwl")
+pwlColor   = input.color (group=liqSettings, defval=color.blue,         title="",    inline="pwl")
+pwlStyle   = input.string(group=liqSettings, defval="dashed",           title="",    inline="pwl", options=["solid","dashed","dotted"])
+
+showPMH    = input.bool  (group=liqSettings, defval=true,               title="PMH", inline="pmh")
+pmhColor   = input.color (group=liqSettings, defval=color.red,          title="",    inline="pmh")
+pmhStyle   = input.string(group=liqSettings, defval="dashed",           title="",    inline="pmh", options=["solid","dashed","dotted"])
+
+showPML    = input.bool  (group=liqSettings, defval=true,               title="PML", inline="pml")
+pmlColor   = input.color (group=liqSettings, defval=color.red,          title="",    inline="pml")
+pmlStyle   = input.string(group=liqSettings, defval="dashed",           title="",    inline="pml", options=["solid","dashed","dotted"])
+
+showSessLevels  = input.bool  (group=liqSettings, defval=true,   title="Show Session High/Low?")
+showSessVol     = input.bool  (group=kzSettings,  defval=true,   title="Show session volume?")
+volHistoryDays  = input.int   (group=kzSettings,  defval=10,     title="Volume history (days)", minval=1, maxval=30)
+sessLevelStyle  = input.string(group=liqSettings, defval="solid", title="Session H/L line style", options=["solid","dashed","dotted"])
+
+// ═══════════════════════════════════════════════════════════════
+// 🛠 OPENS (Daily / Weekly / Monthly / Yearly / Midnight)
+// ═══════════════════════════════════════════════════════════════
+openSettings = "═══════ OPENS ═══════"
+showOpens = input.bool(group=openSettings, defval=true, title="Show Opens?")
+
+showDailyOpen    = input.bool  (group=openSettings, defval=false,             title="Daily",    inline="dopen")
+dailyOpenColor   = input.color (group=openSettings, defval=color.gray,        title="",         inline="dopen")
+dailyOpenStyle   = input.string(group=openSettings, defval="solid",           title="",         inline="dopen", options=["solid","dashed","dotted"])
+
+showWeeklyOpen   = input.bool  (group=openSettings, defval=true,              title="Weekly",   inline="wopen")
+weeklyOpenColor  = input.color (group=openSettings, defval=color.blue,        title="",         inline="wopen")
+weeklyOpenStyle  = input.string(group=openSettings, defval="dashed",          title="",         inline="wopen", options=["solid","dashed","dotted"])
+
+showMonthlyOpen  = input.bool  (group=openSettings, defval=true,              title="Monthly",  inline="mopen")
+monthlyOpenColor = input.color (group=openSettings, defval=color.green,       title="",         inline="mopen")
+monthlyOpenStyle = input.string(group=openSettings, defval="dashed",          title="",         inline="mopen", options=["solid","dashed","dotted"])
+
+showYearlyOpen   = input.bool  (group=openSettings, defval=false,             title="Yearly",   inline="yopen")
+yearlyOpenColor  = input.color (group=openSettings, defval=color.red,         title="",         inline="yopen")
+yearlyOpenStyle  = input.string(group=openSettings, defval="solid",           title="",         inline="yopen", options=["solid","dashed","dotted"])
+
+showMidnightOpen  = input.bool  (group=openSettings, defval=true,              title="Midnight", inline="mnopen")
+maxMidnightDays   = input.int   (group=openSettings, defval=3, title="Midnight history (days)", minval=1, maxval=20)
+midnightOpenColor= input.color (group=openSettings, defval=color.rgb(30,30,30), title="",       inline="mnopen")
+midnightOpenStyle= input.string(group=openSettings, defval="dotted",          title="",         inline="mnopen", options=["solid","dashed","dotted"])
+
+// ═══════════════════════════════════════════════════════════════
+// 🛠 BOS / CHoCH SETTINGS
+// ═══════════════════════════════════════════════════════════════
+structSettings = "═══════ BOS / CHoCH ═══════"
+showStruct       = input.bool  (group=structSettings, defval=true,  title="Show BOS / CHoCH?")
+structSwingLen   = input.int   (group=structSettings, defval=5,     title="Swing Length", minval=1, maxval=50)
+bosColorBull     = input.color (group=structSettings, defval=color.green, title="BOS Bull color")
+bosColorBear     = input.color (group=structSettings, defval=color.red,   title="BOS Bear color")
+chochColorBull   = input.color (group=structSettings, defval=color.green, title="CHoCH Bull color")
+chochColorBear   = input.color (group=structSettings, defval=color.red,   title="CHoCH Bear color")
+structLineWidth  = input.int   (group=structSettings, defval=1,     title="Line width", minval=1, maxval=4)
+
+// ═══════════════════════════════════════════════════════════════
+// 📦 TYPE DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+type fvg
+    box   boxObject
+    float top
+    float bottom
+    bool  filled
+    int   startCheck
+    bool  bullish
+
+type orderBlock
+    box   boxObject
+    float top
+    float bottom
+    bool  filled
+    int   startCheck
+    bool  bullish
+
+// ═══════════════════════════════════════════════════════════════
+// 📂 VARIABLES
+// ═══════════════════════════════════════════════════════════════
+var fvg[]        fvgs        = array.new<fvg>()
+var orderBlock[] orderBlocks = array.new<orderBlock>()
+
+// Liquidity level lines + labels (stockés pour déplacement)
+var line  pdhLine  = na
+var line  pdlLine  = na
+var line  pwhLine  = na
+var line  pwlLine  = na
+var line  pmhLine  = na
+var line  pmlLine  = na
+var label pdhLabel = na
+var label pdlLabel = na
+var label pwhLabel = na
+var label pwlLabel = na
+var label pmhLabel = na
+var label pmlLabel = na
+
+// Session Volume tracking (accumulé barre par barre, affiché à la clôture)
+var float kz1Vol = 0.0
+var float kz2Vol = 0.0
+var float kz3Vol = 0.0
+var float kz4Vol = 0.0
+var float kz5Vol = 0.0
+
+// Session High/Low lines + labels (couleur = bordure de la killzone correspondante)
+var line  kz1HighLine = na
+var line  kz1LowLine  = na
+var label kz1HighLbl  = na
+var label kz1LowLbl   = na
+var float kz1High     = na
+var float kz1Low      = na
+
+var line  kz2HighLine = na
+var line  kz2LowLine  = na
+var label kz2HighLbl  = na
+var label kz2LowLbl   = na
+var float kz2High     = na
+var float kz2Low      = na
+
+var line  kz3HighLine = na
+var line  kz3LowLine  = na
+var label kz3HighLbl  = na
+var label kz3LowLbl   = na
+var float kz3High     = na
+var float kz3Low      = na
+
+var line  kz4HighLine = na
+var line  kz4LowLine  = na
+var label kz4HighLbl  = na
+var label kz4LowLbl   = na
+var float kz4High     = na
+var float kz4Low      = na
+
+var line  kz5HighLine = na
+var line  kz5LowLine  = na
+var label kz5HighLbl  = na
+var label kz5LowLbl   = na
+var float kz5High     = na
+var float kz5Low      = na
+
+// Open lines + labels (label stocké pour déplacement à chaque barre)
+var line  dailyOpenLine    = na
+var line  weeklyOpenLine   = na
+var line  monthlyOpenLine  = na
+var line  yearlyOpenLine   = na
+var line  midnightLine     = na
+var line[]  midnightLines  = array.new<line>()
+var label[] midnightLabels = array.new<label>()
+var label dailyOpenLabel   = na
+var label weeklyOpenLabel  = na
+var label monthlyOpenLabel = na
+var label yearlyOpenLabel  = na
+var label midnightLabel    = na
+
+// BOS/CHoCH state
+var int   structDir      = 0      // 1 = bullish, -1 = bearish, 0 = undefined
+var float lastSwingHigh  = na
+var float lastSwingLow   = na
+var int   lastSwingHighBar = na
+var int   lastSwingLowBar  = na
+
+// ═══════════════════════════════════════════════════════════════
+// 🎯 HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+isBarInRange() =>
+    bar_index >= bar_index - lookbackBars
+
+candleHigh(touchMode) =>
+    touchMode == "Corps" ? math.max(open, close) : high
+
+candleLow(touchMode) =>
+    touchMode == "Corps" ? math.min(open, close) : low
+
+lineStyleFromString(s) =>
+    s == "dashed" ? line.style_dashed : s == "dotted" ? line.style_dotted : line.style_solid
+
+// Draw or update a persistent horizontal line with label
+drawLevel(enabled, price, lColor, lStyle, lLabel, existingLine) =>
+    newLine = existingLine
+    if enabled and not na(price)
+        if na(existingLine)
+            newLine := line.new(
+                 x1=bar_index, y1=price,
+                 x2=bar_index + 1, y2=price,
+                 color=lColor,
+                 style=lineStyleFromString(lStyle),
+                 width=1,
+                 extend=extend.right)
+            label.new(
+                 x=bar_index, y=price,
+                 text=lLabel,
+                 color=color.new(color.black, 100),
+                 textcolor=lColor,
+                 style=label.style_label_right,
+                 size=size.small)
+        else
+            line.set_y1(existingLine, price)
+            line.set_y2(existingLine, price)
+            line.set_color(existingLine, lColor)
+            line.set_style(existingLine, lineStyleFromString(lStyle))
+    newLine
+
+// Format volume compact : 1234567 → "1.23M", 12345 → "12.35K"
+fmtVol(v) =>
+    v >= 1000000 ? str.tostring(math.round(v / 1000000, 2)) + "M"
+     : v >= 1000 ? str.tostring(math.round(v / 1000, 2)) + "K"
+     : str.tostring(math.round(v, 0))
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 FVG LOGIC
+// ═══════════════════════════════════════════════════════════════
+drawFVGBoxes(inRange) =>
+    bullFVG = inRange and low > high[2]
+    bearFVG = inRange and high < low[2]
+
+    if bullFVG or bearFVG
+        topVal    = bullFVG ? low    : low[2]
+        bottomVal = bullFVG ? high[2]: high
+        colorFVG  = bullFVG ? fvgBullColor : fvgBearColor
+        textFVG   = bullFVG ? fvgBullText  : fvgBearText
+        borderColorFVG = showFvgBorders ? color.new(colorFVG, 0) : color.new(colorFVG, 100)
+
+        b = box.new(
+             left=bar_index - 2, right=bar_index,
+             top=topVal, bottom=bottomVal,
+             bgcolor=color.new(colorFVG, fvgBackgroundOpacity),
+             border_color=borderColorFVG,
+             text=textFVG,
+             text_color=color.new(colorFVG, fvgTextOpacity),
+             text_size=size.tiny)
+
+        if array.size(fvgs) >= maxBoxes
+            old = array.shift(fvgs)
+            box.delete(old.boxObject)
+
+        array.push(fvgs, fvg.new(b, topVal, bottomVal, false, bar_index + 1, bullFVG))
+
+resizeFVGBoxes(inRange) =>
+    if array.size(fvgs) > 0
+        for i = array.size(fvgs) - 1 to 0
+            gap = array.get(fvgs, i)
+            if not gap.filled
+                if bar_index >= gap.startCheck
+                    cHigh   = candleHigh(fvgTouchMode)
+                    cLow    = candleLow(fvgTouchMode)
+                    touched = cLow < gap.top and cHigh > gap.bottom
+                    if touched
+                        gap.filled := true
+                        if autoDeleteFvgs
+                            box.delete(gap.boxObject)
+                            array.remove(fvgs, i)
+                            continue
+                    else
+                        if stretchFvgs
+                            newRight = bar_index + 1
+                            if box.get_right(gap.boxObject) != newRight
+                                box.set_right(gap.boxObject, newRight)
+                else
+                    if stretchFvgs
+                        newRight = bar_index + 1
+                        if box.get_right(gap.boxObject) != newRight
+                            box.set_right(gap.boxObject, newRight)
+                array.set(fvgs, i, gap)
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 ORDER BLOCK LOGIC
+// ═══════════════════════════════════════════════════════════════
+drawOrderBlocks(inRange) =>
+    isBearCandle      = close[1] < open[1]
+    isBullDisplacement= close > high[1]
+    bullOB = inRange and isBearCandle and isBullDisplacement
+
+    isBullCandle      = close[1] > open[1]
+    isBearDisplacement= close < low[1]
+    bearOB = inRange and isBullCandle and isBearDisplacement
+
+    if bullOB or bearOB
+        topVal    = high[1]
+        bottomVal = low[1]
+        colorOB   = bullOB ? obBullColor : obBearColor
+        textOB    = bullOB ? obBullText  : obBearText
+        borderColorOB = showObBorders ? color.new(colorOB, 0) : color.new(colorOB, 100)
+
+        b = box.new(
+             left=bar_index - 1, right=bar_index,
+             top=topVal, bottom=bottomVal,
+             bgcolor=color.new(colorOB, obBackgroundOpacity),
+             border_color=borderColorOB,
+             text=textOB,
+             text_color=color.new(colorOB, obTextOpacity),
+             text_size=size.tiny)
+
+        if array.size(orderBlocks) >= maxBoxes
+            old = array.shift(orderBlocks)
+            box.delete(old.boxObject)
+
+        array.push(orderBlocks, orderBlock.new(b, topVal, bottomVal, false, bar_index + 1, bullOB))
+
+resizeOrderBlocks(inRange) =>
+    if array.size(orderBlocks) > 0
+        for i = array.size(orderBlocks) - 1 to 0
+            ob = array.get(orderBlocks, i)
+            if not ob.filled
+                if bar_index >= ob.startCheck
+                    cHigh   = candleHigh(obTouchMode)
+                    cLow    = candleLow(obTouchMode)
+                    touched = cLow < ob.top and cHigh > ob.bottom
+                    if touched
+                        ob.filled := true
+                        if autoDeleteOBs
+                            box.delete(ob.boxObject)
+                            array.remove(orderBlocks, i)
+                            continue
+                    else
+                        if stretchOBs
+                            newRight = bar_index + 1
+                            if box.get_right(ob.boxObject) != newRight
+                                box.set_right(ob.boxObject, newRight)
+                else
+                    if stretchOBs
+                        newRight = bar_index + 1
+                        if box.get_right(ob.boxObject) != newRight
+                            box.set_right(ob.boxObject, newRight)
+                array.set(orderBlocks, i, ob)
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 DISPLACEMENT CANDLE DETECTOR
+// Colore UNIQUEMENT la bougie qui casse un swing pivot confirmé
+// = même logique que BOS/CHoCH, mais exprimée en couleur de bougie
+// Une seule bougie colorée par cassure — pas de répétition
+// ═══════════════════════════════════════════════════════════════
+var float _dispLastHigh    = na
+var float _dispLastLow     = na
+var bool  _dispBullFired   = false
+var bool  _dispBearFired   = false
+
+_dispSwingH = ta.pivothigh(high, structSwingLen, structSwingLen)
+_dispSwingL = ta.pivotlow (low,  structSwingLen, structSwingLen)
+
+// Mise à jour du dernier swing confirmé
+if not na(_dispSwingH)
+    _dispLastHigh  := _dispSwingH
+    _dispBullFired := false   // nouveau swing = reset du flag
+
+if not na(_dispSwingL)
+    _dispLastLow   := _dispSwingL
+    _dispBearFired := false
+
+// Cassure haussière : close franchit le swing high ET pas encore coloré
+_isBullDispBreak = enableDisplacement
+     and not na(_dispLastHigh)
+     and close > _dispLastHigh
+     and not _dispBullFired
+
+// Cassure baissière
+_isBearDispBreak = enableDisplacement
+     and not na(_dispLastLow)
+     and close < _dispLastLow
+     and not _dispBearFired
+
+// Marquer comme déclenché pour éviter la répétition
+if _isBullDispBreak
+    _dispBullFired := true
+
+if _isBearDispBreak
+    _dispBearFired := true
+
+barcolor(enableDisplacement ? (_isBullDispBreak ? color.new(bullDispColor, 0) : _isBearDispBreak ? color.new(bearDispColor, 0) : na) : na)
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 KILLZONES
+// ═══════════════════════════════════════════════════════════════
+// bgcolor des killzones géré au niveau racine plus bas
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 LIQUIDITY LEVELS
+// ═══════════════════════════════════════════════════════════════
+// Calcul des changements de période (ta.change au niveau racine — requis Pine v6)
+_chgD   = ta.change(time("D"))
+_chgW   = ta.change(time("W"))
+_chgM   = ta.change(time("M"))
+_chg12M = ta.change(time("12M"))
+
+// Previous Day
+isNewDay = timeframe.isintraday and _chgD != 0
+var float prevDayHigh = na
+var float prevDayLow  = na
+var float _dayHigh    = na
+var float _dayLow     = na
+
+if isNewDay
+    prevDayHigh := _dayHigh
+    prevDayLow  := _dayLow
+    _dayHigh    := high
+    _dayLow     := low
+else
+    _dayHigh := math.max(nz(_dayHigh, high), high)
+    _dayLow  := math.min(nz(_dayLow,  low),  low)
+
+// Previous Week
+isNewWeek = timeframe.isintraday and _chgW != 0
+var float prevWeekHigh = na
+var float prevWeekLow  = na
+var float _weekHigh    = na
+var float _weekLow     = na
+
+if isNewWeek
+    prevWeekHigh := _weekHigh
+    prevWeekLow  := _weekLow
+    _weekHigh    := high
+    _weekLow     := low
+else
+    _weekHigh := math.max(nz(_weekHigh, high), high)
+    _weekLow  := math.min(nz(_weekLow,  low),  low)
+
+// Previous Month
+isNewMonth = timeframe.isintraday and _chgM != 0
+var float prevMonthHigh = na
+var float prevMonthLow  = na
+var float _monthHigh    = na
+var float _monthLow     = na
+
+if isNewMonth
+    prevMonthHigh := _monthHigh
+    prevMonthLow  := _monthLow
+    _monthHigh    := high
+    _monthLow     := low
+else
+    _monthHigh := math.max(nz(_monthHigh, high), high)
+    _monthLow  := math.min(nz(_monthLow,  low),  low)
+
+// ─────────────────────────────────────────────────────────────
+// Draw liquidity lines
+// • Créées à la transition de période (extend.none)
+// • Étirées barre par barre via line.set_x2
+// • Label déplacé à droite à chaque barre
+// • À la PROCHAINE transition : l'ancienne ligne est supprimée
+//   → seule la période EN COURS est visible
+// ─────────────────────────────────────────────────────────────
+_liqOffset = 3
+
+if showLiq
+    // ── PDH / PDL : seulement le jour précédent ──
+    if showPDH
+        if isNewDay and not na(prevDayHigh)
+            line.delete(pdhLine)
+            label.delete(pdhLabel)
+            pdhLine  := line.new(bar_index, prevDayHigh, bar_index + 1, prevDayHigh,
+                 color=pdhColor, style=lineStyleFromString(pdhStyle), width=1, extend=extend.none)
+            pdhLabel := label.new(bar_index, prevDayHigh, "PDH",
+                 color=color.new(color.black,100), textcolor=pdhColor,
+                 style=label.style_label_right, size=size.small)
+        else if not na(pdhLine)
+            line.set_x2(pdhLine, bar_index)
+
+    if showPDL
+        if isNewDay and not na(prevDayLow)
+            line.delete(pdlLine)
+            label.delete(pdlLabel)
+            pdlLine  := line.new(bar_index, prevDayLow, bar_index + 1, prevDayLow,
+                 color=pdlColor, style=lineStyleFromString(pdlStyle), width=1, extend=extend.none)
+            pdlLabel := label.new(bar_index, prevDayLow, "PDL",
+                 color=color.new(color.black,100), textcolor=pdlColor,
+                 style=label.style_label_right, size=size.small)
+        else if not na(pdlLine)
+            line.set_x2(pdlLine, bar_index)
+
+    // ── PWH / PWL : seulement la semaine précédente ──
+    if showPWH
+        if isNewWeek and not na(prevWeekHigh)
+            line.delete(pwhLine)
+            label.delete(pwhLabel)
+            pwhLine  := line.new(bar_index, prevWeekHigh, bar_index + 1, prevWeekHigh,
+                 color=pwhColor, style=lineStyleFromString(pwhStyle), width=1, extend=extend.none)
+            pwhLabel := label.new(bar_index, prevWeekHigh, "PWH",
+                 color=color.new(color.black,100), textcolor=pwhColor,
+                 style=label.style_label_right, size=size.small)
+        else if not na(pwhLine)
+            line.set_x2(pwhLine, bar_index)
+
+    if showPWL
+        if isNewWeek and not na(prevWeekLow)
+            line.delete(pwlLine)
+            label.delete(pwlLabel)
+            pwlLine  := line.new(bar_index, prevWeekLow, bar_index + 1, prevWeekLow,
+                 color=pwlColor, style=lineStyleFromString(pwlStyle), width=1, extend=extend.none)
+            pwlLabel := label.new(bar_index, prevWeekLow, "PWL",
+                 color=color.new(color.black,100), textcolor=pwlColor,
+                 style=label.style_label_right, size=size.small)
+        else if not na(pwlLine)
+            line.set_x2(pwlLine, bar_index)
+
+    // ── PMH / PML : seulement le mois précédent ──
+    if showPMH
+        if isNewMonth and not na(prevMonthHigh)
+            line.delete(pmhLine)
+            label.delete(pmhLabel)
+            pmhLine  := line.new(bar_index, prevMonthHigh, bar_index + 1, prevMonthHigh,
+                 color=pmhColor, style=lineStyleFromString(pmhStyle), width=1, extend=extend.none)
+            pmhLabel := label.new(bar_index, prevMonthHigh, "PMH",
+                 color=color.new(color.black,100), textcolor=pmhColor,
+                 style=label.style_label_right, size=size.small)
+        else if not na(pmhLine)
+            line.set_x2(pmhLine, bar_index)
+
+    if showPML
+        if isNewMonth and not na(prevMonthLow)
+            line.delete(pmlLine)
+            label.delete(pmlLabel)
+            pmlLine  := line.new(bar_index, prevMonthLow, bar_index + 1, prevMonthLow,
+                 color=pmlColor, style=lineStyleFromString(pmlStyle), width=1, extend=extend.none)
+            pmlLabel := label.new(bar_index, prevMonthLow, "PML",
+                 color=color.new(color.black,100), textcolor=pmlColor,
+                 style=label.style_label_right, size=size.small)
+        else if not na(pmlLine)
+            line.set_x2(pmlLine, bar_index)
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 OPENS
+// • Ligne créée à la transition, étendue barre par barre (extend.none)
+// • Label stocké et déplacé à bar_index + offset à chaque barre
+//   → toujours visible à droite de la ligne, proprement espacé
+// ═══════════════════════════════════════════════════════════════
+isNewYear  = timeframe.isintraday and _chg12M != 0
+isMidnight = timeframe.isintraday and hour(time, "America/New_York") == 0 and minute(time, "America/New_York") == 0
+
+// Décalage du label par rapport à l'extrémité droite (en bars)
+_labelOffset = 3
+
+if showOpens
+    // ── Daily Open — current day only ──
+    if showDailyOpen
+        if isNewDay
+            line.delete(dailyOpenLine)
+            label.delete(dailyOpenLabel)
+            dailyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
+                 color=dailyOpenColor, style=lineStyleFromString(dailyOpenStyle),
+                 width=1, extend=extend.none)
+            dailyOpenLabel := label.new(bar_index, open, "_D",
+                 color=color.new(color.black,100), textcolor=dailyOpenColor,
+                 style=label.style_label_right, size=size.small)
+        else if not na(dailyOpenLine)
+            line.set_x2(dailyOpenLine, bar_index)
+
+    // ── Weekly Open — uniquement la semaine en cours ──
+    if showWeeklyOpen
+        if isNewWeek
+            line.delete(weeklyOpenLine)
+            label.delete(weeklyOpenLabel)
+            weeklyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
+                 color=weeklyOpenColor, style=lineStyleFromString(weeklyOpenStyle),
+                 width=1, extend=extend.none)
+            weeklyOpenLabel := label.new(bar_index, open, "_W",
+                 color=color.new(color.black,100), textcolor=weeklyOpenColor,
+                 style=label.style_label_right, size=size.small)
+        else if not na(weeklyOpenLine)
+            line.set_x2(weeklyOpenLine, bar_index)
+
+    // ── Monthly Open — uniquement le mois en cours ──
+    if showMonthlyOpen
+        if isNewMonth
+            line.delete(monthlyOpenLine)
+            label.delete(monthlyOpenLabel)
+            monthlyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
+                 color=monthlyOpenColor, style=lineStyleFromString(monthlyOpenStyle),
+                 width=1, extend=extend.none)
+            monthlyOpenLabel := label.new(bar_index, open, "_M",
+                 color=color.new(color.black,100), textcolor=monthlyOpenColor,
+                 style=label.style_label_right, size=size.small)
+        else if not na(monthlyOpenLine)
+            line.set_x2(monthlyOpenLine, bar_index)
+
+    // ── Yearly Open ──
+    if showYearlyOpen
+        if isNewYear
+            yearlyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
+                 color=yearlyOpenColor, style=lineStyleFromString(yearlyOpenStyle),
+                 width=1, extend=extend.none)
+            yearlyOpenLabel := label.new(bar_index + _labelOffset, open, "_Y",
+                 color=color.new(color.black,100), textcolor=yearlyOpenColor,
+                 style=label.style_label_left, size=size.small)
+        else if not na(yearlyOpenLine)
+            line.set_x2(yearlyOpenLine, bar_index)
+            if not na(yearlyOpenLabel)
+                label.set_x(yearlyOpenLabel, bar_index + _labelOffset)
+
+    // ── Midnight Open — N days history (maxMidnightDays) ──
+    if showMidnightOpen
+        if isMidnight
+            // Créer nouvelle ligne + label
+            _mLine  = line.new(bar_index, open, bar_index + 1, open,
+                 color=midnightOpenColor, style=lineStyleFromString(midnightOpenStyle),
+                 width=1, extend=extend.none)
+            _mLabel = label.new(bar_index + _labelOffset, open, "00:00",
+                 color=color.new(color.black,100), textcolor=midnightOpenColor,
+                 style=label.style_label_left, size=size.small)
+            array.push(midnightLines,  _mLine)
+            array.push(midnightLabels, _mLabel)
+            // Supprimer les plus anciennes si on dépasse maxMidnightDays
+            if array.size(midnightLines) > maxMidnightDays
+                line.delete(array.shift(midnightLines))
+                label.delete(array.shift(midnightLabels))
+            // Mettre à jour la référence courante
+            midnightLine  := _mLine
+            midnightLabel := _mLabel
+        else if not na(midnightLine)
+            line.set_x2(midnightLine, bar_index)
+            label.set_x(midnightLabel, bar_index + _labelOffset)
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 BOS / CHoCH
+// Logique MSS ICT :
+//   • pivot confirmé N bars après sa formation (structSwingLen)
+//   • close qui franchit le dernier swing opposé = signal
+//   • même direction que structDir → BOS (continuation)
+//   • direction opposée → CHoCH (inversion)
+//   • on ne reset pas le swing après le break : le prochain pivot
+//     confirmé écrasera naturellement la référence
+// ═══════════════════════════════════════════════════════════════
+swingH    = ta.pivothigh(high, structSwingLen, structSwingLen)
+swingL    = ta.pivotlow (low,  structSwingLen, structSwingLen)
+pivotHBar = bar_index - structSwingLen
+pivotLBar = bar_index - structSwingLen
+
+if showStruct
+    // Mise à jour des pivots confirmés
+    if not na(swingH)
+        lastSwingHigh    := swingH
+        lastSwingHighBar := pivotHBar
+
+    if not na(swingL)
+        lastSwingLow    := swingL
+        lastSwingLowBar := pivotLBar
+
+    // ── Cassure haussière : close franchit le dernier swing high ──
+    // Label AU-DESSUS de la ligne (label_down pointe vers le bas = texte au-dessus du prix)
+    if not na(lastSwingHigh) and not na(lastSwingHighBar)
+        bullBreak = close > lastSwingHigh and close[1] <= lastSwingHigh[1]
+        if bullBreak
+            lColor = structDir == 1 ? bosColorBull : chochColorBull
+            lText  = structDir == 1 ? "bos"        : "ChoCH"
+            line.new(lastSwingHighBar, lastSwingHigh, bar_index, lastSwingHigh,
+                 color=lColor, style=line.style_solid, width=structLineWidth)
+            label.new(bar_index, lastSwingHigh, lText,
+                 color=color.new(color.black, 100), textcolor=lColor,
+                 style=label.style_label_lower_right, size=size.small)
+            structDir    := 1
+            // On écrase la référence pour éviter un double signal
+            lastSwingHigh    := na
+            lastSwingHighBar := na
+
+    // ── Cassure baissière : close franchit le dernier swing low ──
+    // Label EN-DESSOUS de la ligne (label_up pointe vers le haut = texte sous le prix)
+    if not na(lastSwingLow) and not na(lastSwingLowBar)
+        bearBreak = close < lastSwingLow and close[1] >= lastSwingLow[1]
+        if bearBreak
+            lColor = structDir == -1 ? bosColorBear : chochColorBear
+            lText  = structDir == -1 ? "bos"        : "ChoCH"
+            line.new(lastSwingLowBar, lastSwingLow, bar_index, lastSwingLow,
+                 color=lColor, style=line.style_solid, width=structLineWidth)
+            label.new(bar_index, lastSwingLow, lText,
+                 color=color.new(color.black, 100), textcolor=lColor,
+                 style=label.style_label_upper_right, size=size.small)
+            structDir   := -1
+            lastSwingLow    := na
+            lastSwingLowBar := na
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 KILLZONES — box délimitées par la session (début → fin)
+// On crée une box au premier bar de la session et on étire
+// sa bordure droite jusqu'au dernier bar de la session
+// ═══════════════════════════════════════════════════════════════
+var box  kzBox1 = na
+var box  kzBox2 = na
+var box  kzBox3 = na
+var box  kzBox4 = na
+var box  kzBox5 = na
+// Lignes de bordure haut/bas pour chaque KZ (côtés masqués)
+var line kzTop1 = na
+var line kzBot1 = na
+var line kzTop2 = na
+var line kzBot2 = na
+var line kzTop3 = na
+var line kzBot3 = na
+var line kzTop4 = na
+var line kzBot4 = na
+var line kzTop5 = na
+var line kzBot5 = na
+
+
+_tfOk = timeframe.in_seconds() < 240 * 60
+
+// ── KZ 1 ──
+if showKillzones and kz1On and _tfOk
+    _inSess1 = not na(time(timeframe.period, kz1Start, "America/New_York"))
+    _inPrev1 = not na(time(timeframe.period, kz1Start, "America/New_York")[1])
+    if _inSess1 and not _inPrev1
+        kzBox1 := box.new(bar_index, high, bar_index+1, low,
+             bgcolor=color.new(kz1Color, kzOpacity), border_color=color.new(kz1Color, 100))
+        kzTop1 := line.new(bar_index, high, bar_index+1, high,
+             color=color.new(kz1Color, 40), style=line.style_solid, width=1)
+        kzBot1 := line.new(bar_index, low,  bar_index+1, low,
+             color=color.new(kz1Color, 40), style=line.style_solid, width=1)
+    else if _inSess1 and not na(kzBox1)
+        _t1 = math.max(box.get_top(kzBox1), high)
+        _b1 = math.min(box.get_bottom(kzBox1), low)
+        box.set_right(kzBox1, bar_index+1)
+        box.set_top(kzBox1, _t1)
+        box.set_bottom(kzBox1, _b1)
+        if not na(kzTop1)
+            line.set_x2(kzTop1, bar_index+1)
+            line.set_y1(kzTop1, _t1)
+            line.set_y2(kzTop1, _t1)
+        if not na(kzBot1)
+            line.set_x2(kzBot1, bar_index+1)
+            line.set_y1(kzBot1, _b1)
+            line.set_y2(kzBot1, _b1)
+
+// ── KZ 2 ──
+if showKillzones and kz2On and _tfOk
+    _inSess2 = not na(time(timeframe.period, kz2Start, "America/New_York"))
+    _inPrev2 = not na(time(timeframe.period, kz2Start, "America/New_York")[1])
+    if _inSess2 and not _inPrev2
+        kzBox2 := box.new(bar_index, high, bar_index+1, low,
+             bgcolor=color.new(kz2Color, kzOpacity), border_color=color.new(kz2Color, 100))
+        kzTop2 := line.new(bar_index, high, bar_index+1, high,
+             color=color.new(kz2Color, 40), style=line.style_solid, width=1)
+        kzBot2 := line.new(bar_index, low,  bar_index+1, low,
+             color=color.new(kz2Color, 40), style=line.style_solid, width=1)
+    else if _inSess2 and not na(kzBox2)
+        _t2 = math.max(box.get_top(kzBox2), high)
+        _b2 = math.min(box.get_bottom(kzBox2), low)
+        box.set_right(kzBox2, bar_index+1)
+        box.set_top(kzBox2, _t2)
+        box.set_bottom(kzBox2, _b2)
+        if not na(kzTop2)
+            line.set_x2(kzTop2, bar_index+1)
+            line.set_y1(kzTop2, _t2)
+            line.set_y2(kzTop2, _t2)
+        if not na(kzBot2)
+            line.set_x2(kzBot2, bar_index+1)
+            line.set_y1(kzBot2, _b2)
+            line.set_y2(kzBot2, _b2)
+
+// ── KZ 3 ──
+if showKillzones and kz3On and _tfOk
+    _inSess3 = not na(time(timeframe.period, kz3Start, "America/New_York"))
+    _inPrev3 = not na(time(timeframe.period, kz3Start, "America/New_York")[1])
+    if _inSess3 and not _inPrev3
+        kzBox3 := box.new(bar_index, high, bar_index+1, low,
+             bgcolor=color.new(kz3Color, kzOpacity), border_color=color.new(kz3Color, 100))
+        kzTop3 := line.new(bar_index, high, bar_index+1, high,
+             color=color.new(kz3Color, 40), style=line.style_solid, width=1)
+        kzBot3 := line.new(bar_index, low,  bar_index+1, low,
+             color=color.new(kz3Color, 40), style=line.style_solid, width=1)
+    else if _inSess3 and not na(kzBox3)
+        _t3 = math.max(box.get_top(kzBox3), high)
+        _b3 = math.min(box.get_bottom(kzBox3), low)
+        box.set_right(kzBox3, bar_index+1)
+        box.set_top(kzBox3, _t3)
+        box.set_bottom(kzBox3, _b3)
+        if not na(kzTop3)
+            line.set_x2(kzTop3, bar_index+1)
+            line.set_y1(kzTop3, _t3)
+            line.set_y2(kzTop3, _t3)
+        if not na(kzBot3)
+            line.set_x2(kzBot3, bar_index+1)
+            line.set_y1(kzBot3, _b3)
+            line.set_y2(kzBot3, _b3)
+
+// ── KZ 4 ──
+if showKillzones and kz4On and _tfOk
+    _inSess4 = not na(time(timeframe.period, kz4Start, "America/New_York"))
+    _inPrev4 = not na(time(timeframe.period, kz4Start, "America/New_York")[1])
+    if _inSess4 and not _inPrev4
+        kzBox4 := box.new(bar_index, high, bar_index+1, low,
+             bgcolor=color.new(kz4Color, kzOpacity), border_color=color.new(kz4Color, 100))
+        kzTop4 := line.new(bar_index, high, bar_index+1, high,
+             color=color.new(kz4Color, 40), style=line.style_solid, width=1)
+        kzBot4 := line.new(bar_index, low,  bar_index+1, low,
+             color=color.new(kz4Color, 40), style=line.style_solid, width=1)
+    else if _inSess4 and not na(kzBox4)
+        _t4 = math.max(box.get_top(kzBox4), high)
+        _b4 = math.min(box.get_bottom(kzBox4), low)
+        box.set_right(kzBox4, bar_index+1)
+        box.set_top(kzBox4, _t4)
+        box.set_bottom(kzBox4, _b4)
+        if not na(kzTop4)
+            line.set_x2(kzTop4, bar_index+1)
+            line.set_y1(kzTop4, _t4)
+            line.set_y2(kzTop4, _t4)
+        if not na(kzBot4)
+            line.set_x2(kzBot4, bar_index+1)
+            line.set_y1(kzBot4, _b4)
+            line.set_y2(kzBot4, _b4)
+
+// ── KZ 5 ──
+if showKillzones and kz5On and _tfOk
+    _inSess5 = not na(time(timeframe.period, kz5Start, "America/New_York"))
+    _inPrev5 = not na(time(timeframe.period, kz5Start, "America/New_York")[1])
+    if _inSess5 and not _inPrev5
+        kzBox5 := box.new(bar_index, high, bar_index+1, low,
+             bgcolor=color.new(kz5Color, kzOpacity), border_color=color.new(kz5Color, 100))
+        kzTop5 := line.new(bar_index, high, bar_index+1, high,
+             color=color.new(kz5Color, 40), style=line.style_solid, width=1)
+        kzBot5 := line.new(bar_index, low,  bar_index+1, low,
+             color=color.new(kz5Color, 40), style=line.style_solid, width=1)
+    else if _inSess5 and not na(kzBox5)
+        _t5 = math.max(box.get_top(kzBox5), high)
+        _b5 = math.min(box.get_bottom(kzBox5), low)
+        box.set_right(kzBox5, bar_index+1)
+        box.set_top(kzBox5, _t5)
+        box.set_bottom(kzBox5, _b5)
+        if not na(kzTop5)
+            line.set_x2(kzTop5, bar_index+1)
+            line.set_y1(kzTop5, _t5)
+            line.set_y2(kzTop5, _t5)
+        if not na(kzBot5)
+            line.set_x2(kzBot5, bar_index+1)
+            line.set_y1(kzBot5, _b5)
+            line.set_y2(kzBot5, _b5)
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 SESSION HIGH / LOW LINES
+// Tracées à la fin de chaque session (premier bar hors session)
+// Couleur = couleur de bordure de la KZ correspondante (opacity 40)
+// Étirées barre par barre jusqu'à la prochaine session du même type
+// ═══════════════════════════════════════════════════════════════
+_slOffset = 3
+
+// Helper : dessine ou étire les lignes H/L d'une session
+// Appelé inline pour chaque KZ — compatible Pine v6
+if showSessLevels and _tfOk
+
+    // ── Session 1 ──
+    if kz1On
+        _s1     = not na(time(timeframe.period, kz1Start, "America/New_York"))
+        _s1prev = not na(time(timeframe.period, kz1Start, "America/New_York")[1])
+        _col1   = color.new(kz1Color, 40)
+        // Dans la session : tracker le high/low
+        if _s1
+            kz1High := na(kz1High) or not _s1prev ? high : math.max(kz1High, high)
+            kz1Low  := na(kz1Low)  or not _s1prev ? low  : math.min(kz1Low,  low)
+        // Premier bar HORS session : tracer les lignes
+        if not _s1 and _s1prev and not na(kz1High)
+            line.delete(kz1HighLine)
+            label.delete(kz1HighLbl)
+            line.delete(kz1LowLine)
+            label.delete(kz1LowLbl)
+            kz1HighLine := line.new(bar_index, kz1High, bar_index+1, kz1High, color=_col1, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz1HighLbl  := label.new(bar_index+_slOffset, kz1High, "KZ1H", color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.tiny)
+            kz1LowLine  := line.new(bar_index, kz1Low,  bar_index+1, kz1Low,  color=_col1, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz1LowLbl   := label.new(bar_index+_slOffset, kz1Low,  "KZ1L", color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.tiny)
+            kz1High := na
+            kz1Low  := na
+        // Étirer les lignes — supprimer si le prix touche le niveau
+        else if not _s1
+            if not na(kz1HighLine)
+                if high >= line.get_y1(kz1HighLine)
+                    line.delete(kz1HighLine)
+                    label.delete(kz1HighLbl)
+                    kz1HighLine := na
+                    kz1HighLbl  := na
+                else
+                    line.set_x2(kz1HighLine, bar_index)
+                    label.set_x(kz1HighLbl, bar_index+_slOffset)
+            if not na(kz1LowLine)
+                if low <= line.get_y1(kz1LowLine)
+                    line.delete(kz1LowLine)
+                    label.delete(kz1LowLbl)
+                    kz1LowLine := na
+                    kz1LowLbl  := na
+                else
+                    line.set_x2(kz1LowLine, bar_index)
+                    label.set_x(kz1LowLbl, bar_index+_slOffset)
+
+    // ── Session 2 ──
+    if kz2On
+        _s2     = not na(time(timeframe.period, kz2Start, "America/New_York"))
+        _s2prev = not na(time(timeframe.period, kz2Start, "America/New_York")[1])
+        _col2   = color.new(kz2Color, 40)
+        if _s2
+            kz2High := na(kz2High) or not _s2prev ? high : math.max(kz2High, high)
+            kz2Low  := na(kz2Low)  or not _s2prev ? low  : math.min(kz2Low,  low)
+        if not _s2 and _s2prev and not na(kz2High)
+            line.delete(kz2HighLine)
+            label.delete(kz2HighLbl)
+            line.delete(kz2LowLine)
+            label.delete(kz2LowLbl)
+            kz2HighLine := line.new(bar_index, kz2High, bar_index+1, kz2High, color=_col2, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz2HighLbl  := label.new(bar_index+_slOffset, kz2High, "KZ2H", color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.tiny)
+            kz2LowLine  := line.new(bar_index, kz2Low,  bar_index+1, kz2Low,  color=_col2, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz2LowLbl   := label.new(bar_index+_slOffset, kz2Low,  "KZ2L", color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.tiny)
+            kz2High := na
+            kz2Low  := na
+        else if not _s2
+            if not na(kz2HighLine)
+                if high >= line.get_y1(kz2HighLine)
+                    line.delete(kz2HighLine)
+                    label.delete(kz2HighLbl)
+                    kz2HighLine := na
+                    kz2HighLbl  := na
+                else
+                    line.set_x2(kz2HighLine, bar_index)
+                    label.set_x(kz2HighLbl, bar_index+_slOffset)
+            if not na(kz2LowLine)
+                if low <= line.get_y1(kz2LowLine)
+                    line.delete(kz2LowLine)
+                    label.delete(kz2LowLbl)
+                    kz2LowLine := na
+                    kz2LowLbl  := na
+                else
+                    line.set_x2(kz2LowLine, bar_index)
+                    label.set_x(kz2LowLbl, bar_index+_slOffset)
+
+    // ── Session 3 ──
+    if kz3On
+        _s3     = not na(time(timeframe.period, kz3Start, "America/New_York"))
+        _s3prev = not na(time(timeframe.period, kz3Start, "America/New_York")[1])
+        _col3   = color.new(kz3Color, 40)
+        if _s3
+            kz3High := na(kz3High) or not _s3prev ? high : math.max(kz3High, high)
+            kz3Low  := na(kz3Low)  or not _s3prev ? low  : math.min(kz3Low,  low)
+        if not _s3 and _s3prev and not na(kz3High)
+            line.delete(kz3HighLine)
+            label.delete(kz3HighLbl)
+            line.delete(kz3LowLine)
+            label.delete(kz3LowLbl)
+            kz3HighLine := line.new(bar_index, kz3High, bar_index+1, kz3High, color=_col3, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz3HighLbl  := label.new(bar_index+_slOffset, kz3High, "KZ3H", color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.tiny)
+            kz3LowLine  := line.new(bar_index, kz3Low,  bar_index+1, kz3Low,  color=_col3, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz3LowLbl   := label.new(bar_index+_slOffset, kz3Low,  "KZ3L", color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.tiny)
+            kz3High := na
+            kz3Low  := na
+        else if not _s3
+            if not na(kz3HighLine)
+                if high >= line.get_y1(kz3HighLine)
+                    line.delete(kz3HighLine)
+                    label.delete(kz3HighLbl)
+                    kz3HighLine := na
+                    kz3HighLbl  := na
+                else
+                    line.set_x2(kz3HighLine, bar_index)
+                    label.set_x(kz3HighLbl, bar_index+_slOffset)
+            if not na(kz3LowLine)
+                if low <= line.get_y1(kz3LowLine)
+                    line.delete(kz3LowLine)
+                    label.delete(kz3LowLbl)
+                    kz3LowLine := na
+                    kz3LowLbl  := na
+                else
+                    line.set_x2(kz3LowLine, bar_index)
+                    label.set_x(kz3LowLbl, bar_index+_slOffset)
+
+    // ── Session 4 ──
+    if kz4On
+        _s4     = not na(time(timeframe.period, kz4Start, "America/New_York"))
+        _s4prev = not na(time(timeframe.period, kz4Start, "America/New_York")[1])
+        _col4   = color.new(kz4Color, 40)
+        if _s4
+            kz4High := na(kz4High) or not _s4prev ? high : math.max(kz4High, high)
+            kz4Low  := na(kz4Low)  or not _s4prev ? low  : math.min(kz4Low,  low)
+        if not _s4 and _s4prev and not na(kz4High)
+            line.delete(kz4HighLine)
+            label.delete(kz4HighLbl)
+            line.delete(kz4LowLine)
+            label.delete(kz4LowLbl)
+            kz4HighLine := line.new(bar_index, kz4High, bar_index+1, kz4High, color=_col4, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz4HighLbl  := label.new(bar_index+_slOffset, kz4High, "KZ4H", color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.tiny)
+            kz4LowLine  := line.new(bar_index, kz4Low,  bar_index+1, kz4Low,  color=_col4, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz4LowLbl   := label.new(bar_index+_slOffset, kz4Low,  "KZ4L", color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.tiny)
+            kz4High := na
+            kz4Low  := na
+        else if not _s4
+            if not na(kz4HighLine)
+                if high >= line.get_y1(kz4HighLine)
+                    line.delete(kz4HighLine)
+                    label.delete(kz4HighLbl)
+                    kz4HighLine := na
+                    kz4HighLbl  := na
+                else
+                    line.set_x2(kz4HighLine, bar_index)
+                    label.set_x(kz4HighLbl, bar_index+_slOffset)
+            if not na(kz4LowLine)
+                if low <= line.get_y1(kz4LowLine)
+                    line.delete(kz4LowLine)
+                    label.delete(kz4LowLbl)
+                    kz4LowLine := na
+                    kz4LowLbl  := na
+                else
+                    line.set_x2(kz4LowLine, bar_index)
+                    label.set_x(kz4LowLbl, bar_index+_slOffset)
+
+    // ── Session 5 ──
+    if kz5On
+        _s5     = not na(time(timeframe.period, kz5Start, "America/New_York"))
+        _s5prev = not na(time(timeframe.period, kz5Start, "America/New_York")[1])
+        _col5   = color.new(kz5Color, 40)
+        if _s5
+            kz5High := na(kz5High) or not _s5prev ? high : math.max(kz5High, high)
+            kz5Low  := na(kz5Low)  or not _s5prev ? low  : math.min(kz5Low,  low)
+        if not _s5 and _s5prev and not na(kz5High)
+            line.delete(kz5HighLine)
+            label.delete(kz5HighLbl)
+            line.delete(kz5LowLine)
+            label.delete(kz5LowLbl)
+            kz5HighLine := line.new(bar_index, kz5High, bar_index+1, kz5High, color=_col5, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz5HighLbl  := label.new(bar_index+_slOffset, kz5High, "KZ5H", color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.tiny)
+            kz5LowLine  := line.new(bar_index, kz5Low,  bar_index+1, kz5Low,  color=_col5, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
+            kz5LowLbl   := label.new(bar_index+_slOffset, kz5Low,  "KZ5L", color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.tiny)
+            kz5High := na
+            kz5Low  := na
+        else if not _s5
+            if not na(kz5HighLine)
+                if high >= line.get_y1(kz5HighLine)
+                    line.delete(kz5HighLine)
+                    label.delete(kz5HighLbl)
+                    kz5HighLine := na
+                    kz5HighLbl  := na
+                else
+                    line.set_x2(kz5HighLine, bar_index)
+                    label.set_x(kz5HighLbl, bar_index+_slOffset)
+            if not na(kz5LowLine)
+                if low <= line.get_y1(kz5LowLine)
+                    line.delete(kz5LowLine)
+                    label.delete(kz5LowLbl)
+                    kz5LowLine := na
+                    kz5LowLbl  := na
+                else
+                    line.set_x2(kz5LowLine, bar_index)
+                    label.set_x(kz5LowLbl, bar_index+_slOffset)
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 SESSION VOLUME
+// Visible sur TF <= H1 uniquement
+// Historique 1 semaine (604800 secondes)
+// ═══════════════════════════════════════════════════════════════
+_volTfOk    = timeframe.in_seconds() <= 3600 and timeframe.in_seconds() >= 60
+// Compatible replay : pas de timenow, Pine gère l'historique via max_labels_count
+_inVolWindow = true
+
+if showSessVol and _volTfOk
+
+    // ── KZ1 Volume ──
+    if kz1On
+        _sv1     = not na(time(timeframe.period, kz1Start, "America/New_York"))
+        _sv1prev = not na(time(timeframe.period, kz1Start, "America/New_York")[1])
+        // Accumuler le volume pendant la session
+        if _sv1
+            if not _sv1prev
+                kz1Vol := volume  // premier bar : reset
+            else
+                kz1Vol += volume
+        // Fin de session : afficher le label si dans la semaine
+        if not _sv1 and _sv1prev and _inVolWindow
+            _kz1top = not na(kzBox1) ? box.get_top(kzBox1) : na
+            if not na(_kz1top)
+                // Centrer horizontalement : milieu entre début et fin de la box
+                _kz1left  = box.get_left(kzBox1)
+                _kz1mid   = _kz1left + math.round((bar_index - _kz1left) / 2)
+                label.new(
+                     x           = _kz1mid,
+                     y           = _kz1top,
+                     text        = fmtVol(kz1Vol),
+                     color       = color.new(kz1Color, 70),
+                     textcolor   = color.new(kz1Color, 0),
+                     style       = label.style_label_down,
+                     size        = size.normal)
+
+    // ── KZ2 Volume ──
+    if kz2On
+        _sv2     = not na(time(timeframe.period, kz2Start, "America/New_York"))
+        _sv2prev = not na(time(timeframe.period, kz2Start, "America/New_York")[1])
+        if _sv2
+            if not _sv2prev
+                kz2Vol := volume
+            else
+                kz2Vol += volume
+        if not _sv2 and _sv2prev and _inVolWindow
+            _kz2top = not na(kzBox2) ? box.get_top(kzBox2) : na
+            if not na(_kz2top)
+                // Centrer horizontalement : milieu entre début et fin de la box
+                _kz2left  = box.get_left(kzBox2)
+                _kz2mid   = _kz2left + math.round((bar_index - _kz2left) / 2)
+                label.new(
+                     x           = _kz2mid,
+                     y           = _kz2top,
+                     text        = fmtVol(kz2Vol),
+                     color       = color.new(kz2Color, 70),
+                     textcolor   = color.new(kz2Color, 0),
+                     style       = label.style_label_down,
+                     size        = size.normal)
+
+    // ── KZ3 Volume ──
+    if kz3On
+        _sv3     = not na(time(timeframe.period, kz3Start, "America/New_York"))
+        _sv3prev = not na(time(timeframe.period, kz3Start, "America/New_York")[1])
+        if _sv3
+            if not _sv3prev
+                kz3Vol := volume
+            else
+                kz3Vol += volume
+        if not _sv3 and _sv3prev and _inVolWindow
+            _kz3top = not na(kzBox3) ? box.get_top(kzBox3) : na
+            if not na(_kz3top)
+                // Centrer horizontalement : milieu entre début et fin de la box
+                _kz3left  = box.get_left(kzBox3)
+                _kz3mid   = _kz3left + math.round((bar_index - _kz3left) / 2)
+                label.new(
+                     x           = _kz3mid,
+                     y           = _kz3top,
+                     text        = fmtVol(kz3Vol),
+                     color       = color.new(kz3Color, 70),
+                     textcolor   = color.new(kz3Color, 0),
+                     style       = label.style_label_down,
+                     size        = size.normal)
+
+    // ── KZ4 Volume ──
+    if kz4On
+        _sv4     = not na(time(timeframe.period, kz4Start, "America/New_York"))
+        _sv4prev = not na(time(timeframe.period, kz4Start, "America/New_York")[1])
+        if _sv4
+            if not _sv4prev
+                kz4Vol := volume
+            else
+                kz4Vol += volume
+        if not _sv4 and _sv4prev and _inVolWindow
+            _kz4top = not na(kzBox4) ? box.get_top(kzBox4) : na
+            if not na(_kz4top)
+                // Centrer horizontalement : milieu entre début et fin de la box
+                _kz4left  = box.get_left(kzBox4)
+                _kz4mid   = _kz4left + math.round((bar_index - _kz4left) / 2)
+                label.new(
+                     x           = _kz4mid,
+                     y           = _kz4top,
+                     text        = fmtVol(kz4Vol),
+                     color       = color.new(kz4Color, 70),
+                     textcolor   = color.new(kz4Color, 0),
+                     style       = label.style_label_down,
+                     size        = size.normal)
+
+    // ── KZ5 Volume ──
+    if kz5On
+        _sv5     = not na(time(timeframe.period, kz5Start, "America/New_York"))
+        _sv5prev = not na(time(timeframe.period, kz5Start, "America/New_York")[1])
+        if _sv5
+            if not _sv5prev
+                kz5Vol := volume
+            else
+                kz5Vol += volume
+        if not _sv5 and _sv5prev and _inVolWindow
+            _kz5top = not na(kzBox5) ? box.get_top(kzBox5) : na
+            if not na(_kz5top)
+                // Centrer horizontalement : milieu entre début et fin de la box
+                _kz5left  = box.get_left(kzBox5)
+                _kz5mid   = _kz5left + math.round((bar_index - _kz5left) / 2)
+                label.new(
+                     x           = _kz5mid,
+                     y           = _kz5top,
+                     text        = fmtVol(kz5Vol),
+                     color       = color.new(kz5Color, 70),
+                     textcolor   = color.new(kz5Color, 0),
+                     style       = label.style_label_down,
+                     size        = size.normal)
+
+
+// ═══════════════════════════════════════════════════════════════
+// 🔔 ALERT CONDITIONS — 36 events
+// ═══════════════════════════════════════════════════════════════
+
+// ── FVG ──
+_bullFVG = low > high[2]
+_bearFVG = high < low[2]
+
+alertcondition(_bullFVG,  title="FVG — BISI Created",    message="BISI (Bullish FVG) created — potential support zone")
+alertcondition(_bearFVG,  title="FVG — SIBI Created",    message="SIBI (Bearish FVG) created — potential resistance zone")
+
+// FVG mitigated : détecté quand une box est touchée (on surveille le dernier FVG de l'array)
+_lastFVGBull   = array.size(fvgs) > 0 ? array.get(fvgs, array.size(fvgs)-1).bullish : false
+_lastFVGTop    = array.size(fvgs) > 0 ? array.get(fvgs, array.size(fvgs)-1).top    : na
+_lastFVGBot    = array.size(fvgs) > 0 ? array.get(fvgs, array.size(fvgs)-1).bottom : na
+_fvgBullMit    = _lastFVGBull  and not na(_lastFVGTop) and low < _lastFVGTop and high > _lastFVGBot
+_fvgBearMit    = not _lastFVGBull and not na(_lastFVGTop) and low < _lastFVGTop and high > _lastFVGBot
+
+alertcondition(_fvgBullMit, title="FVG — BISI Mitigated", message="BISI (Bullish FVG) mitigated — zone filled")
+alertcondition(_fvgBearMit, title="FVG — SIBI Mitigated", message="SIBI (Bearish FVG) mitigated — zone filled")
+
+// ── ORDER BLOCKS ──
+_bullOBCreated = close[1] < open[1] and close > high[1]
+_bearOBCreated = close[1] > open[1] and close < low[1]
+
+alertcondition(_bullOBCreated, title="OB — Bullish OB Created", message="Bullish Order Block created")
+alertcondition(_bearOBCreated, title="OB — Bearish OB Created", message="Bearish Order Block created")
+
+_lastOBBull    = array.size(orderBlocks) > 0 ? array.get(orderBlocks, array.size(orderBlocks)-1).bullish : false
+_lastOBTop     = array.size(orderBlocks) > 0 ? array.get(orderBlocks, array.size(orderBlocks)-1).top    : na
+_lastOBBot     = array.size(orderBlocks) > 0 ? array.get(orderBlocks, array.size(orderBlocks)-1).bottom : na
+_obBullMit     = _lastOBBull  and not na(_lastOBTop) and low < _lastOBTop and high > _lastOBBot
+_obBearMit     = not _lastOBBull and not na(_lastOBTop) and low < _lastOBTop and high > _lastOBBot
+
+alertcondition(_obBullMit, title="OB — Bullish OB Mitigated", message="Bullish Order Block mitigated")
+alertcondition(_obBearMit, title="OB — Bearish OB Mitigated", message="Bearish Order Block mitigated")
+
+// ── BOS / CHoCH ──
+// On détecte sur la barre courante via les mêmes conditions que le tracé
+_bosBull   = showStruct and not na(lastSwingHigh) and close > lastSwingHigh and close[1] <= lastSwingHigh[1] and structDir == 1
+_chochBull = showStruct and not na(lastSwingHigh) and close > lastSwingHigh and close[1] <= lastSwingHigh[1] and structDir != 1
+_bosBear   = showStruct and not na(lastSwingLow)  and close < lastSwingLow  and close[1] >= lastSwingLow[1]  and structDir == -1
+_chochBear = showStruct and not na(lastSwingLow)  and close < lastSwingLow  and close[1] >= lastSwingLow[1]  and structDir != -1
+
+alertcondition(_bosBull,   title="Structure — BOS Bullish",         message="Break of Structure — Bullish continuation")
+alertcondition(_bosBear,   title="Structure — BOS Bearish",         message="Break of Structure — Bearish continuation")
+alertcondition(_chochBull, title="Structure — CHoCH Bullish",       message="Change of Character — Potential bullish reversal")
+alertcondition(_chochBear, title="Structure — CHoCH Bearish",       message="Change of Character — Potential bearish reversal")
+
+// ── DISPLACEMENT CANDLE ──
+alertcondition(_isBullDispBreak, title="Displacement — Bullish",    message="Bullish displacement candle — swing high broken")
+alertcondition(_isBearDispBreak, title="Displacement — Bearish",    message="Bearish displacement candle — swing low broken")
+
+// ── KILLZONES — Session Open ──
+_kz1Open = showKillzones and kz1On and not na(time(timeframe.period, kz1Start, "America/New_York")) and na(time(timeframe.period, kz1Start, "America/New_York")[1])
+_kz2Open = showKillzones and kz2On and not na(time(timeframe.period, kz2Start, "America/New_York")) and na(time(timeframe.period, kz2Start, "America/New_York")[1])
+_kz3Open = showKillzones and kz3On and not na(time(timeframe.period, kz3Start, "America/New_York")) and na(time(timeframe.period, kz3Start, "America/New_York")[1])
+_kz4Open = showKillzones and kz4On and not na(time(timeframe.period, kz4Start, "America/New_York")) and na(time(timeframe.period, kz4Start, "America/New_York")[1])
+_kz5Open = showKillzones and kz5On and not na(time(timeframe.period, kz5Start, "America/New_York")) and na(time(timeframe.period, kz5Start, "America/New_York")[1])
+
+alertcondition(_kz1Open, title="Killzone — KZ1 Session Open", message="KZ1 session is now open")
+alertcondition(_kz2Open, title="Killzone — KZ2 Session Open", message="KZ2 session is now open")
+alertcondition(_kz3Open, title="Killzone — KZ3 Session Open", message="KZ3 session is now open")
+alertcondition(_kz4Open, title="Killzone — KZ4 Session Open", message="KZ4 session is now open")
+alertcondition(_kz5Open, title="Killzone — KZ5 Session Open", message="KZ5 session is now open")
+
+// ── SESSION H/L TOUCHED ──
+// Détectés au moment où le prix atteint la ligne (avant suppression)
+_kz1HTouched = not na(kz1HighLine) and high >= line.get_y1(kz1HighLine)
+_kz1LTouched = not na(kz1LowLine)  and low  <= line.get_y1(kz1LowLine)
+_kz2HTouched = not na(kz2HighLine) and high >= line.get_y1(kz2HighLine)
+_kz2LTouched = not na(kz2LowLine)  and low  <= line.get_y1(kz2LowLine)
+_kz3HTouched = not na(kz3HighLine) and high >= line.get_y1(kz3HighLine)
+_kz3LTouched = not na(kz3LowLine)  and low  <= line.get_y1(kz3LowLine)
+_kz4HTouched = not na(kz4HighLine) and high >= line.get_y1(kz4HighLine)
+_kz4LTouched = not na(kz4LowLine)  and low  <= line.get_y1(kz4LowLine)
+_kz5HTouched = not na(kz5HighLine) and high >= line.get_y1(kz5HighLine)
+_kz5LTouched = not na(kz5LowLine)  and low  <= line.get_y1(kz5LowLine)
+
+alertcondition(_kz1HTouched, title="Session H/L — KZ1 High Touched", message="KZ1 session high has been touched")
+alertcondition(_kz1LTouched, title="Session H/L — KZ1 Low Touched",  message="KZ1 session low has been touched")
+alertcondition(_kz2HTouched, title="Session H/L — KZ2 High Touched", message="KZ2 session high has been touched")
+alertcondition(_kz2LTouched, title="Session H/L — KZ2 Low Touched",  message="KZ2 session low has been touched")
+alertcondition(_kz3HTouched, title="Session H/L — KZ3 High Touched", message="KZ3 session high has been touched")
+alertcondition(_kz3LTouched, title="Session H/L — KZ3 Low Touched",  message="KZ3 session low has been touched")
+alertcondition(_kz4HTouched, title="Session H/L — KZ4 High Touched", message="KZ4 session high has been touched")
+alertcondition(_kz4LTouched, title="Session H/L — KZ4 Low Touched",  message="KZ4 session low has been touched")
+alertcondition(_kz5HTouched, title="Session H/L — KZ5 High Touched", message="KZ5 session high has been touched")
+alertcondition(_kz5LTouched, title="Session H/L — KZ5 Low Touched",  message="KZ5 session low has been touched")
+
+// ── LIQUIDITY LEVELS TOUCHED ──
+_pdhTouched = showLiq and showPDH and not na(pdhLine) and high >= line.get_y1(pdhLine)
+_pdlTouched = showLiq and showPDL and not na(pdlLine) and low  <= line.get_y1(pdlLine)
+_pwhTouched = showLiq and showPWH and not na(pwhLine) and high >= line.get_y1(pwhLine)
+_pwlTouched = showLiq and showPWL and not na(pwlLine) and low  <= line.get_y1(pwlLine)
+_pmhTouched = showLiq and showPMH and not na(pmhLine) and high >= line.get_y1(pmhLine)
+_pmlTouched = showLiq and showPML and not na(pmlLine) and low  <= line.get_y1(pmlLine)
+
+alertcondition(_pdhTouched, title="Liquidity — PDH Touched", message="Previous Day High has been touched")
+alertcondition(_pdlTouched, title="Liquidity — PDL Touched", message="Previous Day Low has been touched")
+alertcondition(_pwhTouched, title="Liquidity — PWH Touched", message="Previous Week High has been touched")
+alertcondition(_pwlTouched, title="Liquidity — PWL Touched", message="Previous Week Low has been touched")
+alertcondition(_pmhTouched, title="Liquidity — PMH Touched", message="Previous Month High has been touched")
+alertcondition(_pmlTouched, title="Liquidity — PML Touched", message="Previous Month Low has been touched")
+
+// ── MIDNIGHT TOUCHED ──
+_midnightTouched = false
+if array.size(midnightLines) > 0
+    for _mi = 0 to array.size(midnightLines) - 1
+        _ml = array.get(midnightLines, _mi)
+        if not na(_ml)
+            _mPrice = line.get_y1(_ml)
+            if high >= _mPrice and low <= _mPrice
+                _midnightTouched := true
+
+alertcondition(_midnightTouched, title="Midnight — Level Touched", message="Midnight open level has been touched")
+// ═══════════════════════════════════════════════════════════════
+// 📊 MAIN LOGIC — FVG + OB
+// ═══════════════════════════════════════════════════════════════
+inRange = isBarInRange()
+
+if showFvgs and inRange
+    drawFVGBoxes(inRange)
+    resizeFVGBoxes(inRange)
+
+if showOBs and inRange
+    drawOrderBlocks(inRange)
+    resizeOrderBlocks(inRange)
