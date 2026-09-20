@@ -201,6 +201,7 @@ sessLevelStyle  = input.string(group=liqSettings, defval="solid", title="Session
 // ═══════════════════════════════════════════════════════════════
 openSettings = "═══════ OPENS ═══════"
 showOpens = input.bool(group=openSettings, defval=true, title="Show Opens?")
+openLabelPosition = input.string(group=openSettings, defval="Start", title="Open labels position", options=["Start of Line", "End of Line"])
 
 showDailyOpen    = input.bool  (group=openSettings, defval=false,             title="Daily",    inline="dopen")
 dailyOpenColor   = input.color (group=openSettings, defval=color.gray,        title="",         inline="dopen")
@@ -894,7 +895,7 @@ if showLiq
 // • Label stored and moved to bar_index + offset on each bar
 //   → always visible to the right of the line, properly spaced
 // ═══════════════════════════════════════════════════════════════
-isNewYear  = timeframe.isintraday and _chg12M != 0
+isNewYear  = timeframe.isintraday and year(time) != year(time[1])
 isMidnight = timeframe.isintraday and hour(time, "America/New_York") == 0 and minute(time, "America/New_York") == 0
 
 // Offset of the label relative to the right end (in bars)
@@ -909,11 +910,14 @@ if showOpens
             dailyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
                  color=dailyOpenColor, style=lineStyleFromString(dailyOpenStyle),
                  width=1, extend=extend.none)
-            dailyOpenLabel := label.new(bar_index, open, "_D",
+            dailyOpenLabel := label.new(openLabelPosition == "Right of line" ? bar_index + 1 + _labelOffset : bar_index, open, "_D",
                  color=color.new(color.black,100), textcolor=dailyOpenColor,
-                 style=label.style_label_right, size=size.small)
+                 style=openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(dailyOpenLine)
             line.set_x2(dailyOpenLine, bar_index)
+            if not na(dailyOpenLabel)
+                label.set_x(dailyOpenLabel, openLabelPosition == "Right of line" ? bar_index + _labelOffset : line.get_x1(dailyOpenLine))
+                label.set_style(dailyOpenLabel, openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right)
 
     // ── Weekly Open — only the current week ──
     if showWeeklyOpen
@@ -923,11 +927,14 @@ if showOpens
             weeklyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
                  color=weeklyOpenColor, style=lineStyleFromString(weeklyOpenStyle),
                  width=1, extend=extend.none)
-            weeklyOpenLabel := label.new(bar_index, open, "_W",
+            weeklyOpenLabel := label.new(openLabelPosition == "Right of line" ? bar_index + 1 + _labelOffset : bar_index, open, "_W",
                  color=color.new(color.black,100), textcolor=weeklyOpenColor,
-                 style=label.style_label_right, size=size.small)
+                 style=openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(weeklyOpenLine)
             line.set_x2(weeklyOpenLine, bar_index)
+            if not na(weeklyOpenLabel)
+                label.set_x(weeklyOpenLabel, openLabelPosition == "Right of line" ? bar_index + _labelOffset : line.get_x1(weeklyOpenLine))
+                label.set_style(weeklyOpenLabel, openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right)
 
     // ── Monthly Open — only the current month ──
     if showMonthlyOpen
@@ -937,11 +944,14 @@ if showOpens
             monthlyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
                  color=monthlyOpenColor, style=lineStyleFromString(monthlyOpenStyle),
                  width=1, extend=extend.none)
-            monthlyOpenLabel := label.new(bar_index, open, "_M",
+            monthlyOpenLabel := label.new(openLabelPosition == "Right of line" ? bar_index + 1 + _labelOffset : bar_index, open, "_M",
                  color=color.new(color.black,100), textcolor=monthlyOpenColor,
-                 style=label.style_label_right, size=size.small)
+                 style=openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(monthlyOpenLine)
             line.set_x2(monthlyOpenLine, bar_index)
+            if not na(monthlyOpenLabel)
+                label.set_x(monthlyOpenLabel, openLabelPosition == "Right of line" ? bar_index + _labelOffset : line.get_x1(monthlyOpenLine))
+                label.set_style(monthlyOpenLabel, openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right)
 
     // ── Yearly Open ──
     if showYearlyOpen
@@ -949,13 +959,14 @@ if showOpens
             yearlyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
                  color=yearlyOpenColor, style=lineStyleFromString(yearlyOpenStyle),
                  width=1, extend=extend.none)
-            yearlyOpenLabel := label.new(bar_index + _labelOffset, open, "_Y",
+            yearlyOpenLabel := label.new(openLabelPosition == "Right of line" ? bar_index + 1 + _labelOffset : bar_index, open, "_Y",
                  color=color.new(color.black,100), textcolor=yearlyOpenColor,
-                 style=label.style_label_left, size=size.small)
+                 style=openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(yearlyOpenLine)
             line.set_x2(yearlyOpenLine, bar_index)
             if not na(yearlyOpenLabel)
-                label.set_x(yearlyOpenLabel, bar_index + _labelOffset)
+                label.set_x(yearlyOpenLabel, openLabelPosition == "Right of line" ? bar_index + _labelOffset : line.get_x1(yearlyOpenLine))
+                label.set_style(yearlyOpenLabel, openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right)
 
     // ── Midnight Open — N days history (maxMidnightDays) ──
     if showMidnightOpen
