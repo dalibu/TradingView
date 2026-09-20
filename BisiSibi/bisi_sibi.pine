@@ -6,12 +6,16 @@
 // ———————————————————————————————————————————————————————————————
 
 //@version=6
-indicator("[ArtiShock] BISI SIBI OB + Killzones + Liquidity Levels + BoS/CHoCH 2026",
+indicator("[ArtiShock] BISI SIBI OB + Killzones + Liquidity Levels + BoS/CHoCH + FVG + IFVG 2026",
      overlay=true,
      max_bars_back=5000,
      max_boxes_count=1000,
      max_lines_count=500,
      max_labels_count=500)
+
+const string POSITION_LEFT = "Left"
+const string POSITION_RIGHT = "Right"
+const string TIME_ZONE = "America/New_York"
 
 // ═══════════════════════════════════════════════════════════════
 // 🛠 GENERAL SETTINGS
@@ -166,6 +170,7 @@ kz5Color = input.color (group=kzSettings, defval=color.gray,   title="",inline="
 // ═══════════════════════════════════════════════════════════════
 liqSettings = "═══════ LIQUIDITY LEVELS ═══════"
 showLiq = input.bool(group=liqSettings, defval=true, title="Show Liquidity Levels?")
+liqLabelPosition = input.string(group=liqSettings, defval=POSITION_RIGHT, title="Liquidity labels position", options=[POSITION_LEFT, POSITION_RIGHT])
 
 showPDH    = input.bool  (group=liqSettings, defval=true,               title="PDH", inline="pdh")
 pdhColor   = input.color (group=liqSettings, defval=color.teal,         title="",    inline="pdh")
@@ -201,22 +206,22 @@ sessLevelStyle  = input.string(group=liqSettings, defval="solid", title="Session
 // ═══════════════════════════════════════════════════════════════
 openSettings = "═══════ OPENS ═══════"
 showOpens = input.bool(group=openSettings, defval=true, title="Show Opens?")
-openLabelPosition = input.string(group=openSettings, defval="Start", title="Open labels position", options=["Start of Line", "End of Line"])
+openLabelPosition = input.string(group=openSettings, defval=POSITION_RIGHT, title="Open labels position", options=[POSITION_LEFT, POSITION_RIGHT])
 
 showDailyOpen    = input.bool  (group=openSettings, defval=false,             title="Daily",    inline="dopen")
-dailyOpenColor   = input.color (group=openSettings, defval=color.gray,        title="",         inline="dopen")
+dailyOpenColor   = input.color (group=openSettings, defval=color.gray,      title="",         inline="dopen")
 dailyOpenStyle   = input.string(group=openSettings, defval="solid",           title="",         inline="dopen", options=["solid","dashed","dotted"])
 
 showWeeklyOpen   = input.bool  (group=openSettings, defval=true,              title="Weekly",   inline="wopen")
-weeklyOpenColor  = input.color (group=openSettings, defval=color.blue,        title="",         inline="wopen")
+weeklyOpenColor  = input.color (group=openSettings, defval=color.blue,      title="",         inline="wopen")
 weeklyOpenStyle  = input.string(group=openSettings, defval="dashed",          title="",         inline="wopen", options=["solid","dashed","dotted"])
 
 showMonthlyOpen  = input.bool  (group=openSettings, defval=true,              title="Monthly",  inline="mopen")
-monthlyOpenColor = input.color (group=openSettings, defval=color.green,       title="",         inline="mopen")
+monthlyOpenColor = input.color (group=openSettings, defval=color.green,     title="",         inline="mopen")
 monthlyOpenStyle = input.string(group=openSettings, defval="dashed",          title="",         inline="mopen", options=["solid","dashed","dotted"])
 
 showYearlyOpen   = input.bool  (group=openSettings, defval=false,             title="Yearly",   inline="yopen")
-yearlyOpenColor  = input.color (group=openSettings, defval=color.red,         title="",         inline="yopen")
+yearlyOpenColor  = input.color (group=openSettings, defval=color.red,       title="",         inline="yopen")
 yearlyOpenStyle  = input.string(group=openSettings, defval="solid",           title="",         inline="yopen", options=["solid","dashed","dotted"])
 
 showMidnightOpen  = input.bool  (group=openSettings, defval=true,              title="Midnight", inline="mnopen")
@@ -821,11 +826,14 @@ if showLiq
             label.delete(pdhLabel)
             pdhLine  := line.new(bar_index, prevDayHigh, bar_index + 1, prevDayHigh,
                  color=pdhColor, style=lineStyleFromString(pdhStyle), width=1, extend=extend.none)
-            pdhLabel := label.new(bar_index, prevDayHigh, "PDH",
+            pdhLabel := label.new(liqLabelPosition == POSITION_RIGHT ? bar_index + 1 + _liqOffset : bar_index, prevDayHigh, "PDH",
                  color=color.new(color.black,100), textcolor=pdhColor,
-                 style=label.style_label_right, size=size.small)
+                 style=liqLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(pdhLine)
             line.set_x2(pdhLine, bar_index)
+            if not na(pdhLabel) and liqLabelPosition == POSITION_RIGHT
+                label.set_x(pdhLabel, bar_index + _liqOffset)
+                label.set_style(pdhLabel, label.style_label_left)
 
     if showPDL
         if isNewDay and not na(prevDayLow)
@@ -833,11 +841,14 @@ if showLiq
             label.delete(pdlLabel)
             pdlLine  := line.new(bar_index, prevDayLow, bar_index + 1, prevDayLow,
                  color=pdlColor, style=lineStyleFromString(pdlStyle), width=1, extend=extend.none)
-            pdlLabel := label.new(bar_index, prevDayLow, "PDL",
+            pdlLabel := label.new(liqLabelPosition == POSITION_RIGHT ? bar_index + 1 + _liqOffset : bar_index, prevDayLow, "PDL",
                  color=color.new(color.black,100), textcolor=pdlColor,
-                 style=label.style_label_right, size=size.small)
+                 style=liqLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(pdlLine)
             line.set_x2(pdlLine, bar_index)
+            if not na(pdlLabel) and liqLabelPosition == POSITION_RIGHT
+                label.set_x(pdlLabel, bar_index + _liqOffset)
+                label.set_style(pdlLabel, label.style_label_left)
 
     // ── PWH / PWL : only the previous week ──
     if showPWH
@@ -846,11 +857,14 @@ if showLiq
             label.delete(pwhLabel)
             pwhLine  := line.new(bar_index, prevWeekHigh, bar_index + 1, prevWeekHigh,
                  color=pwhColor, style=lineStyleFromString(pwhStyle), width=1, extend=extend.none)
-            pwhLabel := label.new(bar_index, prevWeekHigh, "PWH",
+            pwhLabel := label.new(liqLabelPosition == POSITION_RIGHT ? bar_index + 1 + _liqOffset : bar_index, prevWeekHigh, "PWH",
                  color=color.new(color.black,100), textcolor=pwhColor,
-                 style=label.style_label_right, size=size.small)
+                 style=liqLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(pwhLine)
             line.set_x2(pwhLine, bar_index)
+            if not na(pwhLabel) and liqLabelPosition == POSITION_RIGHT
+                label.set_x(pwhLabel, bar_index + _liqOffset)
+                label.set_style(pwhLabel, label.style_label_left)
 
     if showPWL
         if isNewWeek and not na(prevWeekLow)
@@ -858,11 +872,14 @@ if showLiq
             label.delete(pwlLabel)
             pwlLine  := line.new(bar_index, prevWeekLow, bar_index + 1, prevWeekLow,
                  color=pwlColor, style=lineStyleFromString(pwlStyle), width=1, extend=extend.none)
-            pwlLabel := label.new(bar_index, prevWeekLow, "PWL",
+            pwlLabel := label.new(liqLabelPosition == POSITION_RIGHT ? bar_index + 1 + _liqOffset : bar_index, prevWeekLow, "PWL",
                  color=color.new(color.black,100), textcolor=pwlColor,
-                 style=label.style_label_right, size=size.small)
+                 style=liqLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(pwlLine)
             line.set_x2(pwlLine, bar_index)
+            if not na(pwlLabel) and liqLabelPosition == POSITION_RIGHT
+                label.set_x(pwlLabel, bar_index + _liqOffset)
+                label.set_style(pwlLabel, label.style_label_left)
 
     // ── PMH / PML : only the previous month ──
     if showPMH
@@ -871,11 +888,14 @@ if showLiq
             label.delete(pmhLabel)
             pmhLine  := line.new(bar_index, prevMonthHigh, bar_index + 1, prevMonthHigh,
                  color=pmhColor, style=lineStyleFromString(pmhStyle), width=1, extend=extend.none)
-            pmhLabel := label.new(bar_index, prevMonthHigh, "PMH",
+            pmhLabel := label.new(liqLabelPosition == POSITION_RIGHT ? bar_index + 1 + _liqOffset : bar_index, prevMonthHigh, "PMH",
                  color=color.new(color.black,100), textcolor=pmhColor,
-                 style=label.style_label_right, size=size.small)
+                 style=liqLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(pmhLine)
             line.set_x2(pmhLine, bar_index)
+            if not na(pmhLabel) and liqLabelPosition == POSITION_RIGHT
+                label.set_x(pmhLabel, bar_index + _liqOffset)
+                label.set_style(pmhLabel, label.style_label_left)
 
     if showPML
         if isNewMonth and not na(prevMonthLow)
@@ -883,11 +903,14 @@ if showLiq
             label.delete(pmlLabel)
             pmlLine  := line.new(bar_index, prevMonthLow, bar_index + 1, prevMonthLow,
                  color=pmlColor, style=lineStyleFromString(pmlStyle), width=1, extend=extend.none)
-            pmlLabel := label.new(bar_index, prevMonthLow, "PML",
+            pmlLabel := label.new(liqLabelPosition == POSITION_RIGHT ? bar_index + 1 + _liqOffset : bar_index, prevMonthLow, "PML",
                  color=color.new(color.black,100), textcolor=pmlColor,
-                 style=label.style_label_right, size=size.small)
+                 style=liqLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(pmlLine)
             line.set_x2(pmlLine, bar_index)
+            if not na(pmlLabel) and liqLabelPosition == POSITION_RIGHT
+                label.set_x(pmlLabel, bar_index + _liqOffset)
+                label.set_style(pmlLabel, label.style_label_left)
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 OPENS
@@ -896,7 +919,7 @@ if showLiq
 //   → always visible to the right of the line, properly spaced
 // ═══════════════════════════════════════════════════════════════
 isNewYear  = timeframe.isintraday and year(time) != year(time[1])
-isMidnight = timeframe.isintraday and hour(time, "America/New_York") == 0 and minute(time, "America/New_York") == 0
+isMidnight = timeframe.isintraday and hour(time, TIME_ZONE) == 0 and minute(time, TIME_ZONE) == 0
 
 // Offset of the label relative to the right end (in bars)
 _labelOffset = 3
@@ -910,14 +933,14 @@ if showOpens
             dailyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
                  color=dailyOpenColor, style=lineStyleFromString(dailyOpenStyle),
                  width=1, extend=extend.none)
-            dailyOpenLabel := label.new(openLabelPosition == "Right of line" ? bar_index + 1 + _labelOffset : bar_index, open, "_D",
+            dailyOpenLabel := label.new(openLabelPosition == POSITION_RIGHT ? bar_index + 1 + _labelOffset : bar_index, open, "_D",
                  color=color.new(color.black,100), textcolor=dailyOpenColor,
-                 style=openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right, size=size.small)
+                 style=openLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(dailyOpenLine)
             line.set_x2(dailyOpenLine, bar_index)
-            if not na(dailyOpenLabel)
-                label.set_x(dailyOpenLabel, openLabelPosition == "Right of line" ? bar_index + _labelOffset : line.get_x1(dailyOpenLine))
-                label.set_style(dailyOpenLabel, openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right)
+            if not na(dailyOpenLabel) and openLabelPosition == POSITION_RIGHT
+                label.set_x(dailyOpenLabel, bar_index + _labelOffset)
+                label.set_style(dailyOpenLabel, label.style_label_left)
 
     // ── Weekly Open — only the current week ──
     if showWeeklyOpen
@@ -927,14 +950,14 @@ if showOpens
             weeklyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
                  color=weeklyOpenColor, style=lineStyleFromString(weeklyOpenStyle),
                  width=1, extend=extend.none)
-            weeklyOpenLabel := label.new(openLabelPosition == "Right of line" ? bar_index + 1 + _labelOffset : bar_index, open, "_W",
+            weeklyOpenLabel := label.new(openLabelPosition == POSITION_RIGHT ? bar_index + 1 + _labelOffset : bar_index, open, "_W",
                  color=color.new(color.black,100), textcolor=weeklyOpenColor,
-                 style=openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right, size=size.small)
+                 style=openLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(weeklyOpenLine)
             line.set_x2(weeklyOpenLine, bar_index)
-            if not na(weeklyOpenLabel)
-                label.set_x(weeklyOpenLabel, openLabelPosition == "Right of line" ? bar_index + _labelOffset : line.get_x1(weeklyOpenLine))
-                label.set_style(weeklyOpenLabel, openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right)
+            if not na(weeklyOpenLabel) and openLabelPosition == POSITION_RIGHT
+                label.set_x(weeklyOpenLabel, bar_index + _labelOffset)
+                label.set_style(weeklyOpenLabel, label.style_label_left)
 
     // ── Monthly Open — only the current month ──
     if showMonthlyOpen
@@ -944,14 +967,14 @@ if showOpens
             monthlyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
                  color=monthlyOpenColor, style=lineStyleFromString(monthlyOpenStyle),
                  width=1, extend=extend.none)
-            monthlyOpenLabel := label.new(openLabelPosition == "Right of line" ? bar_index + 1 + _labelOffset : bar_index, open, "_M",
+            monthlyOpenLabel := label.new(openLabelPosition == POSITION_RIGHT ? bar_index + 1 + _labelOffset : bar_index, open, "_M",
                  color=color.new(color.black,100), textcolor=monthlyOpenColor,
-                 style=openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right, size=size.small)
+                 style=openLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(monthlyOpenLine)
             line.set_x2(monthlyOpenLine, bar_index)
-            if not na(monthlyOpenLabel)
-                label.set_x(monthlyOpenLabel, openLabelPosition == "Right of line" ? bar_index + _labelOffset : line.get_x1(monthlyOpenLine))
-                label.set_style(monthlyOpenLabel, openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right)
+            if not na(monthlyOpenLabel) and openLabelPosition == POSITION_RIGHT
+                label.set_x(monthlyOpenLabel, bar_index + _labelOffset)
+                label.set_style(monthlyOpenLabel, label.style_label_left)
 
     // ── Yearly Open ──
     if showYearlyOpen
@@ -959,14 +982,14 @@ if showOpens
             yearlyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
                  color=yearlyOpenColor, style=lineStyleFromString(yearlyOpenStyle),
                  width=1, extend=extend.none)
-            yearlyOpenLabel := label.new(openLabelPosition == "Right of line" ? bar_index + 1 + _labelOffset : bar_index, open, "_Y",
+            yearlyOpenLabel := label.new(openLabelPosition == POSITION_RIGHT ? bar_index + 1 + _labelOffset : bar_index, open, "_Y",
                  color=color.new(color.black,100), textcolor=yearlyOpenColor,
-                 style=openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right, size=size.small)
+                 style=openLabelPosition == POSITION_RIGHT ? label.style_label_left : label.style_label_right, size=size.small)
         else if not na(yearlyOpenLine)
             line.set_x2(yearlyOpenLine, bar_index)
-            if not na(yearlyOpenLabel)
-                label.set_x(yearlyOpenLabel, openLabelPosition == "Right of line" ? bar_index + _labelOffset : line.get_x1(yearlyOpenLine))
-                label.set_style(yearlyOpenLabel, openLabelPosition == "Right of line" ? label.style_label_left : label.style_label_right)
+            if not na(yearlyOpenLabel) and openLabelPosition == POSITION_RIGHT
+                label.set_x(yearlyOpenLabel, bar_index + _labelOffset)
+                label.set_style(yearlyOpenLabel, label.style_label_left)
 
     // ── Midnight Open — N days history (maxMidnightDays) ──
     if showMidnightOpen
@@ -1076,8 +1099,8 @@ _tfOk = timeframe.in_seconds() < 240 * 60
 
 // ── KZ 1 ──
 if showKillzones and kz1On and _tfOk
-    _inSess1 = not na(time(timeframe.period, kz1Start, "America/New_York"))
-    _inPrev1 = not na(time(timeframe.period, kz1Start, "America/New_York")[1])
+    _inSess1 = not na(time(timeframe.period, kz1Start, TIME_ZONE))
+    _inPrev1 = not na(time(timeframe.period, kz1Start, TIME_ZONE)[1])
     if _inSess1 and not _inPrev1
         kzBox1 := box.new(bar_index, high, bar_index+1, low,
              bgcolor=color.new(kz1Color, kzOpacity), border_color=color.new(kz1Color, 100))
@@ -1102,8 +1125,8 @@ if showKillzones and kz1On and _tfOk
 
 // ── KZ 2 ──
 if showKillzones and kz2On and _tfOk
-    _inSess2 = not na(time(timeframe.period, kz2Start, "America/New_York"))
-    _inPrev2 = not na(time(timeframe.period, kz2Start, "America/New_York")[1])
+    _inSess2 = not na(time(timeframe.period, kz2Start, TIME_ZONE))
+    _inPrev2 = not na(time(timeframe.period, kz2Start, TIME_ZONE)[1])
     if _inSess2 and not _inPrev2
         kzBox2 := box.new(bar_index, high, bar_index+1, low,
              bgcolor=color.new(kz2Color, kzOpacity), border_color=color.new(kz2Color, 100))
@@ -1128,8 +1151,8 @@ if showKillzones and kz2On and _tfOk
 
 // ── KZ 3 ──
 if showKillzones and kz3On and _tfOk
-    _inSess3 = not na(time(timeframe.period, kz3Start, "America/New_York"))
-    _inPrev3 = not na(time(timeframe.period, kz3Start, "America/New_York")[1])
+    _inSess3 = not na(time(timeframe.period, kz3Start, TIME_ZONE))
+    _inPrev3 = not na(time(timeframe.period, kz3Start, TIME_ZONE)[1])
     if _inSess3 and not _inPrev3
         kzBox3 := box.new(bar_index, high, bar_index+1, low,
              bgcolor=color.new(kz3Color, kzOpacity), border_color=color.new(kz3Color, 100))
@@ -1154,8 +1177,8 @@ if showKillzones and kz3On and _tfOk
 
 // ── KZ 4 ──
 if showKillzones and kz4On and _tfOk
-    _inSess4 = not na(time(timeframe.period, kz4Start, "America/New_York"))
-    _inPrev4 = not na(time(timeframe.period, kz4Start, "America/New_York")[1])
+    _inSess4 = not na(time(timeframe.period, kz4Start, TIME_ZONE))
+    _inPrev4 = not na(time(timeframe.period, kz4Start, TIME_ZONE)[1])
     if _inSess4 and not _inPrev4
         kzBox4 := box.new(bar_index, high, bar_index+1, low,
              bgcolor=color.new(kz4Color, kzOpacity), border_color=color.new(kz4Color, 100))
@@ -1180,8 +1203,8 @@ if showKillzones and kz4On and _tfOk
 
 // ── KZ 5 ──
 if showKillzones and kz5On and _tfOk
-    _inSess5 = not na(time(timeframe.period, kz5Start, "America/New_York"))
-    _inPrev5 = not na(time(timeframe.period, kz5Start, "America/New_York")[1])
+    _inSess5 = not na(time(timeframe.period, kz5Start, TIME_ZONE))
+    _inPrev5 = not na(time(timeframe.period, kz5Start, TIME_ZONE)[1])
     if _inSess5 and not _inPrev5
         kzBox5 := box.new(bar_index, high, bar_index+1, low,
              bgcolor=color.new(kz5Color, kzOpacity), border_color=color.new(kz5Color, 100))
@@ -1218,8 +1241,8 @@ if showSessLevels and _tfOk
 
     // ── Session 1 ──
     if kz1On
-        _s1     = not na(time(timeframe.period, kz1Start, "America/New_York"))
-        _s1prev = not na(time(timeframe.period, kz1Start, "America/New_York")[1])
+        _s1     = not na(time(timeframe.period, kz1Start, TIME_ZONE))
+        _s1prev = not na(time(timeframe.period, kz1Start, TIME_ZONE)[1])
         _col1   = color.new(kz1Color, 40)
         // During the session: track the high/low
         if _s1
@@ -1260,8 +1283,8 @@ if showSessLevels and _tfOk
 
     // ── Session 2 ──
     if kz2On
-        _s2     = not na(time(timeframe.period, kz2Start, "America/New_York"))
-        _s2prev = not na(time(timeframe.period, kz2Start, "America/New_York")[1])
+        _s2     = not na(time(timeframe.period, kz2Start, TIME_ZONE))
+        _s2prev = not na(time(timeframe.period, kz2Start, TIME_ZONE)[1])
         _col2   = color.new(kz2Color, 40)
         if _s2
             kz2High := na(kz2High) or not _s2prev ? high : math.max(kz2High, high)
@@ -1299,8 +1322,8 @@ if showSessLevels and _tfOk
 
     // ── Session 3 ──
     if kz3On
-        _s3     = not na(time(timeframe.period, kz3Start, "America/New_York"))
-        _s3prev = not na(time(timeframe.period, kz3Start, "America/New_York")[1])
+        _s3     = not na(time(timeframe.period, kz3Start, TIME_ZONE))
+        _s3prev = not na(time(timeframe.period, kz3Start, TIME_ZONE)[1])
         _col3   = color.new(kz3Color, 40)
         if _s3
             kz3High := na(kz3High) or not _s3prev ? high : math.max(kz3High, high)
@@ -1338,8 +1361,8 @@ if showSessLevels and _tfOk
 
     // ── Session 4 ──
     if kz4On
-        _s4     = not na(time(timeframe.period, kz4Start, "America/New_York"))
-        _s4prev = not na(time(timeframe.period, kz4Start, "America/New_York")[1])
+        _s4     = not na(time(timeframe.period, kz4Start, TIME_ZONE))
+        _s4prev = not na(time(timeframe.period, kz4Start, TIME_ZONE)[1])
         _col4   = color.new(kz4Color, 40)
         if _s4
             kz4High := na(kz4High) or not _s4prev ? high : math.max(kz4High, high)
@@ -1377,8 +1400,8 @@ if showSessLevels and _tfOk
 
     // ── Session 5 ──
     if kz5On
-        _s5     = not na(time(timeframe.period, kz5Start, "America/New_York"))
-        _s5prev = not na(time(timeframe.period, kz5Start, "America/New_York")[1])
+        _s5     = not na(time(timeframe.period, kz5Start, TIME_ZONE))
+        _s5prev = not na(time(timeframe.period, kz5Start, TIME_ZONE)[1])
         _col5   = color.new(kz5Color, 40)
         if _s5
             kz5High := na(kz5High) or not _s5prev ? high : math.max(kz5High, high)
@@ -1427,8 +1450,8 @@ if showSessVol and _volTfOk
 
     // ── KZ1 Volume ──
     if kz1On
-        _sv1     = not na(time(timeframe.period, kz1Start, "America/New_York"))
-        _sv1prev = not na(time(timeframe.period, kz1Start, "America/New_York")[1])
+        _sv1     = not na(time(timeframe.period, kz1Start, TIME_ZONE))
+        _sv1prev = not na(time(timeframe.period, kz1Start, TIME_ZONE)[1])
         // Accumulate volume during the session
         if _sv1
             if not _sv1prev
@@ -1453,8 +1476,8 @@ if showSessVol and _volTfOk
 
     // ── KZ2 Volume ──
     if kz2On
-        _sv2     = not na(time(timeframe.period, kz2Start, "America/New_York"))
-        _sv2prev = not na(time(timeframe.period, kz2Start, "America/New_York")[1])
+        _sv2     = not na(time(timeframe.period, kz2Start, TIME_ZONE))
+        _sv2prev = not na(time(timeframe.period, kz2Start, TIME_ZONE)[1])
         if _sv2
             if not _sv2prev
                 kz2Vol := volume
@@ -1477,8 +1500,8 @@ if showSessVol and _volTfOk
 
     // ── KZ3 Volume ──
     if kz3On
-        _sv3     = not na(time(timeframe.period, kz3Start, "America/New_York"))
-        _sv3prev = not na(time(timeframe.period, kz3Start, "America/New_York")[1])
+        _sv3     = not na(time(timeframe.period, kz3Start, TIME_ZONE))
+        _sv3prev = not na(time(timeframe.period, kz3Start, TIME_ZONE)[1])
         if _sv3
             if not _sv3prev
                 kz3Vol := volume
@@ -1501,8 +1524,8 @@ if showSessVol and _volTfOk
 
     // ── KZ4 Volume ──
     if kz4On
-        _sv4     = not na(time(timeframe.period, kz4Start, "America/New_York"))
-        _sv4prev = not na(time(timeframe.period, kz4Start, "America/New_York")[1])
+        _sv4     = not na(time(timeframe.period, kz4Start, TIME_ZONE))
+        _sv4prev = not na(time(timeframe.period, kz4Start, TIME_ZONE)[1])
         if _sv4
             if not _sv4prev
                 kz4Vol := volume
@@ -1525,8 +1548,8 @@ if showSessVol and _volTfOk
 
     // ── KZ5 Volume ──
     if kz5On
-        _sv5     = not na(time(timeframe.period, kz5Start, "America/New_York"))
-        _sv5prev = not na(time(timeframe.period, kz5Start, "America/New_York")[1])
+        _sv5     = not na(time(timeframe.period, kz5Start, TIME_ZONE))
+        _sv5prev = not na(time(timeframe.period, kz5Start, TIME_ZONE)[1])
         if _sv5
             if not _sv5prev
                 kz5Vol := volume
@@ -1602,11 +1625,11 @@ alertcondition(_isBullDispBreak, title="Displacement — Bullish",    message="B
 alertcondition(_isBearDispBreak, title="Displacement — Bearish",    message="Bearish displacement candle — swing low broken")
 
 // ── KILLZONES — Session Open ──
-_kz1Open = showKillzones and kz1On and not na(time(timeframe.period, kz1Start, "America/New_York")) and na(time(timeframe.period, kz1Start, "America/New_York")[1])
-_kz2Open = showKillzones and kz2On and not na(time(timeframe.period, kz2Start, "America/New_York")) and na(time(timeframe.period, kz2Start, "America/New_York")[1])
-_kz3Open = showKillzones and kz3On and not na(time(timeframe.period, kz3Start, "America/New_York")) and na(time(timeframe.period, kz3Start, "America/New_York")[1])
-_kz4Open = showKillzones and kz4On and not na(time(timeframe.period, kz4Start, "America/New_York")) and na(time(timeframe.period, kz4Start, "America/New_York")[1])
-_kz5Open = showKillzones and kz5On and not na(time(timeframe.period, kz5Start, "America/New_York")) and na(time(timeframe.period, kz5Start, "America/New_York")[1])
+_kz1Open = showKillzones and kz1On and not na(time(timeframe.period, kz1Start, TIME_ZONE)) and na(time(timeframe.period, kz1Start, TIME_ZONE)[1])
+_kz2Open = showKillzones and kz2On and not na(time(timeframe.period, kz2Start, TIME_ZONE)) and na(time(timeframe.period, kz2Start, TIME_ZONE)[1])
+_kz3Open = showKillzones and kz3On and not na(time(timeframe.period, kz3Start, TIME_ZONE)) and na(time(timeframe.period, kz3Start, TIME_ZONE)[1])
+_kz4Open = showKillzones and kz4On and not na(time(timeframe.period, kz4Start, TIME_ZONE)) and na(time(timeframe.period, kz4Start, TIME_ZONE)[1])
+_kz5Open = showKillzones and kz5On and not na(time(timeframe.period, kz5Start, TIME_ZONE)) and na(time(timeframe.period, kz5Start, TIME_ZONE)[1])
 
 alertcondition(_kz1Open, title="Killzone — KZ1 Session Open", message="KZ1 session is now open")
 alertcondition(_kz2Open, title="Killzone — KZ2 Session Open", message="KZ2 session is now open")
