@@ -592,6 +592,12 @@ drawOrderBlocks(inRange) =>
             if na(bearOBCandleOffset) and close[i] > open[i]
                 bearOBCandleOffset := i
 
+    // Special reversal-sweep pattern:
+    // previous candle is the opposite-color OB candle, while the
+    // current candle sweeps its extreme and closes back through its body.
+    bool bullReversalSweep = close > open and close[1] < open[1] and low < low[1] and close > open[1]
+    bool bearReversalSweep = close < open and close[1] > open[1] and high > high[1] and close < open[1]
+
     bool bullOBLiquiditySweep = false
     bool bearOBLiquiditySweep = false
 
@@ -615,11 +621,13 @@ drawOrderBlocks(inRange) =>
         bool bearDisplacementSweep = high > bearSweepLevel and close < bearSweepLevel
         bearOBLiquiditySweep := bearOBEntrySweep or bearDisplacementSweep
 
-    bullOB = inRange and isBullDisplacement and not na(bullOBCandleOffset) and (not showObLiquidityFilter or bullOBLiquiditySweep)
-    bearOB = inRange and isBearDisplacement and not na(bearOBCandleOffset) and (not showObLiquidityFilter or bearOBLiquiditySweep)
+    // A reversal-sweep OB uses the immediately preceding opposite candle
+    // as the OB, even when the current candle does not break its high/low.
+    bullOB = inRange and ((isBullDisplacement and not na(bullOBCandleOffset) and (not showObLiquidityFilter or bullOBLiquiditySweep)) or bullReversalSweep)
+    bearOB = inRange and ((isBearDisplacement and not na(bearOBCandleOffset) and (not showObLiquidityFilter or bearOBLiquiditySweep)) or bearReversalSweep)
 
     if bullOB or bearOB
-        int obOffset = bullOB ? bullOBCandleOffset : bearOBCandleOffset
+        int obOffset = bullReversalSweep ? 1 : bearReversalSweep ? 1 : bullOB ? bullOBCandleOffset : bearOBCandleOffset
         int obOriginBar = bar_index - obOffset
         bool obAlreadyExists = false
 
