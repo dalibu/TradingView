@@ -593,10 +593,10 @@ drawOrderBlocks(inRange) =>
                 bearOBCandleOffset := i
 
     // Special reversal-sweep pattern:
-    // previous candle is the opposite-color OB candle, while the
-    // current candle sweeps its extreme and closes back through its body.
-    bool bullReversalSweep = close > open and close[1] < open[1] and low < low[1] and close > open[1]
-    bool bearReversalSweep = close < open and close[1] > open[1] and high > high[1] and close < open[1]
+    // the immediately preceding opposite-color candle is the OB,
+    // and the current reversal candle sweeps that candle's extreme.
+    bool bullReversalSweep = close > open and close[1] < open[1] and low <= low[1]
+    bool bearReversalSweep = close < open and close[1] > open[1] and high >= high[1]
 
     bool bullOBLiquiditySweep = false
     bool bearOBLiquiditySweep = false
@@ -669,7 +669,14 @@ drawOrderBlocks(inRange) =>
                 if not na(old.midLine)
                     line.delete(old.midLine)
 
-            array.push(orderBlocks, orderBlock.new(b, obMidLine, topVal, bottomVal, false, bar_index + 1, bullOB, obOriginBar))
+            array.push(orderBlocks, orderBlock.new(b, obMidLine, topVal, bottomVal, false, bar_index + (bullReversalSweep or bearReversalSweep ? 3 : 1), bullOB, obOriginBar))
+
+// DEBUG: reversal-sweep detection markers
+debugReversalSweep = input.bool(group=obSettings, defval=false, title="DEBUG: Reversal sweep markers?")
+plotshape(debugReversalSweep and showOBs and close > open and close[1] < open[1], title="Bull reversal candidate", style=shape.circle, location=location.belowbar, color=color.green, size=size.tiny, text="B?")
+plotshape(debugReversalSweep and showOBs and close < open and close[1] > open[1], title="Bear reversal candidate", style=shape.circle, location=location.abovebar, color=color.red, size=size.tiny, text="S?")
+plotshape(debugReversalSweep and showOBs and close > open and close[1] < open[1] and low <= low[1], title="Bull reversal sweep", style=shape.triangleup, location=location.belowbar, color=color.lime, size=size.small, text="B")
+plotshape(debugReversalSweep and showOBs and close < open and close[1] > open[1] and high >= high[1], title="Bear reversal sweep", style=shape.triangledown, location=location.abovebar, color=color.orange, size=size.small, text="S")
 
 resizeOrderBlocks(inRange) =>
     if array.size(orderBlocks) > 0
