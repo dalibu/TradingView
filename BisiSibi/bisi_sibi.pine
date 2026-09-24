@@ -102,7 +102,6 @@ autoDeleteOBs  = input.bool  (group=obSettings, defval=true,    title="🗑️ A
 obTouchMode    = input.string(group=obSettings, defval="Wicks", title="OB fill trigger", options=["Wicks","Corps"])
 obFillPercent  = input.int   (group=obSettings, defval=0, title="OB mitigation depth (%)", minval=0, maxval=100, step=25)
 showObLiquidityFilter = input.bool(group=obSettings, defval=false, title="Only OBs that sweep left liquidity?")
-obLiquidityLookback = input.int(group=obSettings, defval=10, title="Liquidity lookback", minval=1, maxval=100)
 showObConsecutiveCandles = input.bool(group=obSettings, defval=false, title="Use consecutive same-type candles for OB?")
 obBullText     = input.string(group=obSettings, defval="+OB",   title="Order Block ↑", inline="+OB")
 obBullColor    = input.color (group=obSettings, defval=color.green,   title="", inline="+OB")
@@ -279,6 +278,12 @@ type orderBlock
 var fvg[]        fvgs        = array.new<fvg>()
 var ifvg[]       ifvgs       = array.new<ifvg>()
 var orderBlock[] orderBlocks = array.new<orderBlock>()
+
+// Active unswept swing liquidity
+var float[] activeBuySideLiquidity  = array.new_float()
+var float[] activeSellSideLiquidity = array.new_float()
+var int[]   bullLiquiditySweepBars  = array.new_int()
+var int[]   bearLiquiditySweepBars  = array.new_int()
 
 // Liquidity level lines + labels (stored for transport)
 var line  pdhLine  = na
@@ -584,14 +589,18 @@ drawOrderBlocks(inRange) =>
     int bearOBCandleOffset = na
 
     if isBullDisplacement
-        for i = 1 to obLiquidityLookback
-            if na(bullOBCandleOffset) and close[i] < open[i]
+        int i = 1
+        while na(bullOBCandleOffset) and i <= bar_index
+            if close[i] < open[i]
                 bullOBCandleOffset := i
+            i += 1
 
     if isBearDisplacement
-        for i = 1 to obLiquidityLookback
-            if na(bearOBCandleOffset) and close[i] > open[i]
+        int i = 1
+        while na(bearOBCandleOffset) and i <= bar_index
+            if close[i] > open[i]
                 bearOBCandleOffset := i
+            i += 1
 
     // Special reversal-sweep pattern:
     // the immediately preceding opposite-color candle is the OB,
@@ -605,21 +614,27 @@ drawOrderBlocks(inRange) =>
     // Liquidity sweep may occur on the OB candle itself OR on the
     // displacement/reversal candle that creates the OB.
     if not na(bullOBCandleOffset)
-        float bullSweepLevel = low[bullOBCandleOffset + 1]
-        for i = 2 to obLiquidityLookback + 1
-            bullSweepLevel := math.min(bullSweepLevel, low[bullOBCandleOffset + i - 1])
-
-        bool bullOBEntrySweep = low[bullOBCandleOffset] < bullSweepLevel and close[bullOBCandleOffset] > bullSweepLevel
-        bool bullDisplacementSweep = low < bullSweepLevel and close > bullSweepLevel
+        int bullOBBar = bar_index - bullOBCandleOffset
+        bool bullOBEntrySweep = array.includes(bullLiquiditySweepBars, bullOBBar)
+        bool bullDisplacementSweep = array.includes(bullLiquiditySweepBars, bar_index)
+        if not bullDisplacementSweep and array.size(activeSellSideLiquidity) > 0
+            for i = array.size(activeSellSideLiquidity) - 1 to 0
+                float level = array.get(activeSellSideLiquidity, i)
+                if low < level and close > level
+                    bullDisplacementSweep := true
+                    break
         bullOBLiquiditySweep := bullOBEntrySweep or bullDisplacementSweep
 
     if not na(bearOBCandleOffset)
-        float bearSweepLevel = high[bearOBCandleOffset + 1]
-        for i = 2 to obLiquidityLookback + 1
-            bearSweepLevel := math.max(bearSweepLevel, high[bearOBCandleOffset + i - 1])
-
-        bool bearOBEntrySweep = high[bearOBCandleOffset] > bearSweepLevel and close[bearOBCandleOffset] < bearSweepLevel
-        bool bearDisplacementSweep = high > bearSweepLevel and close < bearSweepLevel
+        int bearOBBar = bar_index - bearOBCandleOffset
+        bool bearOBEntrySweep = array.includes(bearLiquiditySweepBars, bearOBBar)
+        bool bearDisplacementSweep = array.includes(bearLiquiditySweepBars, bar_index)
+        if not bearDisplacementSweep and array.size(activeBuySideLiquidity) > 0
+            for i = array.size(activeBuySideLiquidity) - 1 to 0
+                float level = array.get(activeBuySideLiquidity, i)
+                if high > level and close < level
+                    bearDisplacementSweep := true
+                    break
         bearOBLiquiditySweep := bearOBEntrySweep or bearDisplacementSweep
 
     // A reversal-sweep OB uses the immediately preceding opposite candle
@@ -1712,6 +1727,44 @@ if array.size(midnightLines) > 0
                 _midnightTouched := true
 
 alertcondition(_midnightTouched, title="Midnight — Level Touched", message="Midnight open level has been touched")
+// ═══════════════════════════════════════════════════════════════
+// 📊 SWING LIQUIDITY — active until swept
+// ═══════════════════════════════════════════════════════════════
+_liqSwingHigh = ta.pivothigh(high, structSwingLen, structSwingLen)
+_liqSwingLow  = ta.pivotlow(low, structSwingLen, structSwingLen)
+
+// First detect sweeps of already active liquidity.
+_bullLiquiditySweepThisBar = false
+_bearLiquiditySweepThisBar = false
+
+if array.size(activeSellSideLiquidity) > 0
+    for i = array.size(activeSellSideLiquidity) - 1 to 0
+        _level = array.get(activeSellSideLiquidity, i)
+        if low < _level and close > _level
+            _bullLiquiditySweepThisBar := true
+            array.remove(activeSellSideLiquidity, i)
+
+if array.size(activeBuySideLiquidity) > 0
+    for i = array.size(activeBuySideLiquidity) - 1 to 0
+        _level = array.get(activeBuySideLiquidity, i)
+        if high > _level and close < _level
+            _bearLiquiditySweepThisBar := true
+            array.remove(activeBuySideLiquidity, i)
+
+if _bullLiquiditySweepThisBar
+    array.push(bullLiquiditySweepBars, bar_index)
+
+if _bearLiquiditySweepThisBar
+    array.push(bearLiquiditySweepBars, bar_index)
+
+// A pivot becomes active only after confirmation and only if it has not
+// already been swept on the confirmation bar.
+if not na(_liqSwingHigh) and high < _liqSwingHigh
+    array.push(activeBuySideLiquidity, _liqSwingHigh)
+
+if not na(_liqSwingLow) and low > _liqSwingLow
+    array.push(activeSellSideLiquidity, _liqSwingLow)
+
 // ═══════════════════════════════════════════════════════════════
 // 📊 MAIN LOGIC — FVG + OB
 // ═══════════════════════════════════════════════════════════════
