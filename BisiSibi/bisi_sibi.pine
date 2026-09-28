@@ -200,6 +200,8 @@ showSessLevels  = input.bool  (group=liqSettings, defval=true,   title="Show Ses
 showSessVol     = input.bool  (group=kzSettings,  defval=true,   title="Show session volume?")
 volHistoryDays  = input.int   (group=kzSettings,  defval=10,     title="Volume history (days)", minval=1, maxval=30)
 sessLevelStyle  = input.string(group=liqSettings, defval="solid", title="Session H/L line style", options=["solid","dashed","dotted"])
+sessHighMark    = input.string(group=liqSettings, defval="↑", title="Session High marker", tooltip="Appended to the killzone name on its High label. Any text, unicode or emoji (e.g. ↑, ▲, 🔼, High). Leave empty for no marker.")
+sessLowMark     = input.string(group=liqSettings, defval="↓", title="Session Low marker",  tooltip="Appended to the killzone name on its Low label. Any text, unicode or emoji (e.g. ↓, ▼, 🔽, Low). Leave empty for no marker.")
 
 // ═══════════════════════════════════════════════════════════════
 // 🛠 OPENS (Daily / Weekly / Monthly / Yearly / Midnight)
@@ -1278,6 +1280,8 @@ if showKillzones and kz5On and _tfOk
 // Extended bar by bar until the next session of the same type
 // ═══════════════════════════════════════════════════════════════
 _slOffset = 3
+_hiSfx = sessHighMark == "" ? "" : " " + sessHighMark
+_loSfx = sessLowMark  == "" ? "" : " " + sessLowMark
 
 // Helper: draws or extends session H/L lines
 // Called inline for each KZ — Pine v6 compatible
@@ -1299,9 +1303,9 @@ if showSessLevels and _tfOk
             line.delete(kz1LowLine)
             label.delete(kz1LowLbl)
             kz1HighLine := line.new(bar_index, kz1High, bar_index+1, kz1High, color=_col1, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz1HighLbl  := label.new(bar_index+_slOffset, kz1High, kz1Text + " ↑", color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.small)
+            kz1HighLbl  := label.new(bar_index+_slOffset, kz1High, kz1Text + _hiSfx, color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.small)
             kz1LowLine  := line.new(bar_index, kz1Low,  bar_index+1, kz1Low,  color=_col1, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz1LowLbl   := label.new(bar_index+_slOffset, kz1Low, kz1Text + " ↓", color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.small)
+            kz1LowLbl   := label.new(bar_index+_slOffset, kz1Low, kz1Text + _loSfx, color=color.new(color.black,100), textcolor=_col1, style=label.style_label_left, size=size.small)
             kz1High := na
             kz1Low  := na
         // Extend the lines — delete if price touches the level
@@ -1339,9 +1343,9 @@ if showSessLevels and _tfOk
             line.delete(kz2LowLine)
             label.delete(kz2LowLbl)
             kz2HighLine := line.new(bar_index, kz2High, bar_index+1, kz2High, color=_col2, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz2HighLbl  := label.new(bar_index+_slOffset, kz2High, kz2Text + " ↑", color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.small)
+            kz2HighLbl  := label.new(bar_index+_slOffset, kz2High, kz2Text + _hiSfx, color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.small)
             kz2LowLine  := line.new(bar_index, kz2Low,  bar_index+1, kz2Low,  color=_col2, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz2LowLbl   := label.new(bar_index+_slOffset, kz2Low, kz2Text + " ↓", color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.small)
+            kz2LowLbl   := label.new(bar_index+_slOffset, kz2Low, kz2Text + _loSfx, color=color.new(color.black,100), textcolor=_col2, style=label.style_label_left, size=size.small)
             kz2High := na
             kz2Low  := na
         else if not _s2
@@ -1378,9 +1382,9 @@ if showSessLevels and _tfOk
             line.delete(kz3LowLine)
             label.delete(kz3LowLbl)
             kz3HighLine := line.new(bar_index, kz3High, bar_index+1, kz3High, color=_col3, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz3HighLbl  := label.new(bar_index+_slOffset, kz3High, kz3Text + " ↑", color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.small)
+            kz3HighLbl  := label.new(bar_index+_slOffset, kz3High, kz3Text + _hiSfx, color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.small)
             kz3LowLine  := line.new(bar_index, kz3Low,  bar_index+1, kz3Low,  color=_col3, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz3LowLbl   := label.new(bar_index+_slOffset, kz3Low, kz3Text + " ↓", color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.small)
+            kz3LowLbl   := label.new(bar_index+_slOffset, kz3Low, kz3Text + _loSfx, color=color.new(color.black,100), textcolor=_col3, style=label.style_label_left, size=size.small)
             kz3High := na
             kz3Low  := na
         else if not _s3
@@ -1417,9 +1421,9 @@ if showSessLevels and _tfOk
             line.delete(kz4LowLine)
             label.delete(kz4LowLbl)
             kz4HighLine := line.new(bar_index, kz4High, bar_index+1, kz4High, color=_col4, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz4HighLbl  := label.new(bar_index+_slOffset, kz4High, kz4Text + " ↑", color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.small)
+            kz4HighLbl  := label.new(bar_index+_slOffset, kz4High, kz4Text + _hiSfx, color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.small)
             kz4LowLine  := line.new(bar_index, kz4Low,  bar_index+1, kz4Low,  color=_col4, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz4LowLbl   := label.new(bar_index+_slOffset, kz4Low, kz4Text + " ↓", color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.small)
+            kz4LowLbl   := label.new(bar_index+_slOffset, kz4Low, kz4Text + _loSfx, color=color.new(color.black,100), textcolor=_col4, style=label.style_label_left, size=size.small)
             kz4High := na
             kz4Low  := na
         else if not _s4
@@ -1456,9 +1460,9 @@ if showSessLevels and _tfOk
             line.delete(kz5LowLine)
             label.delete(kz5LowLbl)
             kz5HighLine := line.new(bar_index, kz5High, bar_index+1, kz5High, color=_col5, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz5HighLbl  := label.new(bar_index+_slOffset, kz5High, kz5Text + " ↑", color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.small)
+            kz5HighLbl  := label.new(bar_index+_slOffset, kz5High, kz5Text + _hiSfx, color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.small)
             kz5LowLine  := line.new(bar_index, kz5Low,  bar_index+1, kz5Low,  color=_col5, style=lineStyleFromString(sessLevelStyle), width=1, extend=extend.none)
-            kz5LowLbl   := label.new(bar_index+_slOffset, kz5Low, kz5Text + " ↓", color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.small)
+            kz5LowLbl   := label.new(bar_index+_slOffset, kz5Low, kz5Text + _loSfx, color=color.new(color.black,100), textcolor=_col5, style=label.style_label_left, size=size.small)
             kz5High := na
             kz5Low  := na
         else if not _s5
@@ -1511,16 +1515,16 @@ if barstate.islast
     f_poolAdd(_pL, _pT, pmhLabel, "PMH")
     f_poolAdd(_pL, _pT, pmlLabel, "PML")
     f_poolAdd(_pL, _pT, midnightLabel, "00:00")
-    f_poolAdd(_pL, _pT, kz1HighLbl, kz1Text + " ↑")
-    f_poolAdd(_pL, _pT, kz1LowLbl,  kz1Text + " ↓")
-    f_poolAdd(_pL, _pT, kz2HighLbl, kz2Text + " ↑")
-    f_poolAdd(_pL, _pT, kz2LowLbl,  kz2Text + " ↓")
-    f_poolAdd(_pL, _pT, kz3HighLbl, kz3Text + " ↑")
-    f_poolAdd(_pL, _pT, kz3LowLbl,  kz3Text + " ↓")
-    f_poolAdd(_pL, _pT, kz4HighLbl, kz4Text + " ↑")
-    f_poolAdd(_pL, _pT, kz4LowLbl,  kz4Text + " ↓")
-    f_poolAdd(_pL, _pT, kz5HighLbl, kz5Text + " ↑")
-    f_poolAdd(_pL, _pT, kz5LowLbl,  kz5Text + " ↓")
+    f_poolAdd(_pL, _pT, kz1HighLbl, kz1Text + _hiSfx)
+    f_poolAdd(_pL, _pT, kz1LowLbl,  kz1Text + _loSfx)
+    f_poolAdd(_pL, _pT, kz2HighLbl, kz2Text + _hiSfx)
+    f_poolAdd(_pL, _pT, kz2LowLbl,  kz2Text + _loSfx)
+    f_poolAdd(_pL, _pT, kz3HighLbl, kz3Text + _hiSfx)
+    f_poolAdd(_pL, _pT, kz3LowLbl,  kz3Text + _loSfx)
+    f_poolAdd(_pL, _pT, kz4HighLbl, kz4Text + _hiSfx)
+    f_poolAdd(_pL, _pT, kz4LowLbl,  kz4Text + _loSfx)
+    f_poolAdd(_pL, _pT, kz5HighLbl, kz5Text + _hiSfx)
+    f_poolAdd(_pL, _pT, kz5LowLbl,  kz5Text + _loSfx)
 
     _pN = array.size(_pL)
     if _pN > 0
