@@ -104,7 +104,7 @@ autoDeleteVfvgs  = input.bool  (group=vfvgSettings, defval=true,   title="🗑�
 vfvgTouchMode    = input.string(group=vfvgSettings, defval="Wicks", title="VFVG fill trigger", options=["Wicks","Corps"])
 vfvgFillPercent  = input.int   (group=vfvgSettings, defval=0, title="VFVG mitigation depth (%)", minval=0, maxval=100, step=25)
 vfvgSameDir      = input.bool  (group=vfvgSettings, defval=true, title="Same-direction candles only?", tooltip="ON: bullish VFVG = two bullish candles, bearish VFVG = two bearish candles (classic definition). OFF: any two consecutive candles whose bodies do not overlap.")
-vfvgMinSize      = input.float (group=vfvgSettings, defval=0.0, title="Min size (× ATR 14)", minval=0.0, step=0.05, tooltip="Ignore imbalances smaller than this multiple of ATR(14). 0 = no filter.")
+vfvgMinSizeTicks = input.float (group=vfvgSettings, defval=0.0, title="Min size (ticks)", minval=0.0, step=1.0, tooltip="Ignore imbalances smaller than this number of ticks. 0 = no filter.")
 vfvgBullText     = input.string(group=vfvgSettings, defval="+VFVG", title="Bullish VFVG ↑", inline="+VFVG")
 vfvgBullColor    = input.color (group=vfvgSettings, defval=color.rgb(171,130,255), title="", inline="+VFVG")
 vfvgBearText     = input.string(group=vfvgSettings, defval="-VFVG", title="Bearish VFVG ↓", inline="-VFVG")
@@ -628,7 +628,7 @@ resizeIFVGBoxes(inRange) =>
 // Bearish: mirror image.
 // Zone = the gap between the two bodies (close[1] ↔ open).
 // ═══════════════════════════════════════════════════════════════
-vfvgSignal(float atrVal) =>
+vfvgSignal() =>
     float pTop = math.max(open[1], close[1])
     float pBot = math.min(open[1], close[1])
     float cTop = math.max(open, close)
@@ -636,7 +636,7 @@ vfvgSignal(float atrVal) =>
     bool bullOk = cBot > pTop and low <= high[1] and (not vfvgSameDir or (close[1] > open[1] and close > open))
     bool bearOk = cTop < pBot and high >= low[1] and (not vfvgSameDir or (close[1] < open[1] and close < open))
     float gapSize = bullOk ? cBot - pTop : bearOk ? pBot - cTop : na
-    bool sizeOk = vfvgMinSize <= 0 or (not na(atrVal) and not na(gapSize) and gapSize >= atrVal * vfvgMinSize)
+    bool sizeOk = vfvgMinSizeTicks <= 0 or (not na(gapSize) and gapSize >= syminfo.mintick * vfvgMinSizeTicks)
     [bullOk and sizeOk, bearOk and sizeOk]
 
 drawVFVGBoxes(bool inRange, bool bullVFVG, bool bearVFVG) =>
@@ -1839,7 +1839,7 @@ alertcondition(_fvgBullMit, title="FVG — BISI Mitigated", message="BISI (Bulli
 alertcondition(_fvgBearMit, title="FVG — SIBI Mitigated", message="SIBI (Bearish FVG) mitigated — zone filled")
 
 // ── VFVG (Volume Imbalance) ──
-[_vfvgBull, _vfvgBear] = vfvgSignal(ta.atr(14))
+[_vfvgBull, _vfvgBear] = vfvgSignal()
 
 alertcondition(_vfvgBull, title="VFVG — Bullish Created", message="Bullish Volume Imbalance (VFVG) created — potential support zone")
 alertcondition(_vfvgBear, title="VFVG — Bearish Created", message="Bearish Volume Imbalance (VFVG) created — potential resistance zone")
