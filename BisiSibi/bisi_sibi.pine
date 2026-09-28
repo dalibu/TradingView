@@ -1019,6 +1019,8 @@ if showOpens
     // ── Yearly Open ──
     if showYearlyOpen
         if isNewYear
+            if not na(yearlyOpenLabel)
+                label.set_text(yearlyOpenLabel, "_Y")   // the old label stays on the chart: restore its text
             yearlyOpenLine  := line.new(bar_index, open, bar_index + 1, open,
                  color=yearlyOpenColor, style=lineStyleFromString(yearlyOpenStyle),
                  width=1, extend=extend.none)
@@ -1030,6 +1032,47 @@ if showOpens
             if not na(yearlyOpenLabel) and openLabelPosition == POSITION_RIGHT
                 label.set_x(yearlyOpenLabel, bar_index + _labelOffset)
                 label.set_style(yearlyOpenLabel, label.style_label_left)
+
+    // ── Merge coincident Opens: same start bar + same price → one label "_D, _W, _M" ──
+    // Executed on the last bar only: only the current labels matter here
+    // (old ones are deleted when a new period starts).
+    if barstate.islast
+        _oLines  = array.new<line>()
+        _oLabels = array.new<label>()
+        _oTexts  = array.new<string>()
+
+        if showDailyOpen and not na(dailyOpenLine) and not na(dailyOpenLabel)
+            array.push(_oLines,  dailyOpenLine)
+            array.push(_oLabels, dailyOpenLabel)
+            array.push(_oTexts,  "_D")
+        if showWeeklyOpen and not na(weeklyOpenLine) and not na(weeklyOpenLabel)
+            array.push(_oLines,  weeklyOpenLine)
+            array.push(_oLabels, weeklyOpenLabel)
+            array.push(_oTexts,  "_W")
+        if showMonthlyOpen and not na(monthlyOpenLine) and not na(monthlyOpenLabel)
+            array.push(_oLines,  monthlyOpenLine)
+            array.push(_oLabels, monthlyOpenLabel)
+            array.push(_oTexts,  "_M")
+        if showYearlyOpen and not na(yearlyOpenLine) and not na(yearlyOpenLabel)
+            array.push(_oLines,  yearlyOpenLine)
+            array.push(_oLabels, yearlyOpenLabel)
+            array.push(_oTexts,  "_Y")
+
+        _oN = array.size(_oLabels)
+        if _oN > 0
+            _oHidden = array.new_bool(_oN, false)
+            for i = 0 to _oN - 1
+                if not array.get(_oHidden, i)
+                    _oLead = array.get(_oLines, i)
+                    _oTxt  = array.get(_oTexts, i)
+                    if i < _oN - 1
+                        for j = i + 1 to _oN - 1
+                            _oOther = array.get(_oLines, j)
+                            if line.get_x1(_oOther) == line.get_x1(_oLead) and line.get_y1(_oOther) == line.get_y1(_oLead)
+                                _oTxt := _oTxt + ", " + array.get(_oTexts, j)
+                                array.set(_oHidden, j, true)
+                                label.set_text(array.get(_oLabels, j), "")
+                    label.set_text(array.get(_oLabels, i), _oTxt)
 
     // ── Midnight Open — N days history (maxMidnightDays) ──
     if showMidnightOpen
