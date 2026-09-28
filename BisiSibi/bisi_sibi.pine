@@ -93,6 +93,38 @@ ifvgMidlineOpacity = input.int(group=ifvgSettings, defval=0, title="Opacity", mi
 ifvgMidlineWidth = input.int(group=ifvgSettings, defval=1, title="Width", minval=1, maxval=4, inline="ifvgMid")
 
 // ═══════════════════════════════════════════════════════════════
+// 🛠 VOLUME IMBALANCE (VFVG) SETTINGS
+// Two consecutive candles whose BODIES do not overlap (gap between
+// close[1] and open) while their WICKS still overlap.
+// ═══════════════════════════════════════════════════════════════
+vfvgSettings = "═══════ VOLUME IMBALANCE (VFVG) SETTINGS ═══════"
+showVfvgs        = input.bool  (group=vfvgSettings, defval=true,   title="Show VFVGs?")
+stretchVfvgs     = input.bool  (group=vfvgSettings, defval=true,   title="📏 Stretch VFVGs until filled?")
+autoDeleteVfvgs  = input.bool  (group=vfvgSettings, defval=true,   title="🗑️ Auto-delete when filled?")
+vfvgTouchMode    = input.string(group=vfvgSettings, defval="Wicks", title="VFVG fill trigger", options=["Wicks","Corps"])
+vfvgFillPercent  = input.int   (group=vfvgSettings, defval=0, title="VFVG mitigation depth (%)", minval=0, maxval=100, step=25)
+vfvgSameDir      = input.bool  (group=vfvgSettings, defval=true, title="Same-direction candles only?", tooltip="ON: bullish VFVG = two bullish candles, bearish VFVG = two bearish candles (classic definition). OFF: any two consecutive candles whose bodies do not overlap.")
+vfvgMinSize      = input.float (group=vfvgSettings, defval=0.0, title="Min size (× ATR 14)", minval=0.0, step=0.05, tooltip="Ignore imbalances smaller than this multiple of ATR(14). 0 = no filter.")
+vfvgBullText     = input.string(group=vfvgSettings, defval="+VFVG", title="Bullish VFVG ↑", inline="+VFVG")
+vfvgBullColor    = input.color (group=vfvgSettings, defval=color.rgb(171,130,255), title="", inline="+VFVG")
+vfvgBearText     = input.string(group=vfvgSettings, defval="-VFVG", title="Bearish VFVG ↓", inline="-VFVG")
+vfvgBearColor    = input.color (group=vfvgSettings, defval=color.rgb(255,138,190), title="", inline="-VFVG")
+showVfvgBackground = input.bool(group=vfvgSettings, defval=true, title="Show VFVG background?")
+vfvgBackgroundOpacity = input.int(group=vfvgSettings, defval=90, title="Background Opacity", minval=0, maxval=100)
+vfvgBullBorderColor = input.color(group=vfvgSettings, defval=color.rgb(171,130,255), title="Bullish border", inline="vfvgBullBorder")
+vfvgBullBorderOpacity = input.int(group=vfvgSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="vfvgBullBorder")
+vfvgBearBorderColor = input.color(group=vfvgSettings, defval=color.rgb(255,138,190), title="Bearish border", inline="vfvgBearBorder")
+vfvgBearBorderOpacity = input.int(group=vfvgSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="vfvgBearBorder")
+vfvgBorderStyle = input.string(group=vfvgSettings, defval="Solid", title="Border Style", options=["Solid", "Dashed", "Dotted"])
+vfvgBorderWidth = input.int(group=vfvgSettings, defval=1, title="Border Width", minval=1, maxval=4)
+vfvgTextOpacity = input.int(group=vfvgSettings, defval=0, title="Text Opacity", minval=0, maxval=100)
+showVfvgBorders = input.bool(group=vfvgSettings, defval=true, title="Show VFVG borders?")
+showVfvgMidline = input.bool(group=vfvgSettings, defval=true, title="Show VFVG middle line?")
+vfvgMidlineStyle = input.string(group=vfvgSettings, defval="Solid", title="Style", options=["Solid", "Dashed", "Dotted"], inline="vfvgMid")
+vfvgMidlineOpacity = input.int(group=vfvgSettings, defval=0, title="Opacity", minval=0, maxval=100, inline="vfvgMid")
+vfvgMidlineWidth = input.int(group=vfvgSettings, defval=1, title="Width", minval=1, maxval=4, inline="vfvgMid")
+
+// ═══════════════════════════════════════════════════════════════
 // 🛠 ORDER BLOCK SETTINGS
 // ═══════════════════════════════════════════════════════════════
 obSettings = "═══════ ORDER BLOCK SETTINGS ═══════"
@@ -264,6 +296,15 @@ type ifvg
     int   startCheck
     bool  bullish
 
+type vfvg
+    box   boxObject
+    line  midLine
+    float top
+    float bottom
+    bool  filled
+    int   startCheck
+    bool  bullish
+
 type orderBlock
     box   boxObject
     line  midLine
@@ -279,6 +320,7 @@ type orderBlock
 // ═══════════════════════════════════════════════════════════════
 var fvg[]        fvgs        = array.new<fvg>()
 var ifvg[]       ifvgs       = array.new<ifvg>()
+var vfvg[]       vfvgs       = array.new<vfvg>()
 var orderBlock[] orderBlocks = array.new<orderBlock>()
 
 // Active unswept swing liquidity
@@ -578,6 +620,105 @@ resizeIFVGBoxes(inRange) =>
                     line.set_style(gap.midLine, lineStyleFromString(ifvgMidlineStyle))
                     line.set_width(gap.midLine, ifvgMidlineWidth)
                 array.set(ifvgs, i, gap)
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 VOLUME IMBALANCE (VFVG) LOGIC
+// Bullish: body of the current candle is entirely ABOVE the body of the
+//          previous one, wicks still overlap (low <= high[1]).
+// Bearish: mirror image.
+// Zone = the gap between the two bodies (close[1] ↔ open).
+// ═══════════════════════════════════════════════════════════════
+vfvgSignal(float atrVal) =>
+    float pTop = math.max(open[1], close[1])
+    float pBot = math.min(open[1], close[1])
+    float cTop = math.max(open, close)
+    float cBot = math.min(open, close)
+    bool bullOk = cBot > pTop and low <= high[1] and (not vfvgSameDir or (close[1] > open[1] and close > open))
+    bool bearOk = cTop < pBot and high >= low[1] and (not vfvgSameDir or (close[1] < open[1] and close < open))
+    float gapSize = bullOk ? cBot - pTop : bearOk ? pBot - cTop : na
+    bool sizeOk = vfvgMinSize <= 0 or (not na(atrVal) and not na(gapSize) and gapSize >= atrVal * vfvgMinSize)
+    [bullOk and sizeOk, bearOk and sizeOk]
+
+drawVFVGBoxes(bool inRange, bool bullVFVG, bool bearVFVG) =>
+    if inRange and (bullVFVG or bearVFVG)
+        // Zone = gap BETWEEN the two bodies
+        //   bullish: from the top of the previous body up to the bottom of the current body
+        //   bearish: from the top of the current body up to the bottom of the previous body
+        float prevBodyTop = math.max(open[1], close[1])
+        float prevBodyBot = math.min(open[1], close[1])
+        float currBodyTop = math.max(open, close)
+        float currBodyBot = math.min(open, close)
+        float topVal    = bullVFVG ? currBodyBot : prevBodyBot
+        float bottomVal = bullVFVG ? prevBodyTop : currBodyTop
+        color colorV    = bullVFVG ? vfvgBullColor : vfvgBearColor
+        string textV    = bullVFVG ? vfvgBullText  : vfvgBearText
+        color borderColorV = showVfvgBorders ? color.new(bullVFVG ? vfvgBullBorderColor : vfvgBearBorderColor, bullVFVG ? vfvgBullBorderOpacity : vfvgBearBorderOpacity) : color.new(colorV, 100)
+
+        box b = box.new(
+             left=bar_index - 1, right=bar_index,
+             top=topVal, bottom=bottomVal,
+             bgcolor=showVfvgBackground ? color.new(colorV, vfvgBackgroundOpacity) : na,
+             border_color=borderColorV,
+             border_style=lineStyleFromString(vfvgBorderStyle),
+             border_width=vfvgBorderWidth,
+             text=textV,
+             text_color=color.new(colorV, vfvgTextOpacity),
+             text_size=size.tiny)
+
+        line vMidLine = showVfvgMidline ? line.new(
+             x1=bar_index - 1, y1=(topVal + bottomVal) / 2,
+             x2=bar_index, y2=(topVal + bottomVal) / 2,
+             color=color.new(colorV, vfvgMidlineOpacity),
+             style=lineStyleFromString(vfvgMidlineStyle),
+             width=vfvgMidlineWidth) : na
+
+        if array.size(vfvgs) >= maxBoxes
+            oldV = array.shift(vfvgs)
+            box.delete(oldV.boxObject)
+            if not na(oldV.midLine)
+                line.delete(oldV.midLine)
+
+        array.push(vfvgs, vfvg.new(b, vMidLine, topVal, bottomVal, false, bar_index + 1, bullVFVG))
+
+resizeVFVGBoxes(inRange) =>
+    if array.size(vfvgs) > 0
+        for i = array.size(vfvgs) - 1 to 0
+            gap = array.get(vfvgs, i)
+            if not gap.filled
+                if bar_index >= gap.startCheck
+                    cHigh = candleHigh(vfvgTouchMode)
+                    cLow  = candleLow(vfvgTouchMode)
+                    float gapRange = gap.top - gap.bottom
+                    float gapDepth = gap.bullish ? (gap.top - cLow) / gapRange : (cHigh - gap.bottom) / gapRange
+                    touched = gapDepth >= vfvgFillPercent / 100.0
+                    if touched
+                        gap.filled := true
+                        if autoDeleteVfvgs
+                            box.delete(gap.boxObject)
+                            if not na(gap.midLine)
+                                line.delete(gap.midLine)
+                            array.remove(vfvgs, i)
+                            continue
+                    else
+                        if stretchVfvgs
+                            newRight = bar_index + 1
+                            if box.get_right(gap.boxObject) != newRight
+                                box.set_right(gap.boxObject, newRight)
+                                if not na(gap.midLine)
+                                    line.set_x2(gap.midLine, newRight)
+                else
+                    if stretchVfvgs
+                        newRight = bar_index + 1
+                        if box.get_right(gap.boxObject) != newRight
+                            box.set_right(gap.boxObject, newRight)
+                            if not na(gap.midLine)
+                                line.set_x2(gap.midLine, newRight)
+
+            if not na(gap.midLine)
+                line.set_color(gap.midLine, color.new(gap.bullish ? vfvgBullColor : vfvgBearColor, vfvgMidlineOpacity))
+                line.set_style(gap.midLine, lineStyleFromString(vfvgMidlineStyle))
+                line.set_width(gap.midLine, vfvgMidlineWidth)
+            array.set(vfvgs, i, gap)
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 ORDER BLOCK LOGIC
@@ -1697,6 +1838,12 @@ _fvgBearMit    = not _lastFVGBull and not na(_lastFVGTop) and low < _lastFVGTop 
 alertcondition(_fvgBullMit, title="FVG — BISI Mitigated", message="BISI (Bullish FVG) mitigated — zone filled")
 alertcondition(_fvgBearMit, title="FVG — SIBI Mitigated", message="SIBI (Bearish FVG) mitigated — zone filled")
 
+// ── VFVG (Volume Imbalance) ──
+[_vfvgBull, _vfvgBear] = vfvgSignal(ta.atr(14))
+
+alertcondition(_vfvgBull, title="VFVG — Bullish Created", message="Bullish Volume Imbalance (VFVG) created — potential support zone")
+alertcondition(_vfvgBear, title="VFVG — Bearish Created", message="Bearish Volume Imbalance (VFVG) created — potential resistance zone")
+
 // ── ORDER BLOCKS ──
 _bullOBCreated = close[1] < open[1] and close > high[1]
 _bearOBCreated = close[1] > open[1] and close < low[1]
@@ -1831,7 +1978,7 @@ if not na(_liqSwingLow) and low > _liqSwingLow
     array.push(activeSellSideLiquidity, _liqSwingLow)
 
 // ═══════════════════════════════════════════════════════════════
-// 📊 MAIN LOGIC — FVG + OB
+// 📊 MAIN LOGIC — FVG + VFVG + OB
 // ═══════════════════════════════════════════════════════════════
 inRange = isBarInRange()
 
@@ -1841,6 +1988,10 @@ if showFvgs and inRange
 
 if showIFvgs and inRange
     resizeIFVGBoxes(inRange)
+
+if showVfvgs and inRange
+    drawVFVGBoxes(inRange, _vfvgBull, _vfvgBear)
+    resizeVFVGBoxes(inRange)
 
 drawOrderBlocks(showOBs and inRange)
 
