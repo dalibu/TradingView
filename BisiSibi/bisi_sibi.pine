@@ -1033,51 +1033,12 @@ if showOpens
                 label.set_x(yearlyOpenLabel, bar_index + _labelOffset)
                 label.set_style(yearlyOpenLabel, label.style_label_left)
 
-    // ── Merge coincident Opens: same start bar + same price → one label "_D, _W, _M" ──
-    // Executed on the last bar only: only the current labels matter here
-    // (old ones are deleted when a new period starts).
-    if barstate.islast
-        _oLines  = array.new<line>()
-        _oLabels = array.new<label>()
-        _oTexts  = array.new<string>()
-
-        if showDailyOpen and not na(dailyOpenLine) and not na(dailyOpenLabel)
-            array.push(_oLines,  dailyOpenLine)
-            array.push(_oLabels, dailyOpenLabel)
-            array.push(_oTexts,  "_D")
-        if showWeeklyOpen and not na(weeklyOpenLine) and not na(weeklyOpenLabel)
-            array.push(_oLines,  weeklyOpenLine)
-            array.push(_oLabels, weeklyOpenLabel)
-            array.push(_oTexts,  "_W")
-        if showMonthlyOpen and not na(monthlyOpenLine) and not na(monthlyOpenLabel)
-            array.push(_oLines,  monthlyOpenLine)
-            array.push(_oLabels, monthlyOpenLabel)
-            array.push(_oTexts,  "_M")
-        if showYearlyOpen and not na(yearlyOpenLine) and not na(yearlyOpenLabel)
-            array.push(_oLines,  yearlyOpenLine)
-            array.push(_oLabels, yearlyOpenLabel)
-            array.push(_oTexts,  "_Y")
-
-        _oN = array.size(_oLabels)
-        if _oN > 0
-            _oHidden = array.new_bool(_oN, false)
-            for i = 0 to _oN - 1
-                if not array.get(_oHidden, i)
-                    _oLead = array.get(_oLines, i)
-                    _oTxt  = array.get(_oTexts, i)
-                    if i < _oN - 1
-                        for j = i + 1 to _oN - 1
-                            _oOther = array.get(_oLines, j)
-                            if line.get_x1(_oOther) == line.get_x1(_oLead) and line.get_y1(_oOther) == line.get_y1(_oLead)
-                                _oTxt := _oTxt + ", " + array.get(_oTexts, j)
-                                array.set(_oHidden, j, true)
-                                label.set_text(array.get(_oLabels, j), "")
-                    label.set_text(array.get(_oLabels, i), _oTxt)
-
     // ── Midnight Open — N days history (maxMidnightDays) ──
     if showMidnightOpen
         if isMidnight
             // Create new line + label
+            if not na(midnightLabel)
+                label.set_text(midnightLabel, "00:00")   // the old label stays on the chart: restore its text
             _mLine  = line.new(bar_index, open, bar_index + 1, open,
                  color=midnightOpenColor, style=lineStyleFromString(midnightOpenStyle),
                  width=1, extend=extend.none)
@@ -1519,6 +1480,63 @@ if showSessLevels and _tfOk
                 else
                     line.set_x2(kz5LowLine, bar_index)
                     label.set_x(kz5LowLbl, bar_index+_slOffset)
+
+// ═══════════════════════════════════════════════════════════════
+// 📊 MERGE OVERLAPPING LEVEL LABELS
+// Opens (_D/_W/_M/_Y), Liquidity (PDH/PDL/PWH/PWL/PMH/PML), Midnight (00:00)
+// and Session H/L (KZ ↑/↓). Labels sitting at the same x and the same price
+// (= they would overlap) are replaced by ONE label: "PDH, PWH, _W".
+// The first label of the group is kept (its color), the others become empty.
+// Executed on the last bar only: every label text is reset on each run,
+// so the state is always recomputed from scratch.
+// ═══════════════════════════════════════════════════════════════
+f_poolAdd(array<label> lbls, array<string> txts, label l, string t) =>
+    if not na(l)
+        array.push(lbls, l)
+        array.push(txts, t)
+
+if barstate.islast
+    _pL = array.new<label>()
+    _pT = array.new<string>()
+
+    // Order of the names inside a merged label = order of the lines below
+    f_poolAdd(_pL, _pT, dailyOpenLabel,   "_D")
+    f_poolAdd(_pL, _pT, weeklyOpenLabel,  "_W")
+    f_poolAdd(_pL, _pT, monthlyOpenLabel, "_M")
+    f_poolAdd(_pL, _pT, yearlyOpenLabel,  "_Y")
+    f_poolAdd(_pL, _pT, pdhLabel, "PDH")
+    f_poolAdd(_pL, _pT, pdlLabel, "PDL")
+    f_poolAdd(_pL, _pT, pwhLabel, "PWH")
+    f_poolAdd(_pL, _pT, pwlLabel, "PWL")
+    f_poolAdd(_pL, _pT, pmhLabel, "PMH")
+    f_poolAdd(_pL, _pT, pmlLabel, "PML")
+    f_poolAdd(_pL, _pT, midnightLabel, "00:00")
+    f_poolAdd(_pL, _pT, kz1HighLbl, kz1Text + " ↑")
+    f_poolAdd(_pL, _pT, kz1LowLbl,  kz1Text + " ↓")
+    f_poolAdd(_pL, _pT, kz2HighLbl, kz2Text + " ↑")
+    f_poolAdd(_pL, _pT, kz2LowLbl,  kz2Text + " ↓")
+    f_poolAdd(_pL, _pT, kz3HighLbl, kz3Text + " ↑")
+    f_poolAdd(_pL, _pT, kz3LowLbl,  kz3Text + " ↓")
+    f_poolAdd(_pL, _pT, kz4HighLbl, kz4Text + " ↑")
+    f_poolAdd(_pL, _pT, kz4LowLbl,  kz4Text + " ↓")
+    f_poolAdd(_pL, _pT, kz5HighLbl, kz5Text + " ↑")
+    f_poolAdd(_pL, _pT, kz5LowLbl,  kz5Text + " ↓")
+
+    _pN = array.size(_pL)
+    if _pN > 0
+        _pHidden = array.new_bool(_pN, false)
+        for i = 0 to _pN - 1
+            if not array.get(_pHidden, i)
+                _pLead = array.get(_pL, i)
+                _pTxt  = array.get(_pT, i)
+                if i < _pN - 1
+                    for j = i + 1 to _pN - 1
+                        _pOther = array.get(_pL, j)
+                        if not array.get(_pHidden, j) and label.get_x(_pOther) == label.get_x(_pLead) and label.get_y(_pOther) == label.get_y(_pLead)
+                            _pTxt := _pTxt + ", " + array.get(_pT, j)
+                            array.set(_pHidden, j, true)
+                            label.set_text(_pOther, "")
+                label.set_text(_pLead, _pTxt)
 
 // ═══════════════════════════════════════════════════════════════
 // 📊 SESSION VOLUME
