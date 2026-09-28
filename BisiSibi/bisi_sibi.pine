@@ -168,34 +168,36 @@ bearDispColor      = input.color(group=dispSettings, defval=color.rgb(252, 188, 
 // 🛠 KILLZONES
 // ═══════════════════════════════════════════════════════════════
 kzSettings = "═══════ KILLZONES ═══════"
-showKillzones = input.bool(group=kzSettings, defval=true, title="Show Killzones?")
-kzOpacity     = input.int (group=kzSettings, defval=88,   title="Background Opacity", minval=0, maxval=100)
+showKillzones   = input.bool(group=kzSettings, defval=true, title="Show Killzones?")
+kzOpacity       = input.int (group=kzSettings, defval=88,   title="Background Opacity", minval=0, maxval=100)
+sessLevelStyle  = input.string(group=kzSettings, defval="solid", title="Session H/L line style", options=["solid","dashed","dotted"])
+sessHighMark    = input.string(group=kzSettings, defval="▲", title="Session High marker", tooltip="Appended to the killzone name on its High label. Any text, unicode or emoji (e.g. ↑, ▲, 🔼, High). Leave empty for no marker.")
+sessLowMark     = input.string(group=kzSettings, defval="▼", title="Session Low marker",  tooltip="Appended to the killzone name on its Low label. Any text, unicode or emoji (e.g. ↓, ▼, 🔽, Low). Leave empty for no marker.")
 
-kz1On    = input.bool  (group=kzSettings, defval=true, title="KZ 1", inline="kz1")
-kz1Text  = input.string(group=kzSettings, defval="NY PM", title="", inline="kz1")
-kz1Start = input.session(group=kzSettings, defval="1400-1900", title="", inline="kz1")
-kz1Color = input.color (group=kzSettings, defval=color.purple, title="", inline="kz1")
+kz1On    = input.bool  (group=kzSettings, defval=true,  title="KZ 1", inline="kz1")
+kz1Text  = input.string(group=kzSettings, defval="ASIA", title="", inline="kz1")
+kz1Start = input.session(group=kzSettings, defval="2000-0000", title="", inline="kz1")
+kz1Color = input.color (group=kzSettings, defval=color.orange, title="",inline="kz1")
 
 kz2On    = input.bool  (group=kzSettings, defval=true,  title="KZ 2", inline="kz2")
-kz2Text  = input.string(group=kzSettings, defval="Asia", title="", inline="kz2")
-kz2Start = input.session(group=kzSettings, defval="2000-0000", title="", inline="kz2")
-kz2Color = input.color (group=kzSettings, defval=color.orange, title="",inline="kz2")
+kz2Text  = input.string(group=kzSettings, defval="EUROPE", title="", inline="kz2")
+kz2Start = input.session(group=kzSettings, defval="0130-0500", title="", inline="kz2")
+kz2Color = input.color (group=kzSettings, defval=color.blue,    title="",inline="kz2")
 
 kz3On    = input.bool  (group=kzSettings, defval=true,  title="KZ 3", inline="kz3")
-kz3Text  = input.string(group=kzSettings, defval="Europe", title="", inline="kz3")
-kz3Start = input.session(group=kzSettings, defval="0200-0500", title="", inline="kz3")
-kz3Color = input.color (group=kzSettings, defval=color.red,    title="",inline="kz3")
+kz3Text  = input.string(group=kzSettings, defval="NY AM", title="", inline="kz3")
+kz3Start = input.session(group=kzSettings, defval="0700-1200", title="", inline="kz3")
+kz3Color = input.color (group=kzSettings, defval=color.red,   title="",inline="kz3")
 
-kz4On    = input.bool  (group=kzSettings, defval=true,  title="KZ 4", inline="kz4")
-kz4Text  = input.string(group=kzSettings, defval="NY AM", title="", inline="kz4")
-kz4Start = input.session(group=kzSettings, defval="0700-1200", title="", inline="kz4")
-kz4Color = input.color (group=kzSettings, defval=color.blue,   title="",inline="kz4")
+kz4On    = input.bool  (group=kzSettings, defval=true, title="KZ 4", inline="kz4")
+kz4Text  = input.string(group=kzSettings, defval="NY PM", title="", inline="kz4")
+kz4Start = input.session(group=kzSettings, defval="1400-1900", title="", inline="kz4")
+kz4Color = input.color (group=kzSettings, defval=color.purple, title="", inline="kz4")
 
 kz5On    = input.bool  (group=kzSettings, defval=false, title="KZ 5", inline="kz5")
 kz5Text  = input.string(group=kzSettings, defval="KZ 5", title="", inline="kz5")
 kz5Start = input.session(group=kzSettings, defval="1000-1200", title="", inline="kz5")
 kz5Color = input.color (group=kzSettings, defval=color.gray,   title="",inline="kz5")
-
 
 // ═══════════════════════════════════════════════════════════════
 // 🛠 LIQUIDITY LEVELS (PDH / PDL / PWH / PWL / PMH / PML)
@@ -231,9 +233,6 @@ pmlStyle   = input.string(group=liqSettings, defval="dashed",           title=""
 showSessLevels  = input.bool  (group=liqSettings, defval=true,   title="Show Session High/Low?")
 showSessVol     = input.bool  (group=kzSettings,  defval=true,   title="Show session volume?")
 volHistoryDays  = input.int   (group=kzSettings,  defval=10,     title="Volume history (days)", minval=1, maxval=30)
-sessLevelStyle  = input.string(group=liqSettings, defval="solid", title="Session H/L line style", options=["solid","dashed","dotted"])
-sessHighMark    = input.string(group=liqSettings, defval="↑", title="Session High marker", tooltip="Appended to the killzone name on its High label. Any text, unicode or emoji (e.g. ↑, ▲, 🔼, High). Leave empty for no marker.")
-sessLowMark     = input.string(group=liqSettings, defval="↓", title="Session Low marker",  tooltip="Appended to the killzone name on its Low label. Any text, unicode or emoji (e.g. ↓, ▼, 🔽, Low). Leave empty for no marker.")
 
 // ═══════════════════════════════════════════════════════════════
 // 🛠 OPENS (Daily / Weekly / Monthly / Yearly / Midnight)
