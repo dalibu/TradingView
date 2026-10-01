@@ -22,12 +22,20 @@ const string TIME_ZONE = "America/New_York"
 // ═══════════════════════════════════════════════════════════════
 generalSettings = "═══════ GENERAL SETTINGS ═══════"
 
+lookbackMode = input.string(
+     group=generalSettings,
+     defval="Fixed Bars",
+     title="Lookback Mode",
+     options=["Fixed Bars", "Visible Range"])
+
 lookbackBars = input.int(
      group=generalSettings,
      defval=5000,
      title="Lookback Bars",
      minval=1,
      maxval=50000)
+
+var int visibleStartBar = na
 
 maxBoxes = input.int(
      group=generalSettings,
@@ -415,8 +423,13 @@ var int   lastSwingLowBar  = na
 lookbackStartBar() =>
     math.max(0, last_bar_index - lookbackBars + 1)
 
+activeStartBar() =>
+    lookbackMode == "Visible Range" ? nz(visibleStartBar, bar_index) : lookbackStartBar()
+
 isBarInRange() =>
-    bar_index >= lookbackStartBar()
+    lookbackMode == "Visible Range" ?
+         (time >= chart.left_visible_bar_time and time <= chart.right_visible_bar_time) :
+         bar_index >= lookbackStartBar()
 
 candleHigh(touchMode) =>
     touchMode == "Corps" ? math.max(open, close) : high
@@ -500,7 +513,7 @@ drawFVGBoxes(inRange) =>
         array.push(fvgs, fvg.new(b, fvgMidLine, topVal, bottomVal, false, bar_index, bar_index + 1, bullFVG))
 
 resizeFVGBoxes(inRange) =>
-    int rangeStartBar = lookbackStartBar()
+    int rangeStartBar = activeStartBar()
     if array.size(fvgs) > 0
         // Remove FVGs created before the active lookback window.
         for i = array.size(fvgs) - 1 to 0
@@ -599,7 +612,7 @@ resizeFVGBoxes(inRange) =>
                 array.set(fvgs, i, gap)
 
 resizeIFVGBoxes(inRange) =>
-    int rangeStartBar = lookbackStartBar()
+    int rangeStartBar = activeStartBar()
     if array.size(ifvgs) > 0
         // Remove IFVGs created before the active lookback window.
         for i = array.size(ifvgs) - 1 to 0
@@ -706,7 +719,7 @@ drawVFVGBoxes(bool inRange, bool bullVFVG, bool bearVFVG) =>
         array.push(vfvgs, vfvg.new(b, vMidLine, topVal, bottomVal, false, bar_index, bar_index + 1, bullVFVG))
 
 resizeVFVGBoxes(inRange) =>
-    int rangeStartBar = lookbackStartBar()
+    int rangeStartBar = activeStartBar()
     if array.size(vfvgs) > 0
         // Remove VFVGs created before the active lookback window.
         for i = array.size(vfvgs) - 1 to 0
@@ -882,7 +895,7 @@ plotshape(debugReversalSweep and showOBs and close > open and close[1] < open[1]
 plotshape(debugReversalSweep and showOBs and close < open and close[1] > open[1] and high >= high[1], title="Bear reversal sweep", style=shape.triangledown, location=location.abovebar, color=color.orange, size=size.small, text="S")
 
 resizeOrderBlocks(inRange) =>
-    int rangeStartBar = lookbackStartBar()
+    int rangeStartBar = activeStartBar()
     if array.size(orderBlocks) > 0
         // Remove OBs whose origin candle is before the active lookback window.
         for i = array.size(orderBlocks) - 1 to 0
@@ -2025,6 +2038,9 @@ if not na(_liqSwingLow) and low > _liqSwingLow
 // ═══════════════════════════════════════════════════════════════
 // 📊 MAIN LOGIC — FVG + VFVG + OB
 // ═══════════════════════════════════════════════════════════════
+if lookbackMode == "Visible Range" and na(visibleStartBar) and time >= chart.left_visible_bar_time
+    visibleStartBar := bar_index
+
 inRange = isBarInRange()
 
 if showFvgs and inRange
