@@ -283,6 +283,7 @@ type fvg
     float top
     float bottom
     bool  filled
+    int   originBar
     int   startCheck
     bool  bullish
 
@@ -292,6 +293,7 @@ type ifvg
     float top
     float bottom
     bool  filled
+    int   originBar
     int   startCheck
     bool  bullish
 
@@ -301,6 +303,7 @@ type vfvg
     float top
     float bottom
     bool  filled
+    int   originBar
     int   startCheck
     bool  bullish
 
@@ -409,8 +412,11 @@ var int   lastSwingLowBar  = na
 // ═══════════════════════════════════════════════════════════════
 // 🎯 HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
+lookbackStartBar() =>
+    math.max(0, last_bar_index - lookbackBars + 1)
+
 isBarInRange() =>
-    bar_index >= bar_index - lookbackBars
+    bar_index >= lookbackStartBar()
 
 candleHigh(touchMode) =>
     touchMode == "Corps" ? math.max(open, close) : high
@@ -491,10 +497,20 @@ drawFVGBoxes(inRange) =>
             if not na(old.midLine)
                 line.delete(old.midLine)
 
-        array.push(fvgs, fvg.new(b, fvgMidLine, topVal, bottomVal, false, bar_index + 1, bullFVG))
+        array.push(fvgs, fvg.new(b, fvgMidLine, topVal, bottomVal, false, bar_index, bar_index + 1, bullFVG))
 
 resizeFVGBoxes(inRange) =>
+    int rangeStartBar = lookbackStartBar()
     if array.size(fvgs) > 0
+        // Remove FVGs created before the active lookback window.
+        for i = array.size(fvgs) - 1 to 0
+            gap = array.get(fvgs, i)
+            if gap.originBar < rangeStartBar
+                box.delete(gap.boxObject)
+                if not na(gap.midLine)
+                    line.delete(gap.midLine)
+                array.remove(fvgs, i)
+        
         for i = array.size(fvgs) - 1 to 0
             gap = array.get(fvgs, i)
             if not gap.filled
@@ -538,7 +554,7 @@ resizeFVGBoxes(inRange) =>
                             if not na(oldIFVG.midLine)
                                 line.delete(oldIFVG.midLine)
 
-                        array.push(ifvgs, ifvg.new(b, ifvgMidLine, ifvgTop, ifvgBottom, false, bar_index + 1, ifvgBullish))
+                        array.push(ifvgs, ifvg.new(b, ifvgMidLine, ifvgTop, ifvgBottom, false, bar_index, bar_index + 1, ifvgBullish))
 
                     if autoDeleteFvgs
                         box.delete(gap.boxObject)
@@ -583,7 +599,17 @@ resizeFVGBoxes(inRange) =>
                 array.set(fvgs, i, gap)
 
 resizeIFVGBoxes(inRange) =>
+    int rangeStartBar = lookbackStartBar()
     if array.size(ifvgs) > 0
+        // Remove IFVGs created before the active lookback window.
+        for i = array.size(ifvgs) - 1 to 0
+            gap = array.get(ifvgs, i)
+            if gap.originBar < rangeStartBar
+                box.delete(gap.boxObject)
+                if not na(gap.midLine)
+                    line.delete(gap.midLine)
+                array.remove(ifvgs, i)
+        
         for i = array.size(ifvgs) - 1 to 0
             gap = array.get(ifvgs, i)
             if not gap.filled
@@ -677,10 +703,20 @@ drawVFVGBoxes(bool inRange, bool bullVFVG, bool bearVFVG) =>
             if not na(oldV.midLine)
                 line.delete(oldV.midLine)
 
-        array.push(vfvgs, vfvg.new(b, vMidLine, topVal, bottomVal, false, bar_index + 1, bullVFVG))
+        array.push(vfvgs, vfvg.new(b, vMidLine, topVal, bottomVal, false, bar_index, bar_index + 1, bullVFVG))
 
 resizeVFVGBoxes(inRange) =>
+    int rangeStartBar = lookbackStartBar()
     if array.size(vfvgs) > 0
+        // Remove VFVGs created before the active lookback window.
+        for i = array.size(vfvgs) - 1 to 0
+            gap = array.get(vfvgs, i)
+            if gap.originBar < rangeStartBar
+                box.delete(gap.boxObject)
+                if not na(gap.midLine)
+                    line.delete(gap.midLine)
+                array.remove(vfvgs, i)
+        
         for i = array.size(vfvgs) - 1 to 0
             gap = array.get(vfvgs, i)
             if not gap.filled
@@ -846,7 +882,17 @@ plotshape(debugReversalSweep and showOBs and close > open and close[1] < open[1]
 plotshape(debugReversalSweep and showOBs and close < open and close[1] > open[1] and high >= high[1], title="Bear reversal sweep", style=shape.triangledown, location=location.abovebar, color=color.orange, size=size.small, text="S")
 
 resizeOrderBlocks(inRange) =>
+    int rangeStartBar = lookbackStartBar()
     if array.size(orderBlocks) > 0
+        // Remove OBs whose origin candle is before the active lookback window.
+        for i = array.size(orderBlocks) - 1 to 0
+            ob = array.get(orderBlocks, i)
+            if ob.originBar < rangeStartBar
+                box.delete(ob.boxObject)
+                if not na(ob.midLine)
+                    line.delete(ob.midLine)
+                array.remove(orderBlocks, i)
+        
         for i = array.size(orderBlocks) - 1 to 0
             ob = array.get(orderBlocks, i)
             if not ob.filled
