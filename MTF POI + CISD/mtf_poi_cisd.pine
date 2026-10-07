@@ -2,7 +2,13 @@
 // © Eric - MTF POI + CISD v5 - Full Featured
 
 //@version=6
-indicator("MTF POI + CISD ", overlay=true, max_boxes_count=500, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+indicator("[ArtiShock] MTF POI + CISD ", overlay=true, max_boxes_count=500, max_labels_count=500, max_lines_count=500, max_bars_back=500)
+
+// ═══════════════════════════════════════════════════════════════
+// 🎯 HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+f_line_style_from_string(s) =>
+    s == "dashed" or s == "Dashed" ? line.style_dashed : s == "dotted" or s == "Dotted" ? line.style_dotted : line.style_solid
 
 // ============================================================
 // SECTION 1: INPUT GROUPS
@@ -32,12 +38,13 @@ string i_bssl_sweep    = input.string("Wick", "Delete on Sweep", options=["Wick"
 // SECTION 3: INPUTS - COLORS
 // ============================================================
 color  i_fvg_color    = input.color(color.new(color.yellow, 80), "FVG Color", inline="fvg_col", group=g_colors)
-color  i_fvg_brcolor  = input.color(color.new(color.gray, 75), "FVG Border", inline="fvg_col", group=g_colors)
+color  i_fvg_brcolor  = input.color(color.new(color.gray, 80), "FVG Border", inline="fvg_col", group=g_colors)
+color  i_fvg_txtcolor = input.color(color.new(color.navy, 0), "FVG Text", inline="fvg_col", group=g_colors)
+color  i_fvg_mid_color = input.color(color.new(color.orange, 50), "FVG 50% Line", inline="mid_col", group=g_colors)
+string i_fvg_mid_style = input.string(defval="dashed", title="", options=["solid", "dashed", "dotted"], inline="mid_col", group=g_colors)
 color  i_bull_color   = input.color(color.new(color.teal, 85), "Bullish MTG", inline="mtg_col", group=g_colors)
 color  i_bear_color   = input.color(color.new(color.purple, 85), "Bearish MTG", inline="mtg_col", group=g_colors)
-color  i_fvg_txtcolor = input.color(color.new(color.navy, 0), "FVG Text", inline="txt_col", group=g_colors)
-color  i_ob_txtcolor  = input.color(color.new(color.purple, 0), "MTG Text", inline="txt_col", group=g_colors)
-color  i_fvg_mid_color = input.color(color.new(color.orange, 50), "FVG 50% Line", inline="mid_col", group=g_colors)
+color  i_ob_txtcolor  = input.color(color.new(color.purple, 0), "MTG Text", inline="mtg_col", group=g_colors)
 
 // BSL/SSL Colors
 color  i_bsl_4h_clr    = input.color(color.new(color.aqua, 0),  "4H BSL", inline="bssl_4h", group=g_colors)
@@ -403,8 +410,8 @@ f_fvg_multilevel(_tf, _show) =>
     
     if bull_fvg and timeframe.change(_tf) and _show
         fvgTop = l1, fvgBot = h3, fvgMidVal = (fvgTop + fvgBot) / 2
-        newBox = box.new(left=t2, bottom=fvgBot, right=t0, top=fvgTop, bgcolor=color.new(i_fvg_color, 80), border_color=color.new(i_fvg_brcolor, 50), text=text_fvgp, text_size=i_txt_size, text_halign=text.align_right, text_color=i_fvg_txtcolor, xloc=xloc.bar_time)
-        newMidLine = line.new(t2, fvgMidVal, t0, fvgMidVal, xloc=xloc.bar_time, color=i_fvg_mid_color, style=line.style_dotted, width=1)
+        newBox = box.new(left=t2, bottom=fvgBot, right=t0, top=fvgTop, bgcolor=i_fvg_color, border_color=i_fvg_brcolor, text=text_fvgp, text_size=i_txt_size, text_halign=text.align_right, text_color=i_fvg_txtcolor, xloc=xloc.bar_time)
+        newMidLine = line.new(t2, fvgMidVal, t0, fvgMidVal, xloc=xloc.bar_time, color=i_fvg_mid_color, style=f_line_style_from_string(i_fvg_mid_style), width=1)
         newZone = FVGZone.new(newBox, newMidLine, fvgTop, fvgBot, fvgMidVal, false, false, false, f_text(_tf))
         array.unshift(_fvgup, newZone)
         if array.size(_fvgup) > 50
@@ -413,8 +420,8 @@ f_fvg_multilevel(_tf, _show) =>
         
     if bear_fvg and timeframe.change(_tf) and _show
         fvgTop = l3, fvgBot = h1, fvgMidVal = (fvgTop + fvgBot) / 2
-        newBox = box.new(left=t2, bottom=fvgBot, right=t0, top=fvgTop, bgcolor=color.new(i_fvg_color, 80), border_color=color.new(i_fvg_brcolor, 50), text=text_fvgn, text_size=i_txt_size, text_halign=text.align_right, text_color=i_fvg_txtcolor, xloc=xloc.bar_time)
-        newMidLine = line.new(t2, fvgMidVal, t0, fvgMidVal, xloc=xloc.bar_time, color=i_fvg_mid_color, style=line.style_dotted, width=1)
+        newBox = box.new(left=t2, bottom=fvgBot, right=t0, top=fvgTop, bgcolor=i_fvg_color, border_color=i_fvg_brcolor, text=text_fvgn, text_size=i_txt_size, text_halign=text.align_right, text_color=i_fvg_txtcolor, xloc=xloc.bar_time)
+        newMidLine = line.new(t2, fvgMidVal, t0, fvgMidVal, xloc=xloc.bar_time, color=i_fvg_mid_color, style=f_line_style_from_string(i_fvg_mid_style), width=1)
         newZone = FVGZone.new(newBox, newMidLine, fvgTop, fvgBot, fvgMidVal, false, false, false, f_text(_tf))
         array.unshift(_fvgdw, newZone)
         if array.size(_fvgdw) > 50
