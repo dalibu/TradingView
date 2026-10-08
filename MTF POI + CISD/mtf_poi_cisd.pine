@@ -410,8 +410,8 @@ f_fvg_multilevel(_tf, _show) =>
     
     if bull_fvg and timeframe.change(_tf) and _show
         fvgTop = l1, fvgBot = h3, fvgMidVal = (fvgTop + fvgBot) / 2
-        newBox = box.new(left=t2, bottom=fvgBot, right=t0, top=fvgTop, bgcolor=i_fvg_color, border_color=i_fvg_brcolor, text=text_fvgp, text_size=i_txt_size, text_halign=text.align_right, text_color=i_fvg_txtcolor, xloc=xloc.bar_time)
-        newMidLine = line.new(t2, fvgMidVal, t0, fvgMidVal, xloc=xloc.bar_time, color=i_fvg_mid_color, style=f_line_style_from_string(i_fvg_mid_style), width=1)
+        newBox = box.new(left=t3, bottom=fvgBot, right=t0, top=fvgTop, bgcolor=i_fvg_color, border_color=i_fvg_brcolor, text=text_fvgp, text_size=i_txt_size, text_halign=text.align_right, text_color=i_fvg_txtcolor, xloc=xloc.bar_time)
+        newMidLine = line.new(t3, fvgMidVal, t0, fvgMidVal, xloc=xloc.bar_time, color=i_fvg_mid_color, style=f_line_style_from_string(i_fvg_mid_style), width=1)
         newZone = FVGZone.new(newBox, newMidLine, fvgTop, fvgBot, fvgMidVal, false, false, false, f_text(_tf))
         array.unshift(_fvgup, newZone)
         if array.size(_fvgup) > 50
@@ -420,8 +420,8 @@ f_fvg_multilevel(_tf, _show) =>
         
     if bear_fvg and timeframe.change(_tf) and _show
         fvgTop = l3, fvgBot = h1, fvgMidVal = (fvgTop + fvgBot) / 2
-        newBox = box.new(left=t2, bottom=fvgBot, right=t0, top=fvgTop, bgcolor=i_fvg_color, border_color=i_fvg_brcolor, text=text_fvgn, text_size=i_txt_size, text_halign=text.align_right, text_color=i_fvg_txtcolor, xloc=xloc.bar_time)
-        newMidLine = line.new(t2, fvgMidVal, t0, fvgMidVal, xloc=xloc.bar_time, color=i_fvg_mid_color, style=f_line_style_from_string(i_fvg_mid_style), width=1)
+        newBox = box.new(left=t3, bottom=fvgBot, right=t0, top=fvgTop, bgcolor=i_fvg_color, border_color=i_fvg_brcolor, text=text_fvgn, text_size=i_txt_size, text_halign=text.align_right, text_color=i_fvg_txtcolor, xloc=xloc.bar_time)
+        newMidLine = line.new(t3, fvgMidVal, t0, fvgMidVal, xloc=xloc.bar_time, color=i_fvg_mid_color, style=f_line_style_from_string(i_fvg_mid_style), width=1)
         newZone = FVGZone.new(newBox, newMidLine, fvgTop, fvgBot, fvgMidVal, false, false, false, f_text(_tf))
         array.unshift(_fvgdw, newZone)
         if array.size(_fvgdw) > 50
