@@ -56,16 +56,19 @@ color  i_ssl_1h_clr    = input.color(color.new(color.red,  40), "1H SSL", inline
 // SECTION 4: INPUTS - TIMEFRAMES
 // ============================================================
 bool   i_show_tf1 = input.bool(false, "Show/Hide", inline="tf1", group=g_tf)
-string i_tf1      = input.timeframe("15", "TF1:", inline="tf1", group=g_tf)
+string i_tf1      = input.timeframe("5", "TF1:", inline="tf1", group=g_tf)
 
-bool   i_show_tf2 = input.bool(true, "Show/Hide", inline="tf2", group=g_tf)
-string i_tf2      = input.timeframe("60", "TF2:", inline="tf2", group=g_tf)
+bool   i_show_tf2 = input.bool(false, "Show/Hide", inline="tf2", group=g_tf)
+string i_tf2      = input.timeframe("15", "TF2:", inline="tf2", group=g_tf)
 
-bool   i_show_tf3 = input.bool(false, "Show/Hide", inline="tf3", group=g_tf)
-string i_tf3      = input.timeframe("240", "TF3:", inline="tf3", group=g_tf)
+bool   i_show_tf3 = input.bool(true, "Show/Hide", inline="tf3", group=g_tf)
+string i_tf3      = input.timeframe("60", "TF3:", inline="tf3", group=g_tf)
 
 bool   i_show_tf4 = input.bool(false, "Show/Hide", inline="tf4", group=g_tf)
-string i_tf4      = input.timeframe("1D", "TF4:", inline="tf4", group=g_tf)
+string i_tf4      = input.timeframe("240", "TF4:", inline="tf4", group=g_tf)
+
+bool   i_show_tf5 = input.bool(false, "Show/Hide", inline="tf5", group=g_tf)
+string i_tf5      = input.timeframe("1D", "TF5:", inline="tf5", group=g_tf)
 
 // ============================================================
 // SECTION 5: INPUTS - CISD
@@ -539,26 +542,29 @@ f_OB(_tf, _show) =>
 [fvg2_touch, fvg2_level, fvg2_bull] = f_fvg_multilevel(i_tf2, i_show_tf2 and i_show_fvg)
 [fvg3_touch, fvg3_level, fvg3_bull] = f_fvg_multilevel(i_tf3, i_show_tf3 and i_show_fvg)
 [fvg4_touch, fvg4_level, fvg4_bull] = f_fvg_multilevel(i_tf4, i_show_tf4 and i_show_fvg)
+[fvg5_touch, fvg5_level, fvg5_bull] = f_fvg_multilevel(i_tf5, i_show_tf5 and i_show_fvg)
 
 [ob1_bull_raw, ob1_bear_raw] = f_OB(i_tf1, i_show_tf1 and i_show_mtg)
 [ob2_bull_raw, ob2_bear_raw] = f_OB(i_tf2, i_show_tf2 and i_show_mtg)
 [ob3_bull_raw, ob3_bear_raw] = f_OB(i_tf3, i_show_tf3 and i_show_mtg)
 [ob4_bull_raw, ob4_bear_raw] = f_OB(i_tf4, i_show_tf4 and i_show_mtg)
+[ob5_bull_raw, ob5_bear_raw] = f_OB(i_tf5, i_show_tf5 and i_show_mtg)
 
 ob1_bull = i_show_mtg ? ob1_bull_raw : false, ob1_bear = i_show_mtg ? ob1_bear_raw : false
 ob2_bull = i_show_mtg ? ob2_bull_raw : false, ob2_bear = i_show_mtg ? ob2_bear_raw : false
 ob3_bull = i_show_mtg ? ob3_bull_raw : false, ob3_bear = i_show_mtg ? ob3_bear_raw : false
 ob4_bull = i_show_mtg ? ob4_bull_raw : false, ob4_bear = i_show_mtg ? ob4_bear_raw : false
+ob5_bull = i_show_mtg ? ob5_bull_raw : false, ob5_bear = i_show_mtg ? ob5_bear_raw : false
 
-any_fvg_touch = fvg1_touch or fvg2_touch or fvg3_touch or fvg4_touch
-fvg_touched_name = fvg1_touch ? fvg1_level : fvg2_touch ? fvg2_level : fvg3_touch ? fvg3_level : fvg4_touch ? fvg4_level : ""
-fvg_is_bull = fvg1_touch ? fvg1_bull : fvg2_touch ? fvg2_bull : fvg3_touch ? fvg3_bull : fvg4_touch ? fvg4_bull : false
+any_fvg_touch = fvg1_touch or fvg2_touch or fvg3_touch or fvg4_touch or fvg5_touch
+fvg_touched_name = fvg1_touch ? fvg1_level : fvg2_touch ? fvg2_level : fvg3_touch ? fvg3_level : fvg4_touch ? fvg4_level : fvg5_touch ? fvg5_level : ""
+fvg_is_bull = fvg1_touch ? fvg1_bull : fvg2_touch ? fvg2_bull : fvg3_touch ? fvg3_bull : fvg4_touch ? fvg4_bull : fvg5_touch ? fvg5_bull : false
 
-ob_bull_name = ob1_bull ? "OB " + f_text(i_tf1) : ob2_bull ? "OB " + f_text(i_tf2) : ob3_bull ? "OB " + f_text(i_tf3) : ob4_bull ? "OB " + f_text(i_tf4) : ""
-ob_bear_name = ob1_bear ? "OB " + f_text(i_tf1) : ob2_bear ? "OB " + f_text(i_tf2) : ob3_bear ? "OB " + f_text(i_tf3) : ob4_bear ? "OB " + f_text(i_tf4) : ""
+ob_bull_name = ob1_bull ? "OB " + f_text(i_tf1) : ob2_bull ? "OB " + f_text(i_tf2) : ob3_bull ? "OB " + f_text(i_tf3) : ob4_bull ? "OB " + f_text(i_tf4) : ob5_bull ? "OB " + f_text(i_tf5) : ""
+ob_bear_name = ob1_bear ? "OB " + f_text(i_tf1) : ob2_bear ? "OB " + f_text(i_tf2) : ob3_bear ? "OB " + f_text(i_tf3) : ob4_bear ? "OB " + f_text(i_tf4) : ob5_bear ? "OB " + f_text(i_tf5) : ""
 
-any_ob_bull = ob1_bull or ob2_bull or ob3_bull or ob4_bull
-any_ob_bear = ob1_bear or ob2_bear or ob3_bear or ob4_bear
+any_ob_bull = ob1_bull or ob2_bull or ob3_bull or ob4_bull or ob5_bull
+any_ob_bear = ob1_bear or ob2_bear or ob3_bear or ob4_bear or ob5_bear
 
 any_bull_touch = (any_fvg_touch and fvg_is_bull) or any_ob_bull
 any_bear_touch = (any_fvg_touch and not fvg_is_bull) or any_ob_bear
