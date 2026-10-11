@@ -26,6 +26,7 @@ string g_debug     = "🔧 Debug"
 // SECTION 2: INPUTS - SHOW/HIDE
 // ============================================================
 bool   i_show_fvg  = input.bool(true, "Show FVGs", inline="fvg", group=g_showhide)
+bool   i_show_ifvg = input.bool(true, "Show IFVGs", group=g_showhide)
 bool   i_show_mtg  = input.bool(true, "Show Mitigation Zones", group=g_showhide)
 bool   i_col_mtg   = input.bool(true, "Collapse when price touches", group=g_showhide)
 float  i_n         = input.float(4.0, "Approach limit (ATR/n), 0=touch", minval=0, step=0.1, group=g_showhide)
@@ -42,6 +43,12 @@ color  i_fvg_brcolor  = input.color(color.new(color.gray, 80), "FVG Border", inl
 color  i_fvg_txtcolor = input.color(color.new(color.navy, 0), "FVG Text", inline="fvg_col", group=g_colors)
 color  i_fvg_mid_color = input.color(color.new(color.orange, 50), "FVG 50% Line", inline="mid_col", group=g_colors)
 string i_fvg_mid_style = input.string(defval="dashed", title="", options=["solid", "dashed", "dotted"], inline="mid_col", group=g_colors)
+color  i_ifvg_bull_color = input.color(color.new(color.lime, 82), "Bullish IFVG", inline="ifvg_bull", group=g_colors)
+color  i_ifvg_bear_color = input.color(color.new(color.red, 82), "Bearish IFVG", inline="ifvg_bear", group=g_colors)
+color  i_ifvg_brcolor = input.color(color.new(color.gray, 55), "IFVG Border", inline="ifvg_bord", group=g_colors)
+color  i_ifvg_txtcolor = input.color(color.new(color.white, 0), "IFVG Text", inline="ifvg_bord", group=g_colors)
+color  i_ifvg_mid_color = input.color(color.new(color.orange, 35), "IFVG 50% Line", inline="ifvg_mid", group=g_colors)
+string i_ifvg_mid_style = input.string(defval="dashed", title="", options=["solid", "dashed", "dotted"], inline="ifvg_mid", group=g_colors)
 color  i_bull_color   = input.color(color.new(color.teal, 85), "Bullish MTG", inline="mtg_col", group=g_colors)
 color  i_bear_color   = input.color(color.new(color.purple, 85), "Bearish MTG", inline="mtg_col", group=g_colors)
 color  i_ob_txtcolor  = input.color(color.new(color.purple, 0), "MTG Text", inline="mtg_col", group=g_colors)
@@ -476,6 +483,139 @@ f_fvg_multilevel(_tf, _show) =>
     _any_touch = _con_high or _con_mid or _con_low
     [_any_touch, _touched_level, _is_bull_fvg]
 
+
+// ============================================================
+// SECTION 10B: INVERSE FVG (IFVG)
+// Original FVG becomes an IFVG after a candle CLOSES beyond
+// the far edge of the zone. IFVGs then behave like FVG zones.
+// ============================================================
+type IFVGCandidate
+    float   zoneHigh
+    float   zoneLow
+    float   zoneMid
+    int     leftTime
+    bool    originalBull
+    string  tfLabel
+
+type IFVGZone
+    box     mainBox
+    line    midLine
+    float   zoneHigh
+    float   zoneLow
+    float   zoneMid
+    bool    highTouched
+    bool    midTouched
+    bool    lowTouched
+    bool    bullIFVG
+    string  tfLabel
+
+f_ifvg_multilevel(_tf, _show) =>
+    var array<IFVGCandidate> _bullCandidates = array.new<IFVGCandidate>()
+    var array<IFVGCandidate> _bearCandidates = array.new<IFVGCandidate>()
+    var array<IFVGZone> _bullIFVGs = array.new<IFVGZone>()
+    var array<IFVGZone> _bearIFVGs = array.new<IFVGZone>()
+    var bool _con_high = false, var bool _con_mid = false, var bool _con_low = false
+    var string _touched_level = ""
+    var bool _is_bull_ifvg = false
+    var bool _bull_created = false, var bool _bear_created = false
+
+    _con_high := false, _con_mid := false, _con_low := false
+    _touched_level := "", _is_bull_ifvg := false
+    _bull_created := false, _bear_created := false
+
+    [h4, l4, t3, h3, l3, c3, o3, h2, l2, c2, o2, t2, h1, l1, c1, o1, t1, h0, l0, c0, o0, t0] = f_live(_tf)
+    bull_fvg = l1 > h3 and c2 > h3 and c2 > o2
+    bear_fvg = l3 > h1 and c2 < l3 and o2 > c2
+
+    if _show and timeframe.change(_tf) and bull_fvg
+        candidate = IFVGCandidate.new(l1, h3, (l1 + h3) / 2.0, t3, true, f_text(_tf))
+        array.unshift(_bullCandidates, candidate)
+        if array.size(_bullCandidates) > 50
+            array.pop(_bullCandidates)
+
+    if _show and timeframe.change(_tf) and bear_fvg
+        candidate = IFVGCandidate.new(l3, h1, (l3 + h1) / 2.0, t3, false, f_text(_tf))
+        array.unshift(_bearCandidates, candidate)
+        if array.size(_bearCandidates) > 50
+            array.pop(_bearCandidates)
+
+    // Invalidate bullish FVGs with a close below the zone; they become bearish IFVGs.
+    if _show and array.size(_bullCandidates) > 0
+        for i = array.size(_bullCandidates) - 1 to 0 by 1
+            candidate = array.get(_bullCandidates, i)
+            if barstate.isconfirmed and close < candidate.zoneLow
+                txt = res_chart == _tf ? "IFVG -" : candidate.tfLabel + " IFVG -"
+                b = box.new(left=candidate.leftTime, bottom=candidate.zoneLow, right=time, top=candidate.zoneHigh, xloc=xloc.bar_time, bgcolor=i_ifvg_bear_color, border_color=i_ifvg_brcolor, text=txt, text_size=i_txt_size, text_halign=text.align_right, text_color=i_ifvg_txtcolor)
+                m = line.new(candidate.leftTime, candidate.zoneMid, time, candidate.zoneMid, xloc=xloc.bar_time, color=i_ifvg_mid_color, style=f_line_style_from_string(i_ifvg_mid_style), width=1)
+                zone = IFVGZone.new(b, m, candidate.zoneHigh, candidate.zoneLow, candidate.zoneMid, false, false, false, false, candidate.tfLabel)
+                array.unshift(_bearIFVGs, zone)
+                _bear_created := true
+                if array.size(_bearIFVGs) > 50
+                    old = array.pop(_bearIFVGs)
+                    box.delete(old.mainBox), line.delete(old.midLine)
+                array.remove(_bullCandidates, i)
+
+    // Invalidate bearish FVGs with a close above the zone; they become bullish IFVGs.
+    if _show and array.size(_bearCandidates) > 0
+        for i = array.size(_bearCandidates) - 1 to 0 by 1
+            candidate = array.get(_bearCandidates, i)
+            if barstate.isconfirmed and close > candidate.zoneHigh
+                txt = res_chart == _tf ? "IFVG +" : candidate.tfLabel + " IFVG +"
+                b = box.new(left=candidate.leftTime, bottom=candidate.zoneLow, right=time, top=candidate.zoneHigh, xloc=xloc.bar_time, bgcolor=i_ifvg_bull_color, border_color=i_ifvg_brcolor, text=txt, text_size=i_txt_size, text_halign=text.align_right, text_color=i_ifvg_txtcolor)
+                m = line.new(candidate.leftTime, candidate.zoneMid, time, candidate.zoneMid, xloc=xloc.bar_time, color=i_ifvg_mid_color, style=f_line_style_from_string(i_ifvg_mid_style), width=1)
+                zone = IFVGZone.new(b, m, candidate.zoneHigh, candidate.zoneLow, candidate.zoneMid, false, false, false, true, candidate.tfLabel)
+                array.unshift(_bullIFVGs, zone)
+                _bull_created := true
+                if array.size(_bullIFVGs) > 50
+                    old = array.pop(_bullIFVGs)
+                    box.delete(old.mainBox), line.delete(old.midLine)
+                array.remove(_bearCandidates, i)
+
+    // Bullish IFVGs are retested from above and removed after price fills through the lower edge.
+    if _show and array.size(_bullIFVGs) > 0
+        for i = array.size(_bullIFVGs) - 1 to 0 by 1
+            zone = array.get(_bullIFVGs, i)
+            top = zone.zoneHigh, bot = zone.zoneLow, mid = zone.zoneMid
+            box.set_right(zone.mainBox, time), line.set_x2(zone.midLine, time)
+            if low <= top + dx and low > mid and not zone.highTouched and tf_ok(_tf)
+                zone.highTouched := true, _con_high := true
+                _touched_level := "IFVG Hi " + zone.tfLabel, _is_bull_ifvg := true
+            if low <= mid + dx and low > bot and not zone.midTouched and tf_ok(_tf)
+                zone.midTouched := true, _con_mid := true
+                _touched_level := "IFVG 50% " + zone.tfLabel, _is_bull_ifvg := true
+            if low <= bot + dx and not zone.lowTouched and tf_ok(_tf)
+                zone.lowTouched := true, _con_low := true
+                _touched_level := "IFVG Lo " + zone.tfLabel, _is_bull_ifvg := true
+            if i_col_mtg and low < top and low > bot
+                box.set_top(zone.mainBox, low)
+                line.set_y1(zone.midLine, (low + bot) / 2.0), line.set_y2(zone.midLine, (low + bot) / 2.0)
+            if low <= bot or (zone.highTouched and zone.midTouched and zone.lowTouched)
+                box.delete(zone.mainBox), line.delete(zone.midLine), array.remove(_bullIFVGs, i)
+
+    // Bearish IFVGs are retested from below and removed after price fills through the upper edge.
+    if _show and array.size(_bearIFVGs) > 0
+        for i = array.size(_bearIFVGs) - 1 to 0 by 1
+            zone = array.get(_bearIFVGs, i)
+            top = zone.zoneHigh, bot = zone.zoneLow, mid = zone.zoneMid
+            box.set_right(zone.mainBox, time), line.set_x2(zone.midLine, time)
+            if high >= bot - dx and high < mid and not zone.lowTouched and tf_ok(_tf)
+                zone.lowTouched := true, _con_low := true
+                _touched_level := "IFVG Lo " + zone.tfLabel, _is_bull_ifvg := false
+            if high >= mid - dx and high < top and not zone.midTouched and tf_ok(_tf)
+                zone.midTouched := true, _con_mid := true
+                _touched_level := "IFVG 50% " + zone.tfLabel, _is_bull_ifvg := false
+            if high >= top - dx and not zone.highTouched and tf_ok(_tf)
+                zone.highTouched := true, _con_high := true
+                _touched_level := "IFVG Hi " + zone.tfLabel, _is_bull_ifvg := false
+            if i_col_mtg and high > bot and high < top
+                box.set_bottom(zone.mainBox, high)
+                line.set_y1(zone.midLine, (high + top) / 2.0), line.set_y2(zone.midLine, (high + top) / 2.0)
+            if high >= top or (zone.highTouched and zone.midTouched and zone.lowTouched)
+                box.delete(zone.mainBox), line.delete(zone.midLine), array.remove(_bearIFVGs, i)
+
+    _any_touch = _con_high or _con_mid or _con_low
+    [_any_touch, _touched_level, _is_bull_ifvg, _bull_created, _bear_created]
+
 // ============================================================
 // SECTION 11: ORDER BLOCK / MITIGATION DETECTION
 // ============================================================
@@ -544,6 +684,12 @@ f_OB(_tf, _show) =>
 [fvg4_touch, fvg4_level, fvg4_bull] = f_fvg_multilevel(i_tf4, i_show_tf4 and i_show_fvg)
 [fvg5_touch, fvg5_level, fvg5_bull] = f_fvg_multilevel(i_tf5, i_show_tf5 and i_show_fvg)
 
+[ifvg1_touch, ifvg1_level, ifvg1_bull, ifvg1_bull_created, ifvg1_bear_created] = f_ifvg_multilevel(i_tf1, i_show_tf1 and i_show_ifvg)
+[ifvg2_touch, ifvg2_level, ifvg2_bull, ifvg2_bull_created, ifvg2_bear_created] = f_ifvg_multilevel(i_tf2, i_show_tf2 and i_show_ifvg)
+[ifvg3_touch, ifvg3_level, ifvg3_bull, ifvg3_bull_created, ifvg3_bear_created] = f_ifvg_multilevel(i_tf3, i_show_tf3 and i_show_ifvg)
+[ifvg4_touch, ifvg4_level, ifvg4_bull, ifvg4_bull_created, ifvg4_bear_created] = f_ifvg_multilevel(i_tf4, i_show_tf4 and i_show_ifvg)
+[ifvg5_touch, ifvg5_level, ifvg5_bull, ifvg5_bull_created, ifvg5_bear_created] = f_ifvg_multilevel(i_tf5, i_show_tf5 and i_show_ifvg)
+
 [ob1_bull_raw, ob1_bear_raw] = f_OB(i_tf1, i_show_tf1 and i_show_mtg)
 [ob2_bull_raw, ob2_bear_raw] = f_OB(i_tf2, i_show_tf2 and i_show_mtg)
 [ob3_bull_raw, ob3_bear_raw] = f_OB(i_tf3, i_show_tf3 and i_show_mtg)
@@ -560,17 +706,30 @@ any_fvg_touch = fvg1_touch or fvg2_touch or fvg3_touch or fvg4_touch or fvg5_tou
 fvg_touched_name = fvg1_touch ? fvg1_level : fvg2_touch ? fvg2_level : fvg3_touch ? fvg3_level : fvg4_touch ? fvg4_level : fvg5_touch ? fvg5_level : ""
 fvg_is_bull = fvg1_touch ? fvg1_bull : fvg2_touch ? fvg2_bull : fvg3_touch ? fvg3_bull : fvg4_touch ? fvg4_bull : fvg5_touch ? fvg5_bull : false
 
+any_ifvg_touch = ifvg1_touch or ifvg2_touch or ifvg3_touch or ifvg4_touch or ifvg5_touch
+ifvg_touched_name = ifvg1_touch ? ifvg1_level : ifvg2_touch ? ifvg2_level : ifvg3_touch ? ifvg3_level : ifvg4_touch ? ifvg4_level : ifvg5_touch ? ifvg5_level : ""
+ifvg_is_bull = ifvg1_touch ? ifvg1_bull : ifvg2_touch ? ifvg2_bull : ifvg3_touch ? ifvg3_bull : ifvg4_touch ? ifvg4_bull : ifvg5_touch ? ifvg5_bull : false
+any_ifvg_bull_created = ifvg1_bull_created or ifvg2_bull_created or ifvg3_bull_created or ifvg4_bull_created or ifvg5_bull_created
+any_ifvg_bear_created = ifvg1_bear_created or ifvg2_bear_created or ifvg3_bear_created or ifvg4_bear_created or ifvg5_bear_created
+any_ifvg_bull_touch = any_ifvg_touch and ifvg_is_bull
+any_ifvg_bear_touch = any_ifvg_touch and not ifvg_is_bull
+
+alertcondition(any_ifvg_bull_created, title="Bullish IFVG Formed", message="Bullish IFVG formed on {{ticker}}")
+alertcondition(any_ifvg_bear_created, title="Bearish IFVG Formed", message="Bearish IFVG formed on {{ticker}}")
+alertcondition(any_ifvg_bull_touch, title="Bullish IFVG Touched", message="Bullish IFVG touched on {{ticker}}")
+alertcondition(any_ifvg_bear_touch, title="Bearish IFVG Touched", message="Bearish IFVG touched on {{ticker}}")
+
 ob_bull_name = ob1_bull ? "OB " + f_text(i_tf1) : ob2_bull ? "OB " + f_text(i_tf2) : ob3_bull ? "OB " + f_text(i_tf3) : ob4_bull ? "OB " + f_text(i_tf4) : ob5_bull ? "OB " + f_text(i_tf5) : ""
 ob_bear_name = ob1_bear ? "OB " + f_text(i_tf1) : ob2_bear ? "OB " + f_text(i_tf2) : ob3_bear ? "OB " + f_text(i_tf3) : ob4_bear ? "OB " + f_text(i_tf4) : ob5_bear ? "OB " + f_text(i_tf5) : ""
 
 any_ob_bull = ob1_bull or ob2_bull or ob3_bull or ob4_bull or ob5_bull
 any_ob_bear = ob1_bear or ob2_bear or ob3_bear or ob4_bear or ob5_bear
 
-any_bull_touch = (any_fvg_touch and fvg_is_bull) or any_ob_bull
-any_bear_touch = (any_fvg_touch and not fvg_is_bull) or any_ob_bear
+any_bull_touch = (any_fvg_touch and fvg_is_bull) or any_ifvg_bull_touch or any_ob_bull
+any_bear_touch = (any_fvg_touch and not fvg_is_bull) or any_ifvg_bear_touch or any_ob_bear
 
-touched_bull_name = (any_fvg_touch and fvg_is_bull) ? fvg_touched_name : ob_bull_name
-touched_bear_name = (any_fvg_touch and not fvg_is_bull) ? fvg_touched_name : ob_bear_name
+touched_bull_name = (any_fvg_touch and fvg_is_bull) ? fvg_touched_name : any_ifvg_bull_touch ? ifvg_touched_name : ob_bull_name
+touched_bear_name = (any_fvg_touch and not fvg_is_bull) ? fvg_touched_name : any_ifvg_bear_touch ? ifvg_touched_name : ob_bear_name
 
 // ============================================================
 // SECTION 13: CISD PERMISSION & DETECTION
