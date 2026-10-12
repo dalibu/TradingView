@@ -43,10 +43,9 @@ color  i_fvg_brcolor  = input.color(color.new(color.gray, 80), "FVG Border", inl
 color  i_fvg_txtcolor = input.color(color.new(color.navy, 0), "FVG Text", inline="fvg_col", group=g_colors)
 color  i_fvg_mid_color = input.color(color.new(color.orange, 50), "FVG 50% Line", inline="mid_col", group=g_colors)
 string i_fvg_mid_style = input.string(defval="dashed", title="", options=["solid", "dashed", "dotted"], inline="mid_col", group=g_colors)
-color  i_ifvg_bull_color = input.color(color.new(color.lime, 82), "Bullish IFVG", inline="ifvg_bull", group=g_colors)
-color  i_ifvg_bear_color = input.color(color.new(color.red, 82), "Bearish IFVG", inline="ifvg_bear", group=g_colors)
-color  i_ifvg_brcolor = input.color(color.new(color.gray, 55), "IFVG Border", inline="ifvg_bord", group=g_colors)
-color  i_ifvg_txtcolor = input.color(color.new(color.white, 0), "IFVG Text", inline="ifvg_bord", group=g_colors)
+color  i_ifvg_color = input.color(color.new(color.lime, 82), "IFVG Color", inline="ifvg_col", group=g_colors)
+color  i_ifvg_brcolor  = input.color(color.new(color.gray, 80), "IFVG Border", inline="ifvg_col", group=g_colors)
+color  i_ifvg_txtcolor = input.color(color.new(color.white, 0), "IFVG Text", inline="ifvg_col", group=g_colors)
 color  i_ifvg_mid_color = input.color(color.new(color.orange, 35), "IFVG 50% Line", inline="ifvg_mid", group=g_colors)
 string i_ifvg_mid_style = input.string(defval="dashed", title="", options=["solid", "dashed", "dotted"], inline="ifvg_mid", group=g_colors)
 color  i_bull_color   = input.color(color.new(color.teal, 85), "Bullish MTG", inline="mtg_col", group=g_colors)
@@ -545,7 +544,7 @@ f_ifvg_multilevel(_tf, _show) =>
             candidate = array.get(_bullCandidates, i)
             if barstate.isconfirmed and close < candidate.zoneLow
                 txt = res_chart == _tf ? "IFVG -" : candidate.tfLabel + " IFVG -"
-                b = box.new(left=candidate.leftTime, bottom=candidate.zoneLow, right=time, top=candidate.zoneHigh, xloc=xloc.bar_time, bgcolor=i_ifvg_bear_color, border_color=i_ifvg_brcolor, text=txt, text_size=i_txt_size, text_halign=text.align_right, text_color=i_ifvg_txtcolor)
+                b = box.new(left=candidate.leftTime, bottom=candidate.zoneLow, right=time, top=candidate.zoneHigh, xloc=xloc.bar_time, bgcolor=i_ifvg_color, border_color=i_ifvg_brcolor, text=txt, text_size=i_txt_size, text_halign=text.align_right, text_color=i_ifvg_txtcolor)
                 m = line.new(candidate.leftTime, candidate.zoneMid, time, candidate.zoneMid, xloc=xloc.bar_time, color=i_ifvg_mid_color, style=f_line_style_from_string(i_ifvg_mid_style), width=1)
                 zone = IFVGZone.new(b, m, candidate.zoneHigh, candidate.zoneLow, candidate.zoneMid, false, false, false, false, candidate.tfLabel)
                 array.unshift(_bearIFVGs, zone)
@@ -561,7 +560,7 @@ f_ifvg_multilevel(_tf, _show) =>
             candidate = array.get(_bearCandidates, i)
             if barstate.isconfirmed and close > candidate.zoneHigh
                 txt = res_chart == _tf ? "IFVG +" : candidate.tfLabel + " IFVG +"
-                b = box.new(left=candidate.leftTime, bottom=candidate.zoneLow, right=time, top=candidate.zoneHigh, xloc=xloc.bar_time, bgcolor=i_ifvg_bull_color, border_color=i_ifvg_brcolor, text=txt, text_size=i_txt_size, text_halign=text.align_right, text_color=i_ifvg_txtcolor)
+                b = box.new(left=candidate.leftTime, bottom=candidate.zoneLow, right=time, top=candidate.zoneHigh, xloc=xloc.bar_time, bgcolor=i_ifvg_color, border_color=i_ifvg_brcolor, text=txt, text_size=i_txt_size, text_halign=text.align_right, text_color=i_ifvg_txtcolor)
                 m = line.new(candidate.leftTime, candidate.zoneMid, time, candidate.zoneMid, xloc=xloc.bar_time, color=i_ifvg_mid_color, style=f_line_style_from_string(i_ifvg_mid_style), width=1)
                 zone = IFVGZone.new(b, m, candidate.zoneHigh, candidate.zoneLow, candidate.zoneMid, false, false, false, true, candidate.tfLabel)
                 array.unshift(_bullIFVGs, zone)
@@ -709,15 +708,6 @@ fvg_is_bull = fvg1_touch ? fvg1_bull : fvg2_touch ? fvg2_bull : fvg3_touch ? fvg
 any_ifvg_touch = ifvg1_touch or ifvg2_touch or ifvg3_touch or ifvg4_touch or ifvg5_touch
 ifvg_touched_name = ifvg1_touch ? ifvg1_level : ifvg2_touch ? ifvg2_level : ifvg3_touch ? ifvg3_level : ifvg4_touch ? ifvg4_level : ifvg5_touch ? ifvg5_level : ""
 ifvg_is_bull = ifvg1_touch ? ifvg1_bull : ifvg2_touch ? ifvg2_bull : ifvg3_touch ? ifvg3_bull : ifvg4_touch ? ifvg4_bull : ifvg5_touch ? ifvg5_bull : false
-any_ifvg_bull_created = ifvg1_bull_created or ifvg2_bull_created or ifvg3_bull_created or ifvg4_bull_created or ifvg5_bull_created
-any_ifvg_bear_created = ifvg1_bear_created or ifvg2_bear_created or ifvg3_bear_created or ifvg4_bear_created or ifvg5_bear_created
-any_ifvg_bull_touch = any_ifvg_touch and ifvg_is_bull
-any_ifvg_bear_touch = any_ifvg_touch and not ifvg_is_bull
-
-alertcondition(any_ifvg_bull_created, title="Bullish IFVG Formed", message="Bullish IFVG formed on {{ticker}}")
-alertcondition(any_ifvg_bear_created, title="Bearish IFVG Formed", message="Bearish IFVG formed on {{ticker}}")
-alertcondition(any_ifvg_bull_touch, title="Bullish IFVG Touched", message="Bullish IFVG touched on {{ticker}}")
-alertcondition(any_ifvg_bear_touch, title="Bearish IFVG Touched", message="Bearish IFVG touched on {{ticker}}")
 
 ob_bull_name = ob1_bull ? "OB " + f_text(i_tf1) : ob2_bull ? "OB " + f_text(i_tf2) : ob3_bull ? "OB " + f_text(i_tf3) : ob4_bull ? "OB " + f_text(i_tf4) : ob5_bull ? "OB " + f_text(i_tf5) : ""
 ob_bear_name = ob1_bear ? "OB " + f_text(i_tf1) : ob2_bear ? "OB " + f_text(i_tf2) : ob3_bear ? "OB " + f_text(i_tf3) : ob4_bear ? "OB " + f_text(i_tf4) : ob5_bear ? "OB " + f_text(i_tf5) : ""
@@ -725,11 +715,11 @@ ob_bear_name = ob1_bear ? "OB " + f_text(i_tf1) : ob2_bear ? "OB " + f_text(i_tf
 any_ob_bull = ob1_bull or ob2_bull or ob3_bull or ob4_bull or ob5_bull
 any_ob_bear = ob1_bear or ob2_bear or ob3_bear or ob4_bear or ob5_bear
 
-any_bull_touch = (any_fvg_touch and fvg_is_bull) or any_ifvg_bull_touch or any_ob_bull
-any_bear_touch = (any_fvg_touch and not fvg_is_bull) or any_ifvg_bear_touch or any_ob_bear
+any_bull_touch = (any_fvg_touch and fvg_is_bull) or (any_ifvg_touch and ifvg_is_bull) or any_ob_bull
+any_bear_touch = (any_fvg_touch and not fvg_is_bull) or (any_ifvg_touch and not ifvg_is_bull) or any_ob_bear
 
-touched_bull_name = (any_fvg_touch and fvg_is_bull) ? fvg_touched_name : any_ifvg_bull_touch ? ifvg_touched_name : ob_bull_name
-touched_bear_name = (any_fvg_touch and not fvg_is_bull) ? fvg_touched_name : any_ifvg_bear_touch ? ifvg_touched_name : ob_bear_name
+touched_bull_name = (any_fvg_touch and fvg_is_bull) ? fvg_touched_name : (any_ifvg_touch and ifvg_is_bull) ? ifvg_touched_name : ob_bull_name
+touched_bear_name = (any_fvg_touch and not fvg_is_bull) ? fvg_touched_name : (any_ifvg_touch and not ifvg_is_bull) ? ifvg_touched_name : ob_bear_name
 
 // ============================================================
 // SECTION 13: CISD PERMISSION & DETECTION
