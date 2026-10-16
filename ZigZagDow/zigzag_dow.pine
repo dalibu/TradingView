@@ -1,0 +1,244 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// Base: Dev Lucem ZigZag++
+// Modified: Dow-based trend color + true last push / last return
+
+//@version=5
+import DevLucem/ZigLib/1 as ZigZag
+
+indicator("ZigZag++ Dow Last Push/Return Fixed", shorttitle="ZigZag トレンド転換点", overlay=true, format=format.price, max_lines_count=300)
+
+//==============================
+// Inputs
+//==============================
+Depth      = input.int(12, "Depth", minval=1, step=1, group="ZigZag Config")
+Deviation  = input.int(5, "Deviation", minval=1, step=1, group="ZigZag Config")
+Backstep   = input.int(2, "Backstep", minval=2, step=1, group="ZigZag Config")
+
+line_thick = input.int(2, "ZigZag Line Thickness", minval=1, maxval=4, group="ZigZag Style")
+upcolor    = input.color(color.lime, "上昇トレンド色", group="ZigZag Style")
+dncolor    = input.color(color.red, "下降トレンド色", group="ZigZag Style")
+linesTrans = input.int(0, "ZigZag Transparency", minval=0, maxval=100, group="ZigZag Style")
+
+repaint    = input.bool(true, "Repaint ZigZag", group="ZigZag Config")
+extendZZ   = input.bool(false, "Extend ZigZag", group="ZigZag Style")
+
+showLevelLine   = input.bool(true, "ラス押し/ラス戻りライン表示", group="Level Line")
+extendLevelLine = input.bool(true, "水平線を右に延長", group="Level Line")
+levelWidth      = input.int(2, "水平線の太さ", minval=1, maxval=5, group="Level Line")
+bullLevelColor  = input.color(color.lime, "ラス押しライン色", group="Level Line")
+bearLevelColor  = input.color(color.red, "ラス戻りライン色", group="Level Line")
+
+//==============================
+// ZigZag
+//==============================
+[direction, z1, z2] = ZigZag.zigzag(low, high, Depth, Deviation, Backstep)
+dirChanged = direction != direction[1]
+
+//==============================
+// Confirmed pivot memory
+// direction > 0 に変わった瞬間
+//   直前確定は安値 pivot
+// direction < 0 に変わった瞬間
+//   直前確定は高値 pivot
+//==============================
+var float prevLowPrice  = na
+var int   prevLowTime   = na
+var float lastLowPrice  = na
+var int   lastLowTime   = na
+
+var float prevHighPrice = na
+var int   prevHighTime  = na
+var float lastHighPrice = na
+var int   lastHighTime  = na
+
+// 各高値/安値の「起点」を保存するための変数
+// high pivot が確定した時、その1つ左の low pivot をセット
+var float lastHighBaseLowPrice = na
+var int   lastHighBaseLowTime  = na
+var float prevHighBaseLowPrice = na
+var int   prevHighBaseLowTime  = na
+
+// low pivot が確定した時、その1つ左の high pivot をセット
+var float lastLowBaseHighPrice = na
+var int   lastLowBaseHighTime  = na
+var float prevLowBaseHighPrice = na
+var int   prevLowBaseHighTime  = na
+
+if dirChanged
+    if direction > 0
+        // 直前確定は安値
+        prevLowPrice := lastLowPrice
+        prevLowTime  := lastLowTime
+        lastLowPrice := z2.price[1]
+        lastLowTime  := z2.time[1]
+
+        // この安値の起点は「その左の高値」
+        prevLowBaseHighPrice := lastLowBaseHighPrice
+        prevLowBaseHighTime  := lastLowBaseHighTime
+        lastLowBaseHighPrice := lastHighPrice
+        lastLowBaseHighTime  := lastHighTime
+
+    if direction < 0
+        // 直前確定は高値
+        prevHighPrice := lastHighPrice
+        prevHighTime  := lastHighTime
+        lastHighPrice := z2.price[1]
+        lastHighTime  := z2.time[1]
+
+        // この高値の起点は「その左の安値」
+        prevHighBaseLowPrice := lastHighBaseLowPrice
+        prevHighBaseLowTime  := lastHighBaseLowTime
+        lastHighBaseLowPrice := lastLowPrice
+        lastHighBaseLowTime  := lastLowTime
+
+//==============================
+// Dow trend state
+//  1 = 上昇トレンド
+// -1 = 下降トレンド
+//  0 = 未確定
+//==============================
+var int trend = 0
+
+// 現在有効なラス押し / ラス戻り
+var float lastPushPrice   = na
+var int   lastPushTime    = na
+var float lastReturnPrice = na
+var int   lastReturnTime  = na
+
+//==============================
+// 初期トレンド判定
+//==============================
+if trend == 0
+    canJudge = not na(prevHighPrice) and not na(lastHighPrice) and not na(prevLowPrice) and not na(lastLowPrice)
+
+    if canJudge
+        highsUp = lastHighPrice > prevHighPrice
+        lowsUp  = lastLowPrice > prevLowPrice
+        highsDn = lastHighPrice < prevHighPrice
+        lowsDn  = lastLowPrice < prevLowPrice
+
+        if highsUp and lowsUp
+            trend := 1
+            // 最高値を付けた high の起点安値
+            lastPushPrice   := lastHighBaseLowPrice
+            lastPushTime    := lastHighBaseLowTime
+            lastReturnPrice := na
+            lastReturnTime  := na
+
+        else if highsDn and lowsDn
+            trend := -1
+            // 最安値を付けた low の起点高値
+            lastReturnPrice := lastLowBaseHighPrice
+            lastReturnTime  := lastLowBaseHighTime
+            lastPushPrice   := na
+            lastPushTime    := na
+
+//==============================
+// 上昇トレンド中
+// 新しい高値が前回高値を更新したら
+// その高値の起点安値をラス押しにする
+//==============================
+if trend == 1 and dirChanged and direction < 0
+    newHigherHigh = not na(prevHighPrice) and not na(lastHighPrice) and lastHighPrice > prevHighPrice
+    if newHigherHigh
+        lastPushPrice := lastHighBaseLowPrice
+        lastPushTime  := lastHighBaseLowTime
+
+//==============================
+// 下降トレンド中
+// 新しい安値が前回安値を更新したら
+// その安値の起点高値をラス戻りにする
+//==============================
+if trend == -1 and dirChanged and direction > 0
+    newLowerLow = not na(prevLowPrice) and not na(lastLowPrice) and lastLowPrice < prevLowPrice
+    if newLowerLow
+        lastReturnPrice := lastLowBaseHighPrice
+        lastReturnTime  := lastLowBaseHighTime
+
+//==============================
+// Trend break by Dow rule
+// 上昇トレンド中にラス押し割れ → 下降トレンド
+// 下降トレンド中にラス戻り上抜け → 上昇トレンド
+//==============================
+if trend == 1 and not na(lastPushPrice) and close < lastPushPrice
+    trend := -1
+    // 直近最安値を作った谷の起点高値をラス戻りへ
+    lastReturnPrice := lastLowBaseHighPrice
+    lastReturnTime  := lastLowBaseHighTime
+    lastPushPrice   := na
+    lastPushTime    := na
+
+if trend == -1 and not na(lastReturnPrice) and close > lastReturnPrice
+    trend := 1
+    // 直近最高値を作った山の起点安値をラス押しへ
+    lastPushPrice   := lastHighBaseLowPrice
+    lastPushTime    := lastHighBaseLowTime
+    lastReturnPrice := na
+    lastReturnTime  := na
+
+//==============================
+// ZigZag color by Dow trend
+// 上昇トレンド中は全部緑
+// 下降トレンド中は全部赤
+// 未確定はグレー
+//==============================
+trendColor = trend == 1 ? upcolor : trend == -1 ? dncolor : color.gray
+
+//==============================
+// ZigZag Draw
+//==============================
+line zz = na
+
+if repaint
+    zz := line.new(
+         z1, z2,
+         xloc.bar_time,
+         extendZZ ? extend.right : extend.none,
+         color.new(trendColor, linesTrans),
+         width=line_thick
+     )
+
+    if direction == direction[1]
+        line.delete(zz[1])
+    else
+        line.set_extend(zz[1], extend.none)
+
+else
+    if direction != direction[1]
+        zz := line.new(
+             z1[1], z2[1],
+             xloc.bar_time,
+             extend.none,
+             color.new(trendColor[1], linesTrans),
+             width=line_thick
+         )
+
+//==============================
+// Active level line
+//==============================
+var line levelLine = na
+
+if showLevelLine
+    if not na(levelLine)
+        line.delete(levelLine)
+        levelLine := na
+
+    if trend == 1 and not na(lastPushPrice) and not na(lastPushTime)
+        levelLine := line.new(
+             lastPushTime, lastPushPrice,
+             time,         lastPushPrice,
+             xloc=xloc.bar_time,
+             extend=extendLevelLine ? extend.right : extend.none,
+             color=bullLevelColor,
+             width=levelWidth
+         )
+
+    if trend == -1 and not na(lastReturnPrice) and not na(lastReturnTime)
+        levelLine := line.new(
+             lastReturnTime, lastReturnPrice,
+             time,           lastReturnPrice,
+             xloc=xloc.bar_time,
+             extend=extendLevelLine ? extend.right : extend.none,
+             color=bearLevelColor,
+             width=levelWidth
+         )
