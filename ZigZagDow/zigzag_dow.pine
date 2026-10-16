@@ -1,244 +1,365 @@
-// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
-// Base: Dev Lucem ZigZag++
-// Modified: Dow-based trend color + true last push / last return
+
+ // This source code is subject to the terms of the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
+// Основа: Dev Lucem ZigZag++
+// Модификация: тренд по Доу, последний импульс и последний откат
+// Исправлены направление точек и хранение оснований импульсов.
 
 //@version=5
 import DevLucem/ZigLib/1 as ZigZag
 
-indicator("ZigZag++ Dow Last Push/Return Fixed", shorttitle="ZigZag トレンド転換点", overlay=true, format=format.price, max_lines_count=300)
+indicator("ZigZag Доу — последний импульс и откат",
+     shorttitle="ZigZag Доу",
+     overlay=true,
+     format=format.price,
+     max_lines_count=300)
 
-//==============================
-// Inputs
-//==============================
-Depth      = input.int(12, "Depth", minval=1, step=1, group="ZigZag Config")
-Deviation  = input.int(5, "Deviation", minval=1, step=1, group="ZigZag Config")
-Backstep   = input.int(2, "Backstep", minval=2, step=1, group="ZigZag Config")
+//==================================================
+// НАСТРОЙКИ ZIGZAG
+//==================================================
 
-line_thick = input.int(2, "ZigZag Line Thickness", minval=1, maxval=4, group="ZigZag Style")
-upcolor    = input.color(color.lime, "上昇トレンド色", group="ZigZag Style")
-dncolor    = input.color(color.red, "下降トレンド色", group="ZigZag Style")
-linesTrans = input.int(0, "ZigZag Transparency", minval=0, maxval=100, group="ZigZag Style")
+depth = input.int(12, "Глубина поиска", minval=1, step=1,
+     group="Настройки ZigZag")
 
-repaint    = input.bool(true, "Repaint ZigZag", group="ZigZag Config")
-extendZZ   = input.bool(false, "Extend ZigZag", group="ZigZag Style")
+deviation = input.int(5, "Минимальное отклонение", minval=1, step=1,
+     group="Настройки ZigZag")
 
-showLevelLine   = input.bool(true, "ラス押し/ラス戻りライン表示", group="Level Line")
-extendLevelLine = input.bool(true, "水平線を右に延長", group="Level Line")
-levelWidth      = input.int(2, "水平線の太さ", minval=1, maxval=5, group="Level Line")
-bullLevelColor  = input.color(color.lime, "ラス押しライン色", group="Level Line")
-bearLevelColor  = input.color(color.red, "ラス戻りライン色", group="Level Line")
+backstep = input.int(2, "Шаг назад", minval=2, step=1,
+     group="Настройки ZigZag")
 
-//==============================
-// ZigZag
-//==============================
-[direction, z1, z2] = ZigZag.zigzag(low, high, Depth, Deviation, Backstep)
-dirChanged = direction != direction[1]
+repaint = input.bool(true, "Перерисовывать последний отрезок",
+     group="Настройки ZigZag")
 
-//==============================
-// Confirmed pivot memory
-// direction > 0 に変わった瞬間
-//   直前確定は安値 pivot
-// direction < 0 に変わった瞬間
-//   直前確定は高値 pivot
-//==============================
-var float prevLowPrice  = na
-var int   prevLowTime   = na
-var float lastLowPrice  = na
-var int   lastLowTime   = na
+//==================================================
+// ОФОРМЛЕНИЕ ZIGZAG
+//==================================================
 
-var float prevHighPrice = na
-var int   prevHighTime  = na
-var float lastHighPrice = na
-var int   lastHighTime  = na
+lineWidth = input.int(2, "Толщина линий ZigZag",
+     minval=1, maxval=4, group="Оформление ZigZag")
 
-// 各高値/安値の「起点」を保存するための変数
-// high pivot が確定した時、その1つ左の low pivot をセット
-var float lastHighBaseLowPrice = na
-var int   lastHighBaseLowTime  = na
-var float prevHighBaseLowPrice = na
-var int   prevHighBaseLowTime  = na
+upColor = input.color(color.lime, "Цвет восходящего тренда",
+     group="Оформление ZigZag")
 
-// low pivot が確定した時、その1つ左の high pivot をセット
-var float lastLowBaseHighPrice = na
-var int   lastLowBaseHighTime  = na
-var float prevLowBaseHighPrice = na
-var int   prevLowBaseHighTime  = na
+downColor = input.color(color.red, "Цвет нисходящего тренда",
+     group="Оформление ZigZag")
 
-if dirChanged
+lineTransparency = input.int(0, "Прозрачность линий",
+     minval=0, maxval=100, group="Оформление ZigZag")
+
+extendZigZag = input.bool(false, "Продлевать последний отрезок",
+     group="Оформление ZigZag")
+
+//==================================================
+// ГОРИЗОНТАЛЬНЫЕ УРОВНИ
+//==================================================
+
+showLevelLine = input.bool(true, "Показывать уровень тренда",
+     group="Уровни последнего импульса")
+
+extendLevelLine = input.bool(true, "Продлевать уровень вправо",
+     group="Уровни последнего импульса")
+
+levelWidth = input.int(2, "Толщина уровня",
+     minval=1, maxval=5, group="Уровни последнего импульса")
+
+bullLevelColor = input.color(color.lime, "Цвет уровня восходящего тренда",
+     group="Уровни последнего импульса")
+
+bearLevelColor = input.color(color.red, "Цвет уровня нисходящего тренда",
+     group="Уровни последнего импульса")
+
+//==================================================
+// РАСЧЁТ ZIGZAG
+//==================================================
+
+// Библиотека возвращает направление и две точки ZigZag.
+// В исходном ZigZag++ direction > 0 соответствует максимуму,
+// а direction < 0 — минимуму.
+
+[direction, z1, z2] = ZigZag.zigzag(
+     low, high, depth, deviation, backstep)
+
+directionChanged = ta.change(direction) != 0
+
+//==================================================
+// ПАМЯТЬ ПОДТВЕРЖДЁННЫХ МАКСИМУМОВ И МИНИМУМОВ
+//==================================================
+
+// Два последних максимума.
+
+var float previousHigh = na
+var int previousHighTime = na
+
+var float lastHigh = na
+var int lastHighTime = na
+
+// Два последних минимума.
+
+var float previousLow = na
+var int previousLowTime = na
+
+var float lastLow = na
+var int lastLowTime = na
+
+// Основание последнего движения к максимуму — минимум.
+
+var float lastHighBaseLow = na
+var int lastHighBaseLowTime = na
+
+// Основание предыдущего движения к максимуму.
+
+var float previousHighBaseLow = na
+var int previousHighBaseLowTime = na
+
+// Основание последнего движения к минимуму — максимум.
+
+var float lastLowBaseHigh = na
+var int lastLowBaseHighTime = na
+
+// Основание предыдущего движения к минимуму.
+
+var float previousLowBaseHigh = na
+var int previousLowBaseHighTime = na
+
+//==================================================
+// ОБНОВЛЕНИЕ ТОЧЕК ZIGZAG
+//==================================================
+
+// Используется предыдущее значение z2, как в исходном
+// примере ZigZag++ при фиксации смены направления.
+
+if directionChanged and not na(z2.price[1]) and not na(z2.time[1])
+
     if direction > 0
-        // 直前確定は安値
-        prevLowPrice := lastLowPrice
-        prevLowTime  := lastLowTime
-        lastLowPrice := z2.price[1]
-        lastLowTime  := z2.time[1]
+        // Подтверждён максимум.
+        previousHigh := lastHigh
+        previousHighTime := lastHighTime
 
-        // この安値の起点は「その左の高値」
-        prevLowBaseHighPrice := lastLowBaseHighPrice
-        prevLowBaseHighTime  := lastLowBaseHighTime
-        lastLowBaseHighPrice := lastHighPrice
-        lastLowBaseHighTime  := lastHighTime
+        lastHigh := z2.price[1]
+        lastHighTime := z2.time[1]
 
-    if direction < 0
-        // 直前確定は高値
-        prevHighPrice := lastHighPrice
-        prevHighTime  := lastHighTime
-        lastHighPrice := z2.price[1]
-        lastHighTime  := z2.time[1]
+        // Основание этого максимума — предыдущий минимум.
+        previousHighBaseLow := lastHighBaseLow
+        previousHighBaseLowTime := lastHighBaseLowTime
 
-        // この高値の起点は「その左の安値」
-        prevHighBaseLowPrice := lastHighBaseLowPrice
-        prevHighBaseLowTime  := lastHighBaseLowTime
-        lastHighBaseLowPrice := lastLowPrice
-        lastHighBaseLowTime  := lastLowTime
+        lastHighBaseLow := lastLow
+        lastHighBaseLowTime := lastLowTime
 
-//==============================
-// Dow trend state
-//  1 = 上昇トレンド
-// -1 = 下降トレンド
-//  0 = 未確定
-//==============================
+    else if direction < 0
+        // Подтверждён минимум.
+        previousLow := lastLow
+        previousLowTime := lastLowTime
+
+        lastLow := z2.price[1]
+        lastLowTime := z2.time[1]
+
+        // Основание этого минимума — предыдущий максимум.
+        previousLowBaseHigh := lastLowBaseHigh
+        previousLowBaseHighTime := lastLowBaseHighTime
+
+        lastLowBaseHigh := lastHigh
+        lastLowBaseHighTime := lastHighTime
+
+//==================================================
+// СОСТОЯНИЕ ТРЕНДА ПО ДОУ
+//  1 = восходящий
+// -1 = нисходящий
+//  0 = ещё не определён
+//==================================================
+
 var int trend = 0
 
-// 現在有効なラス押し / ラス戻り
-var float lastPushPrice   = na
-var int   lastPushTime    = na
+// Последний уровень поддержки восходящего тренда.
+
+var float lastPushPrice = na
+var int lastPushTime = na
+
+// Последний уровень сопротивления нисходящего тренда.
+
 var float lastReturnPrice = na
-var int   lastReturnTime  = na
+var int lastReturnTime = na
 
-//==============================
-// 初期トレンド判定
-//==============================
+//==================================================
+// ПЕРВИЧНОЕ ОПРЕДЕЛЕНИЕ ТРЕНДА
+//==================================================
+
 if trend == 0
-    canJudge = not na(prevHighPrice) and not na(lastHighPrice) and not na(prevLowPrice) and not na(lastLowPrice)
+    enoughPivots = not na(previousHigh) and
+         not na(lastHigh) and
+         not na(previousLow) and
+         not na(lastLow)
 
-    if canJudge
-        highsUp = lastHighPrice > prevHighPrice
-        lowsUp  = lastLowPrice > prevLowPrice
-        highsDn = lastHighPrice < prevHighPrice
-        lowsDn  = lastLowPrice < prevLowPrice
+    if enoughPivots
+        highsRising = lastHigh > previousHigh
+        lowsRising = lastLow > previousLow
 
-        if highsUp and lowsUp
+        highsFalling = lastHigh < previousHigh
+        lowsFalling = lastLow < previousLow
+
+        if highsRising and lowsRising
             trend := 1
-            // 最高値を付けた high の起点安値
-            lastPushPrice   := lastHighBaseLowPrice
-            lastPushTime    := lastHighBaseLowTime
+
+            lastPushPrice := lastHighBaseLow
+            lastPushTime := lastHighBaseLowTime
+
             lastReturnPrice := na
-            lastReturnTime  := na
+            lastReturnTime := na
 
-        else if highsDn and lowsDn
+        else if highsFalling and lowsFalling
             trend := -1
-            // 最安値を付けた low の起点高値
-            lastReturnPrice := lastLowBaseHighPrice
-            lastReturnTime  := lastLowBaseHighTime
-            lastPushPrice   := na
-            lastPushTime    := na
 
-//==============================
-// 上昇トレンド中
-// 新しい高値が前回高値を更新したら
-// その高値の起点安値をラス押しにする
-//==============================
-if trend == 1 and dirChanged and direction < 0
-    newHigherHigh = not na(prevHighPrice) and not na(lastHighPrice) and lastHighPrice > prevHighPrice
-    if newHigherHigh
-        lastPushPrice := lastHighBaseLowPrice
-        lastPushTime  := lastHighBaseLowTime
+            lastReturnPrice := lastLowBaseHigh
+            lastReturnTime := lastLowBaseHighTime
 
-//==============================
-// 下降トレンド中
-// 新しい安値が前回安値を更新したら
-// その安値の起点高値をラス戻りにする
-//==============================
-if trend == -1 and dirChanged and direction > 0
-    newLowerLow = not na(prevLowPrice) and not na(lastLowPrice) and lastLowPrice < prevLowPrice
-    if newLowerLow
-        lastReturnPrice := lastLowBaseHighPrice
-        lastReturnTime  := lastLowBaseHighTime
+            lastPushPrice := na
+            lastPushTime := na
 
-//==============================
-// Trend break by Dow rule
-// 上昇トレンド中にラス押し割れ → 下降トレンド
-// 下降トレンド中にラス戻り上抜け → 上昇トレンド
-//==============================
+//==================================================
+// ВОСХОДЯЩИЙ ТРЕНД: ОБНОВЛЕНИЕ ПОСЛЕДНЕГО ИМПУЛЬСА
+//==================================================
+
+// Если сформирован новый более высокий максимум,
+// основание движения становится новым уровнем поддержки.
+
+if trend == 1 and directionChanged and direction > 0
+    newHigherHigh = not na(previousHigh) and
+         not na(lastHigh) and
+         lastHigh > previousHigh
+
+    if newHigherHigh and not na(lastHighBaseLow)
+        lastPushPrice := lastHighBaseLow
+        lastPushTime := lastHighBaseLowTime
+
+//==================================================
+// НИСХОДЯЩИЙ ТРЕНД: ОБНОВЛЕНИЕ ПОСЛЕДНЕГО ОТКАТА
+//==================================================
+
+// Если сформирован новый более низкий минимум,
+// основание движения становится новым уровнем сопротивления.
+
+if trend == -1 and directionChanged and direction < 0
+    newLowerLow = not na(previousLow) and
+         not na(lastLow) and
+         lastLow < previousLow
+
+    if newLowerLow and not na(lastLowBaseHigh)
+        lastReturnPrice := lastLowBaseHigh
+        lastReturnTime := lastLowBaseHighTime
+
+//==================================================
+// СМЕНА ТРЕНДА ПРИ ПРОБОЕ УРОВНЯ
+//==================================================
+
+// Пробой подтверждается закрытием свечи за уровнем.
+// Вторая проверка выполняется только если первая не сработала.
+
 if trend == 1 and not na(lastPushPrice) and close < lastPushPrice
     trend := -1
-    // 直近最安値を作った谷の起点高値をラス戻りへ
-    lastReturnPrice := lastLowBaseHighPrice
-    lastReturnTime  := lastLowBaseHighTime
-    lastPushPrice   := na
-    lastPushTime    := na
 
-if trend == -1 and not na(lastReturnPrice) and close > lastReturnPrice
+    // Для нового нисходящего тренда используем основание
+    // последнего подтверждённого нисходящего импульса.
+
+    lastReturnPrice := lastLowBaseHigh
+    lastReturnTime := lastLowBaseHighTime
+
+    lastPushPrice := na
+    lastPushTime := na
+
+else if trend == -1 and not na(lastReturnPrice) and close > lastReturnPrice
     trend := 1
-    // 直近最高値を作った山の起点安値をラス押しへ
-    lastPushPrice   := lastHighBaseLowPrice
-    lastPushTime    := lastHighBaseLowTime
+
+    // Для нового восходящего тренда используем основание
+    // последнего подтверждённого восходящего импульса.
+
+    lastPushPrice := lastHighBaseLow
+    lastPushTime := lastHighBaseLowTime
+
     lastReturnPrice := na
-    lastReturnTime  := na
+    lastReturnTime := na
 
-//==============================
-// ZigZag color by Dow trend
-// 上昇トレンド中は全部緑
-// 下降トレンド中は全部赤
-// 未確定はグレー
-//==============================
-trendColor = trend == 1 ? upcolor : trend == -1 ? dncolor : color.gray
+//==================================================
+// ЦВЕТ ZIGZAG ПО НАПРАВЛЕНИЮ ТРЕНДА
+//==================================================
 
-//==============================
-// ZigZag Draw
-//==============================
+trendColor = trend == 1 ? upColor :
+     trend == -1 ? downColor : color.gray
+
+//==================================================
+// ОТРИСОВКА ZIGZAG
+//==================================================
+
 line zz = na
 
 if repaint
     zz := line.new(
          z1, z2,
-         xloc.bar_time,
-         extendZZ ? extend.right : extend.none,
-         color.new(trendColor, linesTrans),
-         width=line_thick
-     )
+         xloc=xloc.bar_time,
+         extend=extendZigZag ? extend.right : extend.none,
+         color=color.new(trendColor, lineTransparency),
+         width=lineWidth)
+
+    // Пока направление не изменилось, заменяем
+    // предыдущий незавершённый отрезок.
 
     if direction == direction[1]
-        line.delete(zz[1])
+        if not na(zz[1])
+            line.delete(zz[1])
     else
-        line.set_extend(zz[1], extend.none)
+        if not na(zz[1])
+            line.set_extend(zz[1], extend.none)
 
 else
-    if direction != direction[1]
+    // Без перерисовки рисуем только завершённые отрезки.
+
+    if directionChanged
         zz := line.new(
              z1[1], z2[1],
-             xloc.bar_time,
-             extend.none,
-             color.new(trendColor[1], linesTrans),
-             width=line_thick
-         )
+             xloc=xloc.bar_time,
+             extend=extend.none,
+             color=color.new(trendColor[1], lineTransparency),
+             width=lineWidth)
 
-//==============================
-// Active level line
-//==============================
+//==================================================
+// ГОРИЗОНТАЛЬНЫЙ УРОВЕНЬ ТРЕНДА
+//==================================================
+
+// Линия создаётся один раз, а затем изменяется.
+// Это уменьшает число лишних объектов на графике.
+
 var line levelLine = na
 
-if showLevelLine
+float activeLevel = trend == 1 ? lastPushPrice :
+     trend == -1 ? lastReturnPrice : na
+
+int activeLevelTime = trend == 1 ? lastPushTime :
+     trend == -1 ? lastReturnTime : na
+
+color activeLevelColor = trend == 1 ? bullLevelColor : bearLevelColor
+
+bool validLevel = showLevelLine and
+     not na(activeLevel) and
+     not na(activeLevelTime)
+
+if validLevel
+    if na(levelLine)
+        levelLine := line.new(
+             x1=activeLevelTime,
+             y1=activeLevel,
+             x2=time,
+             y2=activeLevel,
+             xloc=xloc.bar_time,
+             extend=extendLevelLine ? extend.right : extend.none,
+             color=activeLevelColor,
+             width=levelWidth)
+    else
+        line.set_xy1(levelLine, activeLevelTime, activeLevel)
+        line.set_xy2(levelLine, time, activeLevel)
+        line.set_extend(levelLine,
+             extendLevelLine ? extend.right : extend.none)
+        line.set_color(levelLine, activeLevelColor)
+        line.set_width(levelLine, levelWidth)
+
+else
     if not na(levelLine)
         line.delete(levelLine)
         levelLine := na
-
-    if trend == 1 and not na(lastPushPrice) and not na(lastPushTime)
-        levelLine := line.new(
-             lastPushTime, lastPushPrice,
-             time,         lastPushPrice,
-             xloc=xloc.bar_time,
-             extend=extendLevelLine ? extend.right : extend.none,
-             color=bullLevelColor,
-             width=levelWidth
-         )
-
-    if trend == -1 and not na(lastReturnPrice) and not na(lastReturnTime)
-        levelLine := line.new(
-             lastReturnTime, lastReturnPrice,
-             time,           lastReturnPrice,
-             xloc=xloc.bar_time,
-             extend=extendLevelLine ? extend.right : extend.none,
-             color=bearLevelColor,
-             width=levelWidth
-         )
