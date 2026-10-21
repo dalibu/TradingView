@@ -34,6 +34,9 @@ bool   i_show_4h_bssl  = input.bool(true, "Show 4H BSL/SSL", group=g_showhide)
 bool   i_show_1h_bssl  = input.bool(true, "Show 1H BSL/SSL", group=g_showhide)
 int    i_bssl_max      = input.int(10, "Max BSL/SSL Levels", minval=1, maxval=30, group=g_showhide)
 string i_bssl_sweep    = input.string("Wick", "Delete on Sweep", options=["Wick","Close"], group=g_showhide)
+bool   i_bssl_struct   = input.bool(true, "Swept: hide minor levels", group=g_showhide, tooltip="Переснятые (swept) уровни остаются на графике только если это структурные экстремумы (HH для BSL / LL для SSL). Остальные переснятые удаляются.")
+int    i_bssl_str      = input.int(2, "Swing strength (pivots)", minval=1, maxval=6, group=g_showhide, tooltip="Уровень считается структурным, если он не ниже (BSL) / не выше (SSL) N предыдущих пивотов того же типа. Больше N = строже фильтр.")
+int    i_bssl_keep     = input.int(1, "Keep last N minor swept", minval=0, maxval=10, group=g_showhide, tooltip="Сколько самых свежих неструктурных переснятых уровней на каждую сторону/ТФ оставить для контекста (HL/LH рядом с ценой). 0 = не оставлять.")
 
 // ============================================================
 // SECTION 3: INPUTS - COLORS
@@ -280,67 +283,75 @@ f_live(_htf) =>
 // ============================================================
 // SECTION 8B: BSL / SSL DETECTION
 // ============================================================
-f_bssl(_tf, _show, _bsl_clr, _ssl_clr, _style) =>
-    var _bsl_boxes  = array.new_box()
-    var _ssl_boxes  = array.new_box()
-    var _bsl_levels = array.new_float()
-    var _ssl_levels = array.new_float()
-    var _bsl_swept  = array.new_bool()
-    var _ssl_swept  = array.new_bool()
+// Одна сторона (BSL или SSL) одного ТФ.
+// state: 0 = активный, 2 = swept и показан, 4 = swept неструктурный (временно показан), 3 = скрыт
+f_bssl_side(_is_bsl, _new, _price, _t, _clr, _style, _lbl) =>
+    var _boxes = array.new_box()
+    var _lvls  = array.new_float()
+    var _state = array.new_int()
 
+    if _new
+        if array.size(_boxes) >= i_bssl_max * 3
+            box.delete(array.pop(_boxes))
+            array.pop(_lvls)
+            array.pop(_state)
+        b = box.new(left=_t, top=_price, right=time, bottom=_price, xloc=xloc.bar_time, border_color=_clr, bgcolor=color.new(color.white, 100), border_style=_style, text=_lbl, text_color=_clr, text_halign=text.align_right, text_valign=_is_bsl ? text.align_bottom : text.align_top, text_size=size.tiny)
+        array.unshift(_boxes, b)
+        array.unshift(_lvls, _price)
+        array.unshift(_state, 0)
+
+    int n = array.size(_boxes)
+    if n > 0
+        // 1) продление активных, детект sweep, классификация
+        for i = n - 1 to 0
+            int   st  = array.get(_state, i)
+            float lvl = array.get(_lvls, i)
+            box   b   = array.get(_boxes, i)
+            if st == 0
+                box.set_right(b, time)
+                bool swept = _is_bsl ? (i_bssl_sweep == "Wick" ? high >= lvl : close >= lvl) : (i_bssl_sweep == "Wick" ? low <= lvl : close <= lvl)
+                if swept
+                    box.set_border_color(b, color.gray)
+                    box.set_text(b, "x " + _lbl)
+                    box.set_text_color(b, color.gray)
+                    bool major = true
+                    if i_bssl_struct
+                        for k = 1 to i_bssl_str
+                            if i + k < n
+                                float o = array.get(_lvls, i + k)
+                                major := major and (_is_bsl ? lvl >= o : lvl <= o)
+                            if i - k >= 0
+                                float w = array.get(_lvls, i - k)
+                                major := major and (_is_bsl ? lvl >= w : lvl <= w)
+                    array.set(_state, i, major ? 2 : 4)
+
+        // 2) оставляем только N самых свежих неструктурных swept
+        int minor_cnt = 0
+        for i = 0 to n - 1
+            if array.get(_state, i) == 4
+                minor_cnt += 1
+                if minor_cnt > i_bssl_keep
+                    box.delete(array.get(_boxes, i))
+                    array.set(_state, i, 3)
+
+        // 3) общий лимит видимых линий
+        int vis = 0
+        for i = 0 to n - 1
+            if array.get(_state, i) != 3
+                vis += 1
+                if vis > i_bssl_max
+                    box.delete(array.get(_boxes, i))
+                    array.set(_state, i, 3)
+
+f_bssl(_tf, _show, _bsl_clr, _ssl_clr, _style) =>
     [h4, l4, t3, h3, l3, c3, o3, h2, l2, c2, o2, t2, h1, l1, c1, o1, t1, h0, l0, c0, o0, t0] = f_live(_tf)
 
     pivot_high = h2 > h3 and h2 > h1 and h2 > h0
     pivot_low  = l2 < l3 and l2 < l1 and l2 < l0
 
     if _show
-        if pivot_high and timeframe.change(_tf)
-            if array.size(_bsl_boxes) >= i_bssl_max
-                box.delete(array.pop(_bsl_boxes))
-                array.pop(_bsl_levels)
-                array.pop(_bsl_swept)
-            b = box.new(left=t2, top=h2, right=time, bottom=h2, xloc=xloc.bar_time, border_color=_bsl_clr, bgcolor=color.new(color.white, 100), border_style=_style, text=f_text(_tf) + " BSL", text_color=_bsl_clr, text_halign=text.align_right, text_valign=text.align_bottom, text_size=size.tiny)
-            array.unshift(_bsl_boxes, b)
-            array.unshift(_bsl_levels, h2)
-            array.unshift(_bsl_swept, false)
-
-        if pivot_low and timeframe.change(_tf)
-            if array.size(_ssl_boxes) >= i_bssl_max
-                box.delete(array.pop(_ssl_boxes))
-                array.pop(_ssl_levels)
-                array.pop(_ssl_swept)
-            b = box.new(left=t2, top=l2, right=time, bottom=l2, xloc=xloc.bar_time, border_color=_ssl_clr, bgcolor=color.new(color.white, 100), border_style=_style, text=f_text(_tf) + " SSL", text_color=_ssl_clr, text_halign=text.align_right, text_valign=text.align_top, text_size=size.tiny)
-            array.unshift(_ssl_boxes, b)
-            array.unshift(_ssl_levels, l2)
-            array.unshift(_ssl_swept, false)
-
-        if array.size(_bsl_boxes) > 0
-            for i = array.size(_bsl_boxes) - 1 to 0
-                b         = array.get(_bsl_boxes,  i)
-                lvl       = array.get(_bsl_levels, i)
-                is_swept  = array.get(_bsl_swept,  i)
-                swept_now = not is_swept and (i_bssl_sweep == "Wick" ? high >= lvl : close >= lvl)
-                if not is_swept
-                    box.set_right(b, time)
-                if swept_now
-                    box.set_border_color(b, color.gray)
-                    box.set_text(b, "x " + f_text(_tf) + " BSL")
-                    box.set_text_color(b, color.gray)
-                    array.set(_bsl_swept, i, true)
-
-        if array.size(_ssl_boxes) > 0
-            for i = array.size(_ssl_boxes) - 1 to 0
-                b         = array.get(_ssl_boxes,  i)
-                lvl       = array.get(_ssl_levels, i)
-                is_swept  = array.get(_ssl_swept,  i)
-                swept_now = not is_swept and (i_bssl_sweep == "Wick" ? low <= lvl : close <= lvl)
-                if not is_swept
-                    box.set_right(b, time)
-                if swept_now
-                    box.set_border_color(b, color.gray)
-                    box.set_text(b, "x " + f_text(_tf) + " SSL")
-                    box.set_text_color(b, color.gray)
-                    array.set(_ssl_swept, i, true)
+        f_bssl_side(true,  pivot_high and timeframe.change(_tf), h2, t2, _bsl_clr, _style, f_text(_tf) + " BSL")
+        f_bssl_side(false, pivot_low  and timeframe.change(_tf), l2, t2, _ssl_clr, _style, f_text(_tf) + " SSL")
 
 f_bssl("240", i_show_4h_bssl, i_bsl_4h_clr, i_ssl_4h_clr, line.style_solid)
 f_bssl("60",  i_show_1h_bssl, i_bsl_1h_clr, i_ssl_1h_clr, line.style_dashed)
