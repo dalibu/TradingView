@@ -1,0 +1,668 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © JesseVisco
+
+//@version=6
+indicator("90M Chronos + London Expansion + Opposing Candles + Daily Profiles", overlay=true, max_boxes_count=500, max_lines_count=500, max_labels_count=500)
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// 90M CHRONOS CYCLES SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+var string GC = "── 90M CHRONOS CYCLES"
+col_blue  = input.color(color.new(#2979FF, 80), "Blue",  group=GC)
+col_red   = input.color(color.new(#FF5252, 80), "Red",   group=GC)
+col_green = input.color(color.new(#00E676, 80), "Green", group=GC)
+
+max_tf_cycles     = input.string("30",       "Only Show Cycles On TF ≤", options=["1", "3", "5", "10", "15", "30", "45", "60", "120", "240"], group=GC)
+show_cycle_labels = input.bool(true,         "Show Cycle Time Labels",    group=GC)
+cycle_label_color = input.color(color.black, "Cycle Label Color",         group=GC)
+
+var string G1 = "── 12:00 AM Open"
+show_12am  = input.bool(true,         "Show 12:00 AM Open", group=G1)
+col_12am   = input.color(color.black, "Color",              group=G1)
+len_12am   = input.int(20,            "Bars to extend →",   group=G1, minval=1, maxval=500)
+
+var string G2 = "── 1:30 AM Open"
+show_130am = input.bool(true,         "Show 1:30 AM Open",  group=G2)
+col_130am  = input.color(color.black, "Color",              group=G2)
+len_130am  = input.int(20,            "Bars to extend →",   group=G2, minval=1, maxval=500)
+
+var string G3 = "── 7:30 AM Open"
+show_730am = input.bool(true,         "Show 7:30 AM Open",  group=G3)
+col_730am  = input.color(color.black, "Color",              group=G3)
+len_730am  = input.int(20,            "Bars to extend →",   group=G3, minval=1, maxval=500)
+
+var string G4 = "── 1:30 PM Open"
+show_130pm = input.bool(true,         "Show 1:30 PM Open",  group=G4)
+col_130pm  = input.color(color.black, "Color",              group=G4)
+len_130pm  = input.int(20,            "Bars to extend →",   group=G4, minval=1, maxval=500)
+
+var string G5 = "── 7:30 PM Open"
+show_730pm = input.bool(true,         "Show 7:30 PM Open",  group=G5)
+col_730pm  = input.color(color.black, "Color",              group=G5)
+len_730pm  = input.int(20,            "Bars to extend →",   group=G5, minval=1, maxval=500)
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// LONDON DEVIATION SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+grp_ld = "── LONDON DEVIATIONS"
+Show_London_Deviations = input.bool(true,   "Show London Deviations",                          group=grp_ld)
+Max_London_Days        = input.int(2,        "Max London Deviation Days", minval=1, maxval=100, group=grp_ld)
+London_Session_Time    = input.session("0200-0530", "London Range Session (NY time)",           group=grp_ld)
+Deviation_Line_Length  = input.int(5,        "Deviation Line Length (bars)", minval=1, maxval=500, group=grp_ld)
+Show_Deviation_Labels  = input.bool(true,    "Show Deviation Labels",                           group=grp_ld)
+London_HighLow_Color   = input.color(color.new(color.black, 0), "London High/Low Color",        group=grp_ld)
+Deviation_Above_Color  = input.color(color.new(color.lime,  0), "Deviations Above Color",       group=grp_ld)
+Deviation_Below_Color  = input.color(color.new(color.red,   0), "Deviations Below Color",       group=grp_ld)
+Deviation_Label_Text   = input.color(color.new(color.black, 0), "Deviation Label Text",         group=grp_ld)
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// OPPOSING CANDLES + DAILY PROFILES SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+GroupMoon = "Settings ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+tzInput = input.string("America/New_York", "Global Timezone",
+     options=["America/New_York", "Europe/London", "UTC", "Exchange", "UTC-12", "UTC-11", "UTC-10", "UTC-09", "UTC-08", "UTC-07", "UTC-06", "UTC-05", "UTC-04", "UTC-03", "UTC-02", "UTC-01", "UTC+00", "UTC+01", "UTC+02", "UTC+03", "UTC+04", "UTC+05", "UTC+06", "UTC+07", "UTC+08", "UTC+09", "UTC+10", "UTC+11", "UTC+12", "UTC+13", "UTC+14"], group=GroupMoon)
+
+showHistorical = input.bool(false, "Show All Days",    inline="alldays", group=GroupMoon)
+showLast5Days  = input.bool(false, "Show Last 5 Days", inline="alldays", group=GroupMoon)
+
+Levelsgroup     = "Levels ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+showHorizMaster = input.bool(true,  "▫️ Show 4H Levels",  group=Levelsgroup)
+show1HMaster    = input.bool(true,  "▫️Show 1H Levels",   group=Levelsgroup)
+show30mMaster   = input.bool(false, "▫️ Show 30m Levels", group=Levelsgroup)
+
+Grp4hSettings    = "4H Horizontal Settings ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+levelsCount4h    = input.int(2, "4H Levels to Display", minval=1, group=Grp4hSettings)
+width4h          = input.int(1, "4H Line Width", minval=1, maxval=10, group=Grp4hSettings)
+hi_c             = input.color(color.blue,   "4H High Color",  group=Grp4hSettings)
+lo_c             = input.color(color.maroon, "4H Low Color",   group=Grp4hSettings)
+uni_style_4h     = input.string("Solid", "4H Line Style", options=["Solid", "Dashed", "Dotted"], group=Grp4hSettings)
+use4hOpacityFade = input.bool(true, "Dynamic Opacity", group=Grp4hSettings, inline="4hop")
+min4hOpacity     = input.int(5,   "Min", minval=0, maxval=100, group=Grp4hSettings, inline="4hop")
+max4hOpacity     = input.int(100, "Max", minval=0, maxval=100, group=Grp4hSettings, inline="4hop")
+show4hLabels     = input.bool(true, "Show 4H Labels", group=Grp4hSettings)
+lblColor4h       = input.color(color.new(color.black, 0), "4H Label Color", group=Grp4hSettings)
+lblSize4h        = input.string("Tiny", "4H Label Size", options=["Tiny", "Small", "Normal", "Large"], group=Grp4hSettings)
+levelOffset4h    = input.int(15, "Offset 4h", minval=0, group=Grp4hSettings)
+
+Grp1hSettings    = "1H Horizontal Settings ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+levelsCount1h    = input.int(2, "1H Levels to Display", minval=1, group=Grp1hSettings)
+width1h          = input.int(1, "1H Line Width", minval=1, maxval=10, group=Grp1hSettings)
+hi_c_1h          = input.color(color.blue, "1H High Color", group=Grp1hSettings)
+lo_c_1h          = input.color(color.red,  "1H Low Color",  group=Grp1hSettings)
+uni_style_1h     = input.string("Dashed", "1H Line Style", options=["Solid", "Dashed", "Dotted"], group=Grp1hSettings)
+use1hOpacityFade = input.bool(true, "Dynamic Opacity", group=Grp1hSettings, inline="1hop")
+min1hOpacity     = input.int(40,  "Min", minval=0, maxval=100, group=Grp1hSettings, inline="1hop")
+max1hOpacity     = input.int(100, "Max", minval=0, maxval=100, group=Grp1hSettings, inline="1hop")
+show1hLabels     = input.bool(true, "Show 1H Labels", group=Grp1hSettings)
+lblColor1h       = input.color(color.new(color.black, 0), "1H Label Color", group=Grp1hSettings)
+lblSize1h        = input.string("Tiny", "1H Label Size", options=["Tiny", "Small", "Normal", "Large"], group=Grp1hSettings)
+levelOffset1h    = input.int(10, "Offset 1H", minval=0, group=Grp1hSettings)
+
+Grp30mSettings   = "30m Horizontal Settings ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+levelsCount30m   = input.int(2, "30m Levels to Display", minval=1, group=Grp30mSettings)
+width30m         = input.int(1, "30m Line Width", minval=1, maxval=10, group=Grp30mSettings)
+hi_c_30m         = input.color(color.blue, "30m High Color", group=Grp30mSettings)
+lo_c_30m         = input.color(color.red,  "30m Low Color",  group=Grp30mSettings)
+uni_style_30m    = input.string("Dotted", "30m Line Style", options=["Solid", "Dashed", "Dotted"], group=Grp30mSettings)
+use30mOpacityFade = input.bool(true, "Dynamic Opacity", group=Grp30mSettings, inline="30hop")
+min30mOpacity    = input.int(50,  "Min", minval=0, maxval=100, group=Grp30mSettings, inline="30hop")
+max30mOpacity    = input.int(100, "Max", minval=0, maxval=100, group=Grp30mSettings, inline="30hop")
+show30mLabels    = input.bool(true, "Show 30m Labels", group=Grp30mSettings)
+lblColor30m      = input.color(color.new(color.black, 0), "30m Label Color", group=Grp30mSettings)
+lblSize30m       = input.string("Tiny", "30m Label Size", options=["Tiny", "Small", "Normal", "Large"], group=Grp30mSettings)
+levelOffset30m   = input.int(13, "Offset 30m", minval=0, group=Grp30mSettings)
+
+DailyProfGroup = "Daily Profile Boxes ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+universalonoff = input.bool(true, "Daily Profile Boxes", inline="profileb", group=GroupMoon)
+staticMode     = input.bool(true, "Plot boxes ahead", group=DailyProfGroup, tooltip="When enabled, boxes are drawn ahead of price getting there (only for the current day).")
+boxMinTF       = input.timeframe("1", "Show Boxes On TF And Above", options=["1","3","5","15","30","60","120","240","D"], group=DailyProfGroup)
+showLondonBox  = input.bool(true,  "London 2 - 5",      inline="london1", group=DailyProfGroup)
+redBoxColor    = input.color(color.new(color.red,    85), "", inline="london1", group=DailyProfGroup)
+show810amBox   = input.bool(true,  "New York 8 - 10",   inline="ny1",    group=DailyProfGroup)
+greenBoxColor  = input.color(color.new(color.green,  85), "", inline="ny1",    group=DailyProfGroup)
+show1012pmBox  = input.bool(true,  "New York 10 - 12",  inline="ny2",    group=DailyProfGroup)
+yellowBoxColor = input.color(color.new(color.yellow, 85), "", inline="ny2",    group=DailyProfGroup)
+showAsianBox   = input.bool(true,  "Asia 20 to 00",     inline="asia1",  group=DailyProfGroup)
+blueBoxColor   = input.color(color.new(color.blue,   85), "", inline="asia1",  group=DailyProfGroup)
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// SHARED UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+isTodayBar = dayofmonth(time, tzInput) == dayofmonth(timenow, tzInput) and month(time, tzInput) == month(timenow, tzInput) and year(time, tzInput) == year(timenow, tzInput)
+isWithinCutoff = isTodayBar or showHistorical or (time >= (timenow - (showLast5Days ? 120 : 72) * 3600000))
+isVisuallyActive = isWithinCutoff
+getTransp(percent) => 100 - math.max(0, math.min(100, percent))
+currentTfMin = timeframe.in_seconds(timeframe.period) / 60
+getLblSize(s) => s == "Tiny" ? size.tiny : s == "Small" ? size.small : s == "Normal" ? size.normal : size.large
+calcDynamicOffset(baseOffset) =>
+    mult = 1.0
+    if timeframe.isintraday
+        mult := 240 / math.max(timeframe.multiplier, 1)
+    math.round(baseOffset * math.sqrt(mult))
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// TF CHECK FOR CYCLES
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+tf_to_minutes(string tf) =>
+    switch tf
+        "1"   => 1
+        "3"   => 3
+        "5"   => 5
+        "10"  => 10
+        "15"  => 15
+        "30"  => 30
+        "45"  => 45
+        "60"  => 60
+        "120" => 120
+        "240" => 240
+        => 30
+
+max_tf_minutes = tf_to_minutes(max_tf_cycles)
+cycles_visible = currentTfMin <= max_tf_minutes
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// 90M CHRONOS CYCLES LOGIC
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+t_min     = hour(time, "America/New_York") * 60 + minute(time, "America/New_York")
+dow       = dayofweek(time, "America/New_York")
+isWeekday = dow >= dayofweek.monday and dow <= dayofweek.friday
+
+drawOpen(bool show, int triggerMin, color col, int bars, string txt) =>
+    if show and isWeekday and t_min == triggerMin
+        line.new(x1=bar_index, y1=open, x2=bar_index + bars, y2=open,
+             color=col, width=1, style=line.style_solid, extend=extend.none)
+        label.new(x=bar_index + bars, y=open, text=txt,
+             xloc=xloc.bar_index, style=label.style_label_left,
+             color=color.new(color.black, 100), textcolor=color.black, size=size.tiny)
+
+drawOpen(show_12am,  0,    col_12am,  len_12am,  "12:00 AM")
+drawOpen(show_130am, 90,   col_130am, len_130am, "1:30 AM")
+drawOpen(show_730am, 450,  col_730am, len_730am, "7:30 AM")
+drawOpen(show_130pm, 810,  col_130pm, len_130pm, "1:30 PM")
+drawOpen(show_730pm, 1170, col_730pm, len_730pm, "7:30 PM")
+
+getCycle() =>
+    if not isWeekday
+        0
+    else if t_min >= 0    and t_min <= 55
+        12
+    else if t_min >= 60   and t_min <= 145
+        13
+    else if t_min >= 150  and t_min <= 235
+        14
+    else if t_min >= 240  and t_min <= 325
+        15
+    else if t_min >= 330  and t_min <= 415
+        16
+    else if t_min >= 420  and t_min <= 505
+        1
+    else if t_min >= 510  and t_min <= 595
+        2
+    else if t_min >= 600  and t_min <= 685
+        3
+    else if t_min >= 690  and t_min <= 775
+        4
+    else if t_min >= 780  and t_min <= 865
+        5
+    else if t_min >= 870  and t_min <= 955
+        6
+    else if t_min >= 960  and t_min <= 1045
+        7
+    else if t_min >= 1050 and t_min <= 1135
+        8
+    else if t_min >= 1140 and t_min <= 1225
+        9
+    else if t_min >= 1230 and t_min <= 1315
+        10
+    else if t_min >= 1320 and t_min <= 1405
+        11
+    else if t_min >= 1410 and t_min <= 1439
+        12
+    else
+        0
+
+getCycleTimeLabel() =>
+    if not isWeekday
+        ""
+    else if t_min >= 0    and t_min <= 55
+        "12-12:55am"
+    else if t_min >= 60   and t_min <= 145
+        "1-2:25am"
+    else if t_min >= 150  and t_min <= 235
+        "2:30-3:55am"
+    else if t_min >= 240  and t_min <= 325
+        "4-5:25am"
+    else if t_min >= 330  and t_min <= 415
+        "5:30-6:55am"
+    else if t_min >= 420  and t_min <= 505
+        "7-8:25am"
+    else if t_min >= 510  and t_min <= 595
+        "8:30-9:55am"
+    else if t_min >= 600  and t_min <= 685
+        "10-11:25am"
+    else if t_min >= 690  and t_min <= 775
+        "11:30am-12:55pm"
+    else if t_min >= 780  and t_min <= 865
+        "1-2:25pm"
+    else if t_min >= 870  and t_min <= 955
+        "2:30-3:55pm"
+    else if t_min >= 960  and t_min <= 1045
+        "4-5:25pm"
+    else if t_min >= 1050 and t_min <= 1135
+        "5:30-6:55pm"
+    else if t_min >= 1140 and t_min <= 1225
+        "7-8:25pm"
+    else if t_min >= 1230 and t_min <= 1315
+        "8:30-9:55pm"
+    else if t_min >= 1320 and t_min <= 1405
+        "10-11:25pm"
+    else if t_min >= 1410 and t_min <= 1439
+        "11:30-11:59pm"
+    else
+        ""
+
+cycleColor(n) =>
+    switch n
+        1  => col_blue
+        2  => col_red
+        3  => col_green
+        4  => col_blue
+        5  => col_red
+        6  => col_green
+        7  => col_blue
+        8  => col_red
+        9  => col_green
+        10 => col_blue
+        11 => col_red
+        12 => col_green
+        13 => col_blue
+        14 => col_red
+        15 => col_green
+        16 => col_blue
+        => col_blue
+
+curCycle = getCycle()
+
+var box   activeBox    = na
+var label activeLabel  = na
+var float activeHigh   = na
+var float activeLow    = na
+var int   cycleTrack   = 0
+var int   cycleLeftBar = 0
+
+newCycle = curCycle != 0 and curCycle != cycleTrack
+
+if cycles_visible
+    if newCycle
+        activeHigh   := high
+        activeLow    := low
+        cycleTrack   := curCycle
+        cycleLeftBar := bar_index
+        color col     = cycleColor(curCycle)
+        activeBox    := box.new(
+             left         = bar_index,
+             top          = high,
+             right        = bar_index,
+             bottom       = low,
+             border_color = col,
+             border_width = 1,
+             bgcolor      = col)
+        activeLabel := label.new(
+             x         = bar_index,
+             y         = high,
+             text      = show_cycle_labels ? getCycleTimeLabel() : "",
+             xloc      = xloc.bar_index,
+             style     = label.style_label_down,
+             color     = color.new(color.black, 100),
+             textcolor = cycle_label_color,
+             size      = size.tiny)
+    else if not na(activeBox) and cycleTrack != 0
+        activeHigh := math.max(nz(activeHigh, high), high)
+        activeLow  := math.min(nz(activeLow,  low),  low)
+        box.set_right(activeBox,  bar_index)
+        box.set_top(activeBox,    activeHigh)
+        box.set_bottom(activeBox, activeLow)
+        if not na(activeLabel)
+            label.set_x(activeLabel, cycleLeftBar + (bar_index - cycleLeftBar) / 2)
+            label.set_y(activeLabel, activeHigh)
+else
+    cycleTrack  := 0
+    activeBox   := na
+    activeLabel := na
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// LONDON DEVIATION LOGIC
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+f_get_london_hl() =>
+    in_london = not na(time(timeframe.period, London_Session_Time, "America/New_York"))
+    var float session_high   = na
+    var float session_low    = na
+    var float completed_high = na
+    var float completed_low  = na
+    var bool  was_in_london  = false
+
+    ny_day = dayofmonth(time, "America/New_York")
+    var int prev_day = na
+    if na(prev_day)
+        prev_day := ny_day
+    if ny_day != prev_day
+        session_high   := na
+        session_low    := na
+        completed_high := na
+        completed_low  := na
+        was_in_london  := false
+        prev_day       := ny_day
+
+    if in_london
+        session_high := na(session_high) ? high : math.max(session_high, high)
+        session_low  := na(session_low)  ? low  : math.min(session_low,  low)
+
+    if was_in_london and not in_london
+        completed_high := session_high
+        completed_low  := session_low
+
+    was_in_london := in_london
+    [completed_high, completed_low]
+
+var array<line>  london_dev_lines  = array.new<line>()
+var array<label> london_dev_labels = array.new<label>()
+var array<int>   london_days_done  = array.new<int>()
+var deviation_mults = array.from(1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5)
+
+f_cleanup() =>
+    lines_per_day  = 36
+    labels_per_day = 18
+    while array.size(london_dev_lines) > Max_London_Days * lines_per_day
+        line.delete(array.shift(london_dev_lines))
+    if Show_Deviation_Labels
+        while array.size(london_dev_labels) > Max_London_Days * labels_per_day
+            label.delete(array.shift(london_dev_labels))
+    while array.size(london_days_done) > Max_London_Days
+        array.shift(london_days_done)
+
+f_add_level(int x1, int x2, float y, color c, string txt) =>
+    ln = line.new(x1, y, x2, y, xloc=xloc.bar_index, extend=extend.none, color=c, width=1)
+    array.push(london_dev_lines, ln)
+    if Show_Deviation_Labels
+        connector = line.new(x2, y, x2 + 2, y, xloc=xloc.bar_index, extend=extend.none, color=c, width=1)
+        array.push(london_dev_lines, connector)
+        lb = label.new(x2 + 2, y, txt, xloc=xloc.bar_index, style=label.style_none, textcolor=Deviation_Label_Text, color=color(na), size=size.tiny)
+        array.push(london_dev_labels, lb)
+
+if Show_London_Deviations
+    [lon_h, lon_l] = request.security(syminfo.tickerid, "1", f_get_london_hl(), lookahead=barmerge.lookahead_off)
+
+    ny_day   = dayofmonth(time, "America/New_York")
+    ny_month = month(time,      "America/New_York")
+    ny_year  = year(time,       "America/New_York")
+    day_id   = ny_year * 10000 + ny_month * 100 + ny_day
+
+    if not na(lon_h) and not na(lon_l)
+        already_drawn = false
+        if array.size(london_days_done) > 0
+            for i = 0 to array.size(london_days_done) - 1
+                if array.get(london_days_done, i) == day_id
+                    already_drawn := true
+                    break
+
+        if not already_drawn
+            float H = lon_h
+            float L = lon_l
+            float R = H - L
+
+            if R > 0
+                int x1 = bar_index
+                int x2 = bar_index + Deviation_Line_Length
+
+                f_add_level(x1, x2, H, London_HighLow_Color, "LON HIGH")
+                f_add_level(x1, x2, L, London_HighLow_Color, "LON LOW")
+
+                for i = 0 to array.size(deviation_mults) - 1
+                    float m = array.get(deviation_mults, i)
+                    f_add_level(x1, x2, H + (m * R), Deviation_Above_Color, "+" + str.tostring(m))
+                    f_add_level(x1, x2, L - (m * R), Deviation_Below_Color, "-" + str.tostring(m))
+
+                array.push(london_days_done, day_id)
+                f_cleanup()
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// 4H LEVEL LOGIC
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+is4hVisible = timeframe.isintraday and timeframe.multiplier <= 240 or timeframe.isseconds
+
+float cur4hOp = float(max4hOpacity)
+if use4hOpacityFade and timeframe.isintraday
+    if currentTfMin < 240
+        cur4hOp -= (max4hOpacity * 0.35)
+    if currentTfMin <= 60
+        cur4hOp -= (max4hOpacity * 0.16)
+cur4hOp := math.max(cur4hOp, min4hOpacity)
+transp4h = getTransp(cur4hOp)
+
+var array<line>  line4h  = array.new<line>()
+var array<label> label4h = array.new<label>()
+
+[sigHigh, sigLow] = request.security(syminfo.tickerid, "240", [(close[1] > open[1] and close < open) ? open : na, (close[1] < open[1] and close > open) ? open : na], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+
+if ta.change(time("240")) != 0 and isVisuallyActive and showHorizMaster and is4hVisible
+    if not na(sigHigh) or not na(sigLow)
+        isHigh = not na(sigHigh)
+        lStyle = uni_style_4h == "Solid" ? line.style_solid : uni_style_4h == "Dashed" ? line.style_dashed : line.style_dotted
+        xStart = bar_index
+        xEnd   = bar_index + calcDynamicOffset(levelOffset4h)
+        ln = line.new(xStart, isHigh ? sigHigh : sigLow, xEnd, isHigh ? sigHigh : sigLow, xloc.bar_index, color=color.new(isHigh ? hi_c : lo_c, transp4h), width=width4h, style=lStyle)
+        array.push(line4h, ln)
+        if show4hLabels
+            lb = label.new(xEnd, isHigh ? sigHigh : sigLow, "4H", xloc.bar_index, color=#00000000, textcolor=lblColor4h, style=label.style_label_left, size=getLblSize(lblSize4h))
+            array.push(label4h, lb)
+        if array.size(line4h) > levelsCount4h
+            line.delete(array.shift(line4h))
+            if array.size(label4h) > 0
+                label.delete(array.shift(label4h))
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// 1H LEVEL LOGIC
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+is1hVisible = timeframe.isintraday and timeframe.multiplier <= 60 or timeframe.isseconds
+
+float cur1hOp = float(max1hOpacity)
+if use1hOpacityFade and timeframe.isintraday
+    if currentTfMin < 60
+        cur1hOp -= (max1hOpacity * 0.40)
+cur1hOp := math.max(cur1hOp, min1hOpacity)
+transp1h = getTransp(cur1hOp)
+
+var array<line>  line1h  = array.new<line>()
+var array<label> label1h = array.new<label>()
+
+[sigHigh1h, sigLow1h] = request.security(syminfo.tickerid, "60", [(close[1] > open[1] and close < open) ? open : na, (close[1] < open[1] and close > open) ? open : na], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+
+if ta.change(time("60")) != 0 and isVisuallyActive and show1HMaster and is1hVisible
+    if not na(sigHigh1h) or not na(sigLow1h)
+        isHigh = not na(sigHigh1h)
+        lStyle = uni_style_1h == "Solid" ? line.style_solid : uni_style_1h == "Dashed" ? line.style_dashed : line.style_dotted
+        xStart = bar_index
+        xEnd   = bar_index + calcDynamicOffset(levelOffset1h)
+        ln = line.new(xStart, isHigh ? sigHigh1h : sigLow1h, xEnd, isHigh ? sigHigh1h : sigLow1h, xloc.bar_index, color=color.new(isHigh ? hi_c_1h : lo_c_1h, transp1h), width=width1h, style=lStyle)
+        array.push(line1h, ln)
+        if show1hLabels
+            lb = label.new(xEnd, isHigh ? sigHigh1h : sigLow1h, "1H", xloc.bar_index, color=#00000000, textcolor=lblColor1h, style=label.style_label_left, size=getLblSize(lblSize1h))
+            array.push(label1h, lb)
+        if array.size(line1h) > levelsCount1h
+            line.delete(array.shift(line1h))
+            if array.size(label1h) > 0
+                label.delete(array.shift(label1h))
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// 30M LEVEL LOGIC
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+is30mVisible = timeframe.isintraday and timeframe.multiplier <= 30 or timeframe.isseconds
+
+float cur30mOp = float(max30mOpacity)
+if use30mOpacityFade and timeframe.isintraday
+    if currentTfMin < 30
+        cur30mOp -= (max30mOpacity * 0.20)
+cur30mOp := math.max(cur30mOp, min30mOpacity)
+transp30m = getTransp(cur30mOp)
+
+var array<line>  line30m  = array.new<line>()
+var array<label> label30m = array.new<label>()
+
+[sigHigh30m, sigLow30m] = request.security(syminfo.tickerid, "30", [(close[1] > open[1] and close < open) ? open : na, (close[1] < open[1] and close > open) ? open : na], gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+
+if ta.change(time("30")) != 0 and isVisuallyActive and show30mMaster and is30mVisible
+    if not na(sigHigh30m) or not na(sigLow30m)
+        isHigh = not na(sigHigh30m)
+        lStyle = uni_style_30m == "Solid" ? line.style_solid : uni_style_30m == "Dashed" ? line.style_dashed : line.style_dotted
+        xStart = bar_index
+        xEnd   = bar_index + calcDynamicOffset(levelOffset30m)
+        ln = line.new(xStart, isHigh ? sigHigh30m : sigLow30m, xEnd, isHigh ? sigHigh30m : sigLow30m, xloc.bar_index, color=color.new(isHigh ? hi_c_30m : lo_c_30m, transp30m), width=width30m, style=lStyle)
+        array.push(line30m, ln)
+        if show30mLabels
+            lb = label.new(xEnd, isHigh ? sigHigh30m : sigLow30m, "30m", xloc.bar_index, color=#00000000, textcolor=lblColor30m, style=label.style_label_left, size=getLblSize(lblSize30m))
+            array.push(label30m, lb)
+        if array.size(line30m) > levelsCount30m
+            line.delete(array.shift(line30m))
+            if array.size(label30m) > 0
+                label.delete(array.shift(label30m))
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+// DAILY PROFILE BOXES
+// ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+tfInputStr = "D"
+isCorrectTF = timeframe.in_seconds(timeframe.period) <= timeframe.in_seconds(tfInputStr) and timeframe.in_seconds(timeframe.period) >= timeframe.in_seconds(boxMinTF)
+
+isTodayGlobal       = year(time, tzInput) == year(timenow, tzInput) and month(time, tzInput) == month(timenow, tzInput) and dayofmonth(time, tzInput) == dayofmonth(timenow, tzInput)
+currentHourGlobal   = hour(time, tzInput)
+currentMinuteGlobal = minute(time, tzInput)
+isMidnight          = currentHourGlobal == 0 and currentMinuteGlobal == 0
+
+var float activeSessionHigh = na
+var float activeSessionLow  = na
+
+var float currentGreenHigh = na
+var float currentGreenLow  = na
+t_green = time(timeframe.period, "0800-1100", tzInput)
+if not na(t_green)
+    if na(t_green[1])
+        currentGreenHigh := high
+        currentGreenLow  := low
+    else
+        currentGreenHigh := math.max(high, nz(currentGreenHigh, high))
+        currentGreenLow  := math.min(low, nz(currentGreenLow, low))
+
+drawBox(string sess, string plotSess, color col, bool isPrevDayLogic, float currentActH, float currentActL, bool toggleSwitch) =>
+    t = time(timeframe.period, sess, tzInput)
+    bool inSess    = not na(t)
+    bool sessStart = inSess and na(t[1])
+    bool sessEnd   = not inSess and not na(t[1])
+
+    var float h = na
+    var float l = na
+    var int lastSessStartTime = 0
+
+    if sessStart
+        h := high
+        l := low
+    else if inSess
+        h := math.max(high, nz(h, high))
+        l := math.min(low, nz(l, low))
+
+    sH = math.floor(str.tonumber(str.substring(plotSess, 0, 2)))
+    sM = math.floor(str.tonumber(str.substring(plotSess, 2, 4)))
+    eH = math.floor(str.tonumber(str.substring(plotSess, 5, 7)))
+    eM = math.floor(str.tonumber(str.substring(plotSess, 7, 9)))
+
+    int startT = timestamp(tzInput, year(time, tzInput), month(time, tzInput), dayofmonth(time, tzInput), int(sH), int(sM))
+    int endT   = timestamp(tzInput, year(time, tzInput), month(time, tzInput), dayofmonth(time, tzInput), int(eH), int(eM))
+
+    bool priceHasEntered = time >= startT
+    float top = na
+    float bot = na
+
+    if inSess
+        top := h
+        bot := l
+    else if not priceHasEntered and staticMode
+        top := not na(currentActH) ? currentActH : high
+        bot := not na(currentActL) ? currentActL : low
+    else
+        top := h
+        bot := l
+
+    int lastBarTime = timenow - 86400000
+    bool isYesterday = not isTodayGlobal and (time >= lastBarTime)
+    int cDayW = dayofweek(timenow, tzInput)
+    int cHourW = hour(timenow, tzInput)
+    bool isCurrentlyWeekend_local = (cDayW == dayofweek.friday) or (cDayW == dayofweek.saturday) or (cDayW == dayofweek.sunday and cHourW < 18)
+    bool isRecentBox = (timenow - startT) < (86400000 * 3)
+    bool boxStartedFriday = dayofweek(startT, tzInput) == dayofweek.friday
+    bool isThursBlueBox = isPrevDayLogic and dayofweek(startT, tzInput) == dayofweek.thursday
+    bool isWeekendVisible = isCurrentlyWeekend_local and isRecentBox and (boxStartedFriday or isThursBlueBox)
+    bool isWithin5DayRange = (timenow - startT) < (86400000 * 7)
+
+    bool canPlot = universalonoff and toggleSwitch and (showHistorical or isTodayGlobal or (isPrevDayLogic and isYesterday) or isWeekendVisible or (showLast5Days and isWithin5DayRange)) and isCorrectTF
+
+    if canPlot
+        if staticMode
+            bool trigger = false
+            if isTodayGlobal and isMidnight and not isPrevDayLogic
+                trigger := true
+            else if sessStart
+                trigger := true
+
+            if trigger and lastSessStartTime != startT
+                box.new(startT, top, endT, bot, bgcolor=col, border_color=na, xloc=xloc.bar_time)
+                lastSessStartTime := startT
+
+            box[] allBoxes = box.all
+            if array.size(allBoxes) > 0
+                for i = 0 to array.size(allBoxes) - 1
+                    box currentBox = array.get(allBoxes, i)
+                    if box.get_left(currentBox) == startT
+                        box.set_top(currentBox, top)
+                        box.set_bottom(currentBox, bot)
+        else
+            var box b_dyn = na
+            if sessStart
+                b_dyn := box.new(bar_index, h, bar_index, l, bgcolor=col, border_color=na)
+
+            if not na(b_dyn)
+                box.set_right(b_dyn, math.min(bar_index, last_bar_index))
+                box.set_top(b_dyn, top)
+                box.set_bottom(b_dyn, bot)
+                if sessEnd
+                    b_dyn := na
+
+    [inSess, h, l]
+
+[inLondonDraw, lonH, lonL] = drawBox("0200-0600", "0200-0500", redBoxColor, false, activeSessionHigh, activeSessionLow, showLondonBox)
+if showLondonBox and universalonoff and inLondonDraw
+    activeSessionHigh := lonH
+    activeSessionLow  := lonL
+
+[inNY1Draw, ny1H, ny1L] = drawBox("0800-1100", "0800-1000", greenBoxColor, false, activeSessionHigh, activeSessionLow, show810amBox)
+if show810amBox and universalonoff and inNY1Draw
+    activeSessionHigh := ny1H
+    activeSessionLow  := ny1L
+
+[inNY2Draw, ny2H, ny2L] = drawBox("1000-1300", "1000-1200", yellowBoxColor, false, activeSessionHigh, activeSessionLow, show1012pmBox)
+if show1012pmBox and universalonoff and inNY2Draw
+    activeSessionHigh := ny2H
+    activeSessionLow  := ny2L
+
+[inAsiaDraw, asiaH, asiaL] = drawBox("2000-0100", "2000-2359", blueBoxColor, true, activeSessionHigh, activeSessionLow, showAsianBox)
+if showAsianBox and universalonoff and inAsiaDraw
+    activeSessionHigh := asiaH
+    activeSessionLow  := asiaL
