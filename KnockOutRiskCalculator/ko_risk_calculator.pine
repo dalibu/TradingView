@@ -108,6 +108,12 @@ koBufferPct  = ordOk ? math.abs(stopP - koLvl) / stopP * 100.0 : na
 atrV         = ta.atr(14)
 stopAtr      = (ordOk and atrV > 0) ? math.abs(entryP - stopP) / atrV : na
 
+// ── Live P&L (updates with every tick of the chart price) ──
+nowP       = close
+koHitNow   = isLong ? nowP <= koLvl : nowP >= koLvl
+exitNow    = koHitNow ? 0.0 : math.max(0.0, f_theo(nowP) + offset - spreadE / 2.0)
+pnlNow     = nPcs * (exitNow - entryCost) - 2.0 * feeE
+
 // ════════════════════ Alerts ════════════════════
 slTouch = ordOk and (isLong ? low <= stopP : high >= stopP)
 tpTouch = ordOk and (isLong ? high >= tpP : low <= tpP)
@@ -125,7 +131,7 @@ cRed    = #EF5350
 cBlue   = #2962FF
 cOrange = #FF9800
 
-var table tbl = table.new(position.top_right, 2, 19, bgcolor=cBg, frame_color=#363A45, frame_width=1, border_color=#363A45, border_width=1)
+var table tbl = table.new(position.top_right, 2, 25, bgcolor=cBg, frame_color=#363A45, frame_width=1, border_color=#363A45, border_width=1)
 var line lnE = na
 var line lnS = na
 var line lnT = na
@@ -156,7 +162,7 @@ if barstate.islast
     label.delete(lbK)
     box.delete(bxP)
     box.delete(bxL)
-    table.clear(tbl, 0, 0, 1, 18)
+    table.clear(tbl, 0, 0, 1, 24)
 
     dirTxt = isLong ? "Turbo LONG" : "Turbo SHORT"
     xL = math.max(0, bar_index - 30)
@@ -216,6 +222,15 @@ if barstate.islast
             f_row(18, "WARNING", "Stop < 1 ATR: market noise can trigger it", cOrange)
         else
             f_row(18, "Note", "Model price, financing & spread changes not included", cDim)
+
+        // ── live position status ──
+        cNow = pnlNow >= 0 ? cGreen : cRed
+        f_row(19, "─── LIVE (current price) ───", "", cDim)
+        f_row(20, "Underlying now", f_p(nowP) + "  (" + f_pc((nowP - entryP) / entryP * 100.0) + " vs entry)", color.white)
+        f_row(21, "Certificate now (Bid, model)", koHitNow ? "KNOCKED OUT: 0.000 EUR" : f_o(exitNow), koHitNow ? cRed : cTxt)
+        f_row(22, "P&L now", (pnlNow >= 0 ? "+" : "") + f_e(pnlNow) + "  (" + (pnlNow >= 0 ? "+" : "") + f_pc(invest > 0 ? pnlNow / invest * 100.0 : 0.0) + " of investment)", cNow)
+        f_row(23, pnlNow >= 0 ? "Profit vs target" : "Loss vs max loss", pnlNow >= 0 ? f_pc(profitEur > 0 ? pnlNow / profitEur * 100.0 : 0.0) + " of target profit" : f_pc(maxLoss > 0 ? -pnlNow / maxLoss * 100.0 : 0.0) + " of max loss used", cNow)
+        f_row(24, "To stop | to target", f_pc((stopP - nowP) / nowP * 100.0) + " | " + f_pc((tpP - nowP) / nowP * 100.0), cDim)
 
         // lines & labels
         lnE := line.new(xL, entryP, xR, entryP, color=cBlue, width=2)
