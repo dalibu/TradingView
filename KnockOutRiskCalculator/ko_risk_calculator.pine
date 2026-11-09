@@ -18,11 +18,10 @@ G3 = "3. Risk"
 G4 = "4. Display"
 
 // ── 1. Position ─────────────────────────────────────────────────
-dirStr   = input.string("Auto (from levels)", "Direction", options=["Auto (from levels)", "Long (Turbo Long / Call)", "Short (Turbo Short / Put)"], group=G1, tooltip="Auto: Long if Target is above Entry, Short if Target is below Entry. So you can flip the trade simply by dragging the levels or editing the numbers below.")
+dirStr   = input.string("Auto (from levels)", "Direction", options=["Auto (from levels)", "Long (Turbo Long / Call)", "Short (Turbo Short / Put)"], group=G1, tooltip="Auto: Long if Target is above Entry, Short if Target is below Entry. Drag the three dots on the chart to flip the trade.")
 entryP   = input.price(0.0, "Entry (underlying)", confirm=true, group=G1)
-stopRaw  = input.price(0.0, "Stop (underlying)", confirm=true, group=G1)
-tpRaw    = input.price(0.0, "Target (underlying)", confirm=true, group=G1)
-mirror   = input.bool(false, "Mirror Stop & Target around Entry (quick Long <-> Short flip)", group=G1, tooltip="Tick this to flip the whole setup in one click: Stop and Target are reflected around Entry (e.g. Entry 1.6225, Stop 1.6185 becomes Stop 1.6265). Direction 'Auto' then switches Long <-> Short by itself.")
+stopIn   = input.price(0.0, "Stop (underlying)", confirm=true, group=G1)
+tpP      = input.price(0.0, "Target (underlying)", confirm=true, group=G1)
 stopMode = input.string("Manual (as set on chart)", "Stop mode", options=["Manual (as set on chart)", "Auto: from budget & max loss"], group=G1, tooltip="Auto: the script calculates the stop level of the underlying so that buying for the whole budget loses exactly the max loss at the stop.")
 
 // ── 2. Product ──────────────────────────────────────────────────
@@ -44,8 +43,6 @@ budget     = input.float(1000.0, "Max investment in the certificate (EUR, 0 = no
 wBars      = input.int(25, "Width of position box (bars)", minval=5, maxval=200, group=G4)
 
 // ════════════════════ Helpers ════════════════════
-stopIn     = mirror ? 2.0 * entryP - stopRaw : stopRaw
-tpP        = mirror ? 2.0 * entryP - tpRaw : tpRaw
 isLong     = str.startswith(dirStr, "Long") ? true : (str.startswith(dirStr, "Short") ? false : tpP >= entryP)
 autoStopOn = str.startswith(stopMode, "Auto")
 fxUnder    = str.startswith(fxMode, "Underlying")
@@ -160,6 +157,9 @@ if barstate.islast
     table.clear(tbl, 0, 0, 1, 18)
 
     dirTxt = isLong ? "Turbo LONG" : "Turbo SHORT"
+    xL = math.max(0, bar_index - 30)
+    xR = bar_index + wBars
+    xB = bar_index
 
     if not ordOk
         table.cell(tbl, 0, 0, "SETUP ERROR", text_color=color.white, text_halign=text.align_center, text_size=size.normal, bgcolor=cRed)
@@ -168,10 +168,23 @@ if barstate.islast
         f_row(3, "Stop", na(stopP) ? "n/a (auto stop needs budget > 0)" : f_p(stopP))
         f_row(4, "Target", f_p(tpP))
         f_row(5, "Knock-Out", f_p(koLvl))
-        f_row(6, "Tip", "Switching Long <-> Short? Tick 'Mirror Stop & Target' and set Direction = Auto", cOrange)
-        f_row(7, "Tip", "A Turbo SHORT is a different product: enter its Strike/KO (KO above price)", cOrange)
+        f_row(6, "Tip", "Click a line, then drag the 3 dots (Entry / Stop / Target)", cOrange)
+        f_row(7, "Tip", "Turbo SHORT = other product: enter its Strike/KO in settings", cOrange)
         if (isLong and koLvl >= entryP) or (not isLong and koLvl <= entryP)
             f_row(8, "PROBLEM", "Knock-Out is on the wrong side of Entry for " + dirTxt, cRed)
+        // keep the levels visible so the indicator can be selected and the dots dragged
+        if entryP > 0
+            lnE := line.new(xL, entryP, xR, entryP, color=cBlue, width=2)
+            lbE := label.new(xR, entryP, "Entry " + f_p(entryP), xloc=xloc.bar_index, style=label.style_label_left, color=cBlue, textcolor=color.white, size=size.small)
+        if stopIn > 0
+            lnS := line.new(xL, stopIn, xR, stopIn, color=cRed, width=2)
+            lbS := label.new(xR, stopIn, "Stop " + f_p(stopIn), xloc=xloc.bar_index, style=label.style_label_left, color=cRed, textcolor=color.white, size=size.small)
+        if tpP > 0
+            lnT := line.new(xL, tpP, xR, tpP, color=cGreen, width=2)
+            lbT := label.new(xR, tpP, "Target " + f_p(tpP), xloc=xloc.bar_index, style=label.style_label_left, color=cGreen, textcolor=color.white, size=size.small)
+        if koLvl > 0
+            lnK := line.new(xL, koLvl, xR, koLvl, color=cOrange, width=1, style=line.style_dashed)
+            lbK := label.new(xR, koLvl, "KO " + f_p(koLvl), xloc=xloc.bar_index, style=label.style_label_left, color=cOrange, textcolor=color.black, size=size.small)
     else
         table.cell(tbl, 0, 0, "KO RISK CALCULATOR  |  " + dirTxt, text_color=color.white, text_halign=text.align_center, text_size=size.normal, bgcolor=cBlue)
         f_row(1, "Max loss", f_e(maxLoss) + "  (" + str.tostring(riskPct, "0.0#") + "% of " + str.tostring(account, "0") + ")")
@@ -199,9 +212,6 @@ if barstate.islast
             f_row(18, "Note", "Model price, financing & spread changes not included", cDim)
 
         // lines & labels
-        xL = math.max(0, bar_index - 30)
-        xR = bar_index + wBars
-        xB = bar_index
         lnE := line.new(xL, entryP, xR, entryP, color=cBlue, width=2)
         lnS := line.new(xL, stopP, xR, stopP, color=cRed, width=2)
         lnT := line.new(xL, tpP, xR, tpP, color=cGreen, width=2)
