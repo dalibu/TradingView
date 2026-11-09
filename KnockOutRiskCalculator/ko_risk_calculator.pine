@@ -29,7 +29,9 @@ koLvl      = input.float(1.5819, "Knock-Out barrier", step=0.0001, group=G2)
 sameStr    = input.bool(true, "Strike = Knock-Out barrier (normal Turbo)", group=G2, tooltip="Tick for a classic Turbo (strike and KO are equal). Untick for Mini Future / Stop-Loss products and enter the Strike (financing level) separately below.")
 strikeIn   = input.float(1.5819, "Strike (used only if the box above is unticked)", step=0.0001, group=G2)
 mult       = input.float(100.0, "Multiplier (price = (S-Strike) x Mult / FX)", minval=0.0001, group=G2, tooltip="finanzen.net: 'Preis = (Kurs - Strike) * 100'. Put the number after the '*' here.")
-fxMode     = input.string("Underlying is EUR/XXX (divide by price)", "Currency conversion to EUR", options=["Underlying is EUR/XXX (divide by price)", "Fixed rate (XXX per 1 EUR)", "Price already in EUR"], group=G2, tooltip="EUR/AUD, EUR/USD ...: first option. Other pairs (e.g. USD/JPY): use a fixed XXX-per-EUR rate.")
+fxMode     = input.string("Underlying is EUR/XXX (divide by price)", "Currency conversion to EUR", options=["Underlying is EUR/XXX (divide by price)", "Live rate from symbol (XXX per 1 EUR)", "Fixed rate (XXX per 1 EUR)", "Price already in EUR"], group=G2, tooltip="EUR/AUD, EUR/GBP ...: first option (the chart price itself is the EUR rate).\nGBP/USD, AUD/USD, USD/JPY ...: the certificate is converted at EUR/USD (EUR/JPY ...), NOT at the chart price. Use 'Live rate' with e.g. FX:EURUSD, or a fixed rate.\nUnderlying already in EUR (DAX, Bund ...): last option.")
+fxSym      = input.symbol("FX:EURUSD", "Live rate: symbol", group=G2, tooltip="Symbol that quotes XXX per 1 EUR, e.g. FX:EURUSD for a GBP/USD certificate (USD per EUR).")
+fxInv      = input.bool(false, "Live rate: invert (symbol quotes EUR per 1 XXX)", group=G2, tooltip="Tick if the symbol is XXX/EUR, e.g. a GBPEUR-type symbol.")
 fxFixed    = input.float(1.0, "Fixed rate (XXX per 1 EUR)", minval=0.000001, group=G2)
 spreadE    = input.float(0.01, "Spread Bid/Ask (EUR)", minval=0.0, step=0.001, group=G2)
 askManual  = input.float(0.0, "Ask price override (EUR, 0 = use formula)", minval=0.0, step=0.001, group=G2, tooltip="Optional. If set, it is used as the purchase price and all other certificate prices are shifted by the same difference to the formula.")
@@ -53,9 +55,13 @@ autoStopOn = str.startswith(stopMode, "Auto")
 strikeEff  = sameStr ? koLvl : strikeIn
 fxUnder    = str.startswith(fxMode, "Underlying")
 fxFixedOn  = str.startswith(fxMode, "Fixed")
+fxLiveOn   = str.startswith(fxMode, "Live")
+
+fxRaw      = request.security(fxSym, timeframe.period, close, ignore_invalid_symbol=true)
+fxLive     = na(fxRaw) ? fxFixed : (fxInv ? 1.0 / fxRaw : fxRaw)
 
 f_div(float s) =>
-    fxUnder ? s : (fxFixedOn ? fxFixed : 1.0)
+    fxUnder ? s : (fxLiveOn ? fxLive : (fxFixedOn ? fxFixed : 1.0))
 
 f_theo(float s) =>
     math.max(0.0, (isLong ? s - strikeEff : strikeEff - s) * mult / f_div(s))
@@ -77,7 +83,7 @@ offset     = askManual > 0 ? askManual - askCalc : 0.0
 nBudAuto    = (budget > 0 and entryCost > 0) ? math.floor(budget / entryCost) : 0
 allowedLoss = nBudAuto > 0 ? (maxLoss - 2.0 * feeE) / nBudAuto : na
 xTheo       = entryCost - allowedLoss - offset + spreadE / 2.0   // theoretical certificate value at the stop
-fxVal       = fxFixedOn ? fxFixed : 1.0
+fxVal       = fxLiveOn ? fxLive : (fxFixedOn ? fxFixed : 1.0)
 autoStop    = float(na)
 if not na(xTheo) and xTheo > 0
     if fxUnder
@@ -236,7 +242,7 @@ if barstate.islast
         f_row(3, autoStopOn ? "Stop (auto)" : "Stop", f_p(stopP) + "  " + f_sp(distStopPct), cRed)
         f_row(4, "Target", f_p(tpP) + "  " + f_sp(distTpPct), cGreen)
         f_row(5, "KO", f_p(koLvl) + "  " + f_sp(distKoPct), cOrange)
-        f_row(6, "Strike", f_p(strikeEff))
+        f_row(6, "Strike | FX", f_p(strikeEff) + " | " + str.tostring(f_div(entryP), "0.0000"))
         f_row(7, "Ask | formula", f_n3(entryCost) + " | " + f_n3(askCalc))
         f_row(8, "SL cert. (Bid)", f_o(exitSL), cRed)
         f_row(9, "TP cert. (Bid)", f_o(exitTP), cGreen)
