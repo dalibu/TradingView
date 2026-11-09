@@ -42,6 +42,10 @@ budget     = input.float(1000.0, "Max investment in the certificate (EUR, 0 = no
 
 // ── 4. Display ──────────────────────────────────────────────────
 wBars      = input.int(25, "Width of position box (bars)", minval=5, maxval=200, group=G4)
+posStr     = input.string("Top right", "Table position", options=["Top left", "Top center", "Top right", "Middle left", "Middle center", "Middle right", "Bottom left", "Bottom center", "Bottom right"], group=G4)
+themeStr   = input.string("Dark", "Color theme", options=["Dark", "Light"], group=G4)
+sizeStr    = input.string("Small", "Table text size", options=["Tiny", "Small", "Normal"], group=G4)
+transp     = input.int(5, "Table background transparency (0-100)", minval=0, maxval=100, group=G4)
 
 // ════════════════════ Helpers ════════════════════
 isLong     = str.startswith(dirStr, "Long") ? true : (str.startswith(dirStr, "Short") ? false : tpP >= entryP)
@@ -57,8 +61,8 @@ f_theo(float s) =>
     math.max(0.0, (isLong ? s - strikeEff : strikeEff - s) * mult / f_div(s))
 
 f_p(float v)  => str.tostring(v, format.mintick)
-f_e(float v)  => str.tostring(v, "0.00") + " EUR"
-f_o(float v)  => str.tostring(v, "0.000") + " EUR"
+f_e(float v)  => str.tostring(v, "0.00") + " €"
+f_o(float v)  => str.tostring(v, "0.000") + " €"
 f_pc(float v) => str.tostring(v, "0.00") + "%"
 
 // ════════════════════ Calculation ════════════════════
@@ -122,16 +126,41 @@ alertcondition(slTouch, "Stop level touched", "Underlying touched the stop level
 alertcondition(tpTouch, "Target level touched", "Underlying touched the target level")
 alertcondition(koTouch, "Knock-Out barrier touched", "Underlying touched the knock-out barrier")
 
-// ════════════════════ Drawing ════════════════════
-cBg     = color.new(#131722, 8)
-cTxt    = #D1D4DC
-cDim    = #9598A1
-cGreen  = #26A69A
-cRed    = #EF5350
+// ════════════════════ Look & feel ════════════════════
+isDark  = themeStr == "Dark"
+cBgBase = isDark ? #131722 : #FFFFFF
+cBg     = color.new(cBgBase, transp)
+cTxt    = isDark ? #D1D4DC : #131722
+cDim    = isDark ? #9598A1 : #6A6D78
+cStrong = isDark ? #FFFFFF : #000000
+cFrame  = isDark ? #363A45 : #C8CBD3
+cGreen  = isDark ? #26A69A : #089981
+cRed    = isDark ? #EF5350 : #F23645
 cBlue   = #2962FF
-cOrange = #FF9800
+cOrange = isDark ? #FF9800 : #E65100
+cOnOr   = isDark ? #000000 : #FFFFFF
 
-var table tbl = table.new(position.top_right, 2, 25, bgcolor=cBg, frame_color=#363A45, frame_width=1, border_color=#363A45, border_width=1)
+tblPos = switch posStr
+    "Top left"      => position.top_left
+    "Top center"    => position.top_center
+    "Middle left"   => position.middle_left
+    "Middle center" => position.middle_center
+    "Middle right"  => position.middle_right
+    "Bottom left"   => position.bottom_left
+    "Bottom center" => position.bottom_center
+    "Bottom right"  => position.bottom_right
+    => position.top_right
+
+tSize = switch sizeStr
+    "Tiny"   => size.tiny
+    "Normal" => size.normal
+    => size.small
+
+f_sp(float v) => (v >= 0 ? "+" : "") + str.tostring(v, "0.00") + "%"
+f_n3(float v) => str.tostring(v, "0.000")
+
+// ════════════════════ Drawing ════════════════════
+var table tbl = table.new(tblPos, 2, 26, bgcolor=cBg, frame_color=cFrame, frame_width=1, border_color=cFrame, border_width=1)
 var line lnE = na
 var line lnS = na
 var line lnT = na
@@ -145,10 +174,17 @@ var box bxL = na
 
 if barstate.isfirst
     table.merge_cells(tbl, 0, 0, 1, 0)
+    table.merge_cells(tbl, 0, 19, 1, 19)
+    table.merge_cells(tbl, 0, 20, 1, 20)
 
-f_row(int r, string k, string v, color vc = #D1D4DC) =>
-    table.cell(tbl, 0, r, k, text_color=cDim, text_halign=text.align_left, text_size=size.small, bgcolor=cBg)
-    table.cell(tbl, 1, r, v, text_color=vc, text_halign=text.align_right, text_size=size.small, bgcolor=cBg)
+// two-column row
+f_row(int r, string k, string v, color vc = na) =>
+    table.cell(tbl, 0, r, k, text_color=cDim, text_halign=text.align_left, text_size=tSize, bgcolor=cBg)
+    table.cell(tbl, 1, r, v, text_color=na(vc) ? cTxt : vc, text_halign=text.align_right, text_size=tSize, bgcolor=cBg)
+
+// full-width (merged) row: rows 19 and 20 only
+f_msg(int r, string t, color tc, color bg = na) =>
+    table.cell(tbl, 0, r, t, text_color=tc, text_halign=text.align_center, text_size=tSize, bgcolor=na(bg) ? cBg : bg)
 
 if barstate.islast
     // reset
@@ -162,24 +198,24 @@ if barstate.islast
     label.delete(lbK)
     box.delete(bxP)
     box.delete(bxL)
-    table.clear(tbl, 0, 0, 1, 24)
+    table.clear(tbl, 0, 0, 1, 25)
 
-    dirTxt = isLong ? "Turbo LONG" : "Turbo SHORT"
+    dirTxt = isLong ? "LONG" : "SHORT"
     xL = math.max(0, bar_index - 30)
     xR = bar_index + wBars
     xB = bar_index
 
     if not ordOk
-        table.cell(tbl, 0, 0, "SETUP ERROR", text_color=color.white, text_halign=text.align_center, text_size=size.normal, bgcolor=cRed)
-        f_row(1, "Required order", isLong ? "Target > Entry > Stop > KO" : "KO > Stop > Entry > Target", cOrange)
-        f_row(2, "Entry", f_p(entryP))
-        f_row(3, "Stop", na(stopP) ? "n/a (auto stop needs budget > 0)" : f_p(stopP))
-        f_row(4, "Target", f_p(tpP))
-        f_row(5, "Knock-Out", f_p(koLvl))
-        f_row(6, "Tip", "Click a line, then drag the 3 dots (Entry / Stop / Target)", cOrange)
-        f_row(7, "Tip", "Turbo SHORT = other product: enter its Strike/KO in settings", cOrange)
+        table.cell(tbl, 0, 0, "SETUP ERROR", text_color=color.white, text_halign=text.align_center, text_size=tSize, bgcolor=cRed)
+        f_row(1, "Entry", f_p(entryP))
+        f_row(2, "Stop", na(stopP) ? "n/a" : f_p(stopP))
+        f_row(3, "Target", f_p(tpP))
+        f_row(4, "KO", f_p(koLvl))
+        f_msg(19, "Order: " + (isLong ? "Target>Entry>Stop>KO" : "KO>Stop>Entry>Target"), cOrange)
         if (isLong and koLvl >= entryP) or (not isLong and koLvl <= entryP)
-            f_row(8, "PROBLEM", "Knock-Out is on the wrong side of Entry for " + dirTxt, cRed)
+            f_msg(20, "KO on wrong side for " + dirTxt, cRed)
+        else
+            f_msg(20, "Drag the 3 dots / edit inputs", cDim)
         // keep the levels visible so the indicator can be selected and the dots dragged
         if entryP > 0
             lnE := line.new(xL, entryP, xR, entryP, color=cBlue, width=2)
@@ -192,45 +228,46 @@ if barstate.islast
             lbT := label.new(xR, tpP, "Target " + f_p(tpP), xloc=xloc.bar_index, style=label.style_label_left, color=cGreen, textcolor=color.white, size=size.small)
         if koLvl > 0
             lnK := line.new(xL, koLvl, xR, koLvl, color=cOrange, width=1, style=line.style_dashed)
-            lbK := label.new(xR, koLvl, "KO " + f_p(koLvl), xloc=xloc.bar_index, style=label.style_label_left, color=cOrange, textcolor=color.black, size=size.small)
+            lbK := label.new(xR, koLvl, "KO " + f_p(koLvl), xloc=xloc.bar_index, style=label.style_label_left, color=cOrange, textcolor=cOnOr, size=size.small)
     else
-        table.cell(tbl, 0, 0, "KO RISK CALCULATOR  |  " + dirTxt, text_color=color.white, text_halign=text.align_center, text_size=size.normal, bgcolor=cBlue)
-        f_row(1, "Max loss", f_e(maxLoss) + "  (" + str.tostring(riskPct, "0.0#") + "% of " + str.tostring(account, "0") + ")")
-        f_row(2, "Entry (underlying)", f_p(entryP))
-        f_row(3, autoStopOn ? "Stop (auto)" : "Stop", f_p(stopP) + "  (" + f_pc(distStopPct) + ")", cRed)
-        f_row(4, "Target", f_p(tpP) + "  (" + f_pc(distTpPct) + ")", cGreen)
-        f_row(5, "Knock-Out | Strike", f_p(koLvl) + " (" + f_pc(distKoPct) + ") | " + f_p(strikeEff), cOrange)
-        f_row(6, "Buy price (Ask) | formula", f_o(entryCost) + " | " + f_o(askCalc))
-        f_row(7, "SL on certificate (Bid)", f_o(exitSL), cRed)
-        f_row(8, "TP on certificate (Bid)", f_o(exitTP), cGreen)
-        f_row(9, "PIECES", str.tostring(nPcs) + "  (" + (nRisk <= nBud ? "risk-limited" : "budget-limited") + ")", color.white)
-        f_row(10, "Investment", f_e(invest) + "  (" + f_pc(invest / account * 100.0) + " of account)")
-        f_row(11, "Loss at stop", "-" + f_e(lossEur) + "  (" + f_pc(lossEur / account * 100.0) + " of account)", cRed)
-        f_row(12, "Profit at target", "+" + f_e(profitEur), cGreen)
-        f_row(13, "R : R", na(rr) ? "n/a" : str.tostring(rr, "0.00"))
-        f_row(14, "Leverage (approx.)", str.tostring(lev, "0.0") + "x")
-        f_row(15, "Stop uses % of way to KO", f_pc(stopOfKoPct) + "  (KO buffer " + f_pc(koBufferPct) + ")")
-        f_row(16, "Stop distance in ATR(14)", na(stopAtr) ? "n/a" : str.tostring(stopAtr, "0.0#") + " ATR", (not na(stopAtr) and stopAtr < 1.0) ? cOrange : cTxt)
-        f_row(17, "Loss if KO / gap", "up to -" + f_e(invest + 2.0 * feeE), cOrange)
+        table.cell(tbl, 0, 0, "KO CALC  |  " + dirTxt, text_color=color.white, text_halign=text.align_center, text_size=tSize, bgcolor=cBlue)
+        f_row(1, "Max loss", f_e(maxLoss) + " (" + str.tostring(riskPct, "0.0#") + "%)")
+        f_row(2, "Entry", f_p(entryP))
+        f_row(3, autoStopOn ? "Stop (auto)" : "Stop", f_p(stopP) + "  " + f_sp(distStopPct), cRed)
+        f_row(4, "Target", f_p(tpP) + "  " + f_sp(distTpPct), cGreen)
+        f_row(5, "KO", f_p(koLvl) + "  " + f_sp(distKoPct), cOrange)
+        f_row(6, "Strike", f_p(strikeEff))
+        f_row(7, "Ask | formula", f_n3(entryCost) + " | " + f_n3(askCalc))
+        f_row(8, "SL cert. (Bid)", f_o(exitSL), cRed)
+        f_row(9, "TP cert. (Bid)", f_o(exitTP), cGreen)
+        f_row(10, "PIECES", str.tostring(nPcs) + (nRisk <= nBud ? " (risk)" : " (budget)"), cStrong)
+        f_row(11, "Invested", f_e(invest) + " (" + str.tostring(invest / account * 100.0, "0.0") + "%)")
+        f_row(12, "Loss at SL", "-" + f_e(lossEur) + " (" + str.tostring(lossEur / account * 100.0, "0.0#") + "%)", cRed)
+        f_row(13, "Profit at TP", "+" + f_e(profitEur), cGreen)
+        f_row(14, "R : R", na(rr) ? "n/a" : str.tostring(rr, "0.00"))
+        f_row(15, "Leverage", str.tostring(lev, "0.0") + "x")
+        f_row(16, "SL → KO path", str.tostring(stopOfKoPct, "0") + "% (buf " + str.tostring(koBufferPct, "0.00") + "%)")
+        f_row(17, "Stop in ATR(14)", na(stopAtr) ? "n/a" : str.tostring(stopAtr, "0.0#"), (not na(stopAtr) and stopAtr < 1.0) ? cOrange : na)
+        f_row(18, "If KO / gap", "-" + f_e(invest + 2.0 * feeE), cOrange)
         if exitSL <= 0.0005
-            f_row(18, "WARNING", "Stop is beyond Strike: certificate = 0 at stop (total loss)", cRed)
+            f_msg(19, "⚠ Stop beyond strike: SL = 0", cRed)
         else if math.abs(offset) > 0.03
-            f_row(18, "WARNING", "Ask override differs from formula by " + str.tostring(offset, "0.00") + " EUR: check Strike / Mult / FX mode", cOrange)
+            f_msg(19, "⚠ Ask ≠ formula: check FX/Strike", cOrange)
         else if nPcs <= 0
-            f_row(18, "WARNING", "0 pieces: stop too far or budget too small", cOrange)
+            f_msg(19, "⚠ 0 pieces: stop too far / budget", cOrange)
         else if not na(stopAtr) and stopAtr < 1.0
-            f_row(18, "WARNING", "Stop < 1 ATR: market noise can trigger it", cOrange)
+            f_msg(19, "⚠ Stop < 1 ATR (noise risk)", cOrange)
         else
-            f_row(18, "Note", "Model price, financing & spread changes not included", cDim)
+            f_msg(19, "Model price, no financing", cDim)
 
         // ── live position status ──
         cNow = pnlNow >= 0 ? cGreen : cRed
-        f_row(19, "─── LIVE (current price) ───", "", cDim)
-        f_row(20, "Underlying now", f_p(nowP) + "  (" + f_pc((nowP - entryP) / entryP * 100.0) + " vs entry)", color.white)
-        f_row(21, "Certificate now (Bid, model)", koHitNow ? "KNOCKED OUT: 0.000 EUR" : f_o(exitNow), koHitNow ? cRed : cTxt)
-        f_row(22, "P&L now", (pnlNow >= 0 ? "+" : "") + f_e(pnlNow) + "  (" + (pnlNow >= 0 ? "+" : "") + f_pc(invest > 0 ? pnlNow / invest * 100.0 : 0.0) + " of investment)", cNow)
-        f_row(23, pnlNow >= 0 ? "Profit vs target" : "Loss vs max loss", pnlNow >= 0 ? f_pc(profitEur > 0 ? pnlNow / profitEur * 100.0 : 0.0) + " of target profit" : f_pc(maxLoss > 0 ? -pnlNow / maxLoss * 100.0 : 0.0) + " of max loss used", cNow)
-        f_row(24, "To stop | to target", f_pc((stopP - nowP) / nowP * 100.0) + " | " + f_pc((tpP - nowP) / nowP * 100.0), cDim)
+        f_msg(20, "LIVE", color.white, cBlue)
+        f_row(21, "Now", f_p(nowP) + "  " + f_sp((nowP - entryP) / entryP * 100.0), cStrong)
+        f_row(22, "Cert. now (Bid)", koHitNow ? "KNOCKED OUT" : f_o(exitNow), koHitNow ? cRed : na)
+        f_row(23, "P&L now", (pnlNow >= 0 ? "+" : "") + f_e(pnlNow) + " (" + f_sp(invest > 0 ? pnlNow / invest * 100.0 : 0.0) + ")", cNow)
+        f_row(24, pnlNow >= 0 ? "Of target" : "Of max loss", pnlNow >= 0 ? str.tostring(profitEur > 0 ? pnlNow / profitEur * 100.0 : 0.0, "0") + "%" : str.tostring(maxLoss > 0 ? -pnlNow / maxLoss * 100.0 : 0.0, "0") + "%", cNow)
+        f_row(25, "To SL | TP", f_sp((stopP - nowP) / nowP * 100.0) + " | " + f_sp((tpP - nowP) / nowP * 100.0), cDim)
 
         // lines & labels
         lnE := line.new(xL, entryP, xR, entryP, color=cBlue, width=2)
@@ -242,4 +279,4 @@ if barstate.islast
         lbE := label.new(xR, entryP, "Entry " + f_p(entryP) + " | " + str.tostring(nPcs) + " pcs @ " + f_o(entryCost), xloc=xloc.bar_index, style=label.style_label_left, color=cBlue, textcolor=color.white, size=size.small)
         lbS := label.new(xR, stopP, "SL " + f_p(stopP) + " | cert. " + f_o(exitSL) + " | -" + f_e(lossEur), xloc=xloc.bar_index, style=label.style_label_left, color=cRed, textcolor=color.white, size=size.small)
         lbT := label.new(xR, tpP, "TP " + f_p(tpP) + " | cert. " + f_o(exitTP) + " | +" + f_e(profitEur), xloc=xloc.bar_index, style=label.style_label_left, color=cGreen, textcolor=color.white, size=size.small)
-        lbK := label.new(xR, koLvl, "KO " + f_p(koLvl), xloc=xloc.bar_index, style=label.style_label_left, color=cOrange, textcolor=color.black, size=size.small)
+        lbK := label.new(xR, koLvl, "KO " + f_p(koLvl), xloc=xloc.bar_index, style=label.style_label_left, color=cOrange, textcolor=cOnOr, size=size.small)
