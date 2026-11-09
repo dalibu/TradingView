@@ -181,7 +181,6 @@ var box bxP = na
 var box bxL = na
 
 if barstate.isfirst
-    table.merge_cells(tbl, 0, 0, 1, 0)
     table.merge_cells(tbl, 0, 19, 1, 19)
     table.merge_cells(tbl, 0, 20, 1, 20)
 
@@ -214,7 +213,8 @@ if barstate.islast
     xB = bar_index
 
     if not ordOk
-        table.cell(tbl, 0, 0, "SETUP ERROR", text_color=color.white, text_halign=text.align_center, text_size=tSize, bgcolor=cRed)
+        table.cell(tbl, 0, 0, "SETUP ERROR", text_color=color.white, text_halign=text.align_left, text_size=tSize, bgcolor=cRed)
+        table.cell(tbl, 1, 0, prodLbl, text_color=color.white, text_halign=text.align_right, text_size=tSize, bgcolor=cRed)
         f_row(1, "Entry", f_p(entryP))
         f_row(2, "Stop", na(stopP) ? "n/a" : f_p(stopP))
         f_row(3, "Target", f_p(tpP))
@@ -238,7 +238,8 @@ if barstate.islast
             lnK := line.new(xL, koLvl, xR, koLvl, color=cOrange, width=1, style=line.style_dashed)
             lbK := label.new(xR, koLvl, "KO " + f_p(koLvl), xloc=xloc.bar_index, style=label.style_label_left, color=cOrange, textcolor=cOnOr, size=size.small)
     else
-        table.cell(tbl, 0, 0, "KO CALC  |  " + dirTxt + (prodLbl != "" ? "  |  " + prodLbl : ""), text_color=color.white, text_halign=text.align_center, text_size=tSize, bgcolor=cBlue)
+        table.cell(tbl, 0, 0, "KO CALC  |  " + dirTxt, text_color=color.white, text_halign=text.align_left, text_size=tSize, bgcolor=cBlue)
+        table.cell(tbl, 1, 0, prodLbl, text_color=color.white, text_halign=text.align_right, text_size=tSize, bgcolor=cBlue)
         f_row(1, "Max loss", f_e(maxLoss) + " (" + str.tostring(riskPct, "0.0#") + "%)")
         f_row(2, "Entry", f_p(entryP))
         f_row(3, autoStopOn ? "Stop (auto)" : "Stop", f_p(stopP) + "  " + f_sp(distStopPct), cRed)
