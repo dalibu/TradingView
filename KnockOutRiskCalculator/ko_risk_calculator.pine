@@ -204,7 +204,11 @@ if barstate.islast
         f_row(15, "Stop uses % of way to KO", f_pc(stopOfKoPct) + "  (KO buffer " + f_pc(koBufferPct) + ")")
         f_row(16, "Stop distance in ATR(14)", na(stopAtr) ? "n/a" : str.tostring(stopAtr, "0.0#") + " ATR", (not na(stopAtr) and stopAtr < 1.0) ? cOrange : cTxt)
         f_row(17, "Loss if KO / gap", "up to -" + f_e(invest + 2.0 * feeE), cOrange)
-        if nPcs <= 0
+        if exitSL <= 0.0005
+            f_row(18, "WARNING", "Stop is beyond Strike: certificate = 0 at stop (total loss)", cRed)
+        else if math.abs(offset) > 0.03
+            f_row(18, "WARNING", "Ask override differs from formula by " + str.tostring(offset, "0.00") + " EUR: check Strike / Mult / FX mode", cOrange)
+        else if nPcs <= 0
             f_row(18, "WARNING", "0 pieces: stop too far or budget too small", cOrange)
         else if not na(stopAtr) and stopAtr < 1.0
             f_row(18, "WARNING", "Stop < 1 ATR: market noise can trigger it", cOrange)
