@@ -25,8 +25,9 @@ tpP      = input.price(0.0, "Target (underlying)", confirm=true, group=G1)
 stopMode = input.string("Manual (as set on chart)", "Stop mode", options=["Manual (as set on chart)", "Auto: from budget & max loss"], group=G1, tooltip="Auto: the script calculates the stop level of the underlying so that buying for the whole budget loses exactly the max loss at the stop.")
 
 // ── 2. Product ──────────────────────────────────────────────────
-strike     = input.float(1.5819, "Strike", step=0.0001, group=G2)
 koLvl      = input.float(1.5819, "Knock-Out barrier", step=0.0001, group=G2)
+sameStr    = input.bool(true, "Strike = Knock-Out barrier (normal Turbo)", group=G2, tooltip="Tick for a classic Turbo (strike and KO are equal). Untick for Mini Future / Stop-Loss products and enter the Strike (financing level) separately below.")
+strikeIn   = input.float(1.5819, "Strike (used only if the box above is unticked)", step=0.0001, group=G2)
 mult       = input.float(100.0, "Multiplier (price = (S-Strike) x Mult / FX)", minval=0.0001, group=G2, tooltip="finanzen.net: 'Preis = (Kurs - Strike) * 100'. Put the number after the '*' here.")
 fxMode     = input.string("Underlying is EUR/XXX (divide by price)", "Currency conversion to EUR", options=["Underlying is EUR/XXX (divide by price)", "Fixed rate (XXX per 1 EUR)", "Price already in EUR"], group=G2, tooltip="EUR/AUD, EUR/USD ...: first option. Other pairs (e.g. USD/JPY): use a fixed XXX-per-EUR rate.")
 fxFixed    = input.float(1.0, "Fixed rate (XXX per 1 EUR)", minval=0.000001, group=G2)
@@ -45,6 +46,7 @@ wBars      = input.int(25, "Width of position box (bars)", minval=5, maxval=200,
 // ════════════════════ Helpers ════════════════════
 isLong     = str.startswith(dirStr, "Long") ? true : (str.startswith(dirStr, "Short") ? false : tpP >= entryP)
 autoStopOn = str.startswith(stopMode, "Auto")
+strikeEff  = sameStr ? koLvl : strikeIn
 fxUnder    = str.startswith(fxMode, "Underlying")
 fxFixedOn  = str.startswith(fxMode, "Fixed")
 
@@ -52,7 +54,7 @@ f_div(float s) =>
     fxUnder ? s : (fxFixedOn ? fxFixed : 1.0)
 
 f_theo(float s) =>
-    math.max(0.0, (isLong ? s - strike : strike - s) * mult / f_div(s))
+    math.max(0.0, (isLong ? s - strikeEff : strikeEff - s) * mult / f_div(s))
 
 f_p(float v)  => str.tostring(v, format.mintick)
 f_e(float v)  => str.tostring(v, "0.00") + " EUR"
@@ -75,9 +77,9 @@ fxVal       = fxFixedOn ? fxFixed : 1.0
 autoStop    = float(na)
 if not na(xTheo) and xTheo > 0
     if fxUnder
-        autoStop := isLong ? strike * mult / (mult - xTheo) : strike * mult / (mult + xTheo)
+        autoStop := isLong ? strikeEff * mult / (mult - xTheo) : strikeEff * mult / (mult + xTheo)
     else
-        autoStop := isLong ? strike + xTheo * fxVal / mult : strike - xTheo * fxVal / mult
+        autoStop := isLong ? strikeEff + xTheo * fxVal / mult : strikeEff - xTheo * fxVal / mult
 
 stopP = autoStopOn ? autoStop : stopIn
 
@@ -191,8 +193,8 @@ if barstate.islast
         f_row(2, "Entry (underlying)", f_p(entryP))
         f_row(3, autoStopOn ? "Stop (auto)" : "Stop", f_p(stopP) + "  (" + f_pc(distStopPct) + ")", cRed)
         f_row(4, "Target", f_p(tpP) + "  (" + f_pc(distTpPct) + ")", cGreen)
-        f_row(5, "Knock-Out", f_p(koLvl) + "  (" + f_pc(distKoPct) + ")", cOrange)
-        f_row(6, "Buy price (Ask)", f_o(entryCost))
+        f_row(5, "Knock-Out | Strike", f_p(koLvl) + " (" + f_pc(distKoPct) + ") | " + f_p(strikeEff), cOrange)
+        f_row(6, "Buy price (Ask) | formula", f_o(entryCost) + " | " + f_o(askCalc))
         f_row(7, "SL on certificate (Bid)", f_o(exitSL), cRed)
         f_row(8, "TP on certificate (Bid)", f_o(exitTP), cGreen)
         f_row(9, "PIECES", str.tostring(nPcs) + "  (" + (nRisk <= nBud ? "risk-limited" : "budget-limited") + ")", color.white)
