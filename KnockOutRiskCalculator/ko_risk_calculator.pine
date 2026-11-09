@@ -1,0 +1,207 @@
+//@version=6
+indicator("Knock-Out Risk Calculator", shorttitle="KO Risk Calc", overlay=true, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
+
+// ════════════════════════════════════════════════════════════════
+//  Knock-Out (Turbo) certificate risk calculator
+//  - Click Entry / Stop / Target on the chart when adding the indicator
+//    (they can be dragged afterwards, as in "Future Risk Calculator")
+//  - Enter the certificate data (strike, KO, multiplier, spread)
+//  - Table (top right) + labels show pieces, SL price of the certificate,
+//    loss / profit in EUR, R:R, leverage and warnings
+//  Price model: (S - Strike) * Mult / FX   (Long)
+//               (Strike - S) * Mult / FX   (Short)
+// ════════════════════════════════════════════════════════════════
+
+G1 = "1. Position (click on chart)"
+G2 = "2. Knock-out product (from finanzen.net / broker)"
+G3 = "3. Risk"
+G4 = "4. Display"
+
+// ── 1. Position ─────────────────────────────────────────────────
+dirStr   = input.string("Long (Turbo Long / Call)", "Direction", options=["Long (Turbo Long / Call)", "Short (Turbo Short / Put)"], group=G1)
+entryP   = input.price(0.0, "Entry (underlying)", confirm=true, group=G1)
+stopIn   = input.price(0.0, "Stop (underlying)", confirm=true, group=G1)
+tpP      = input.price(0.0, "Target (underlying)", confirm=true, group=G1)
+stopMode = input.string("Manual (as set on chart)", "Stop mode", options=["Manual (as set on chart)", "Auto: from budget & max loss"], group=G1, tooltip="Auto: the script calculates the stop level of the underlying so that buying for the whole budget loses exactly the max loss at the stop.")
+
+// ── 2. Product ──────────────────────────────────────────────────
+strike     = input.float(1.5819, "Strike", step=0.0001, group=G2)
+koLvl      = input.float(1.5819, "Knock-Out barrier", step=0.0001, group=G2)
+mult       = input.float(100.0, "Multiplier (price = (S-Strike) x Mult / FX)", minval=0.0001, group=G2, tooltip="finanzen.net: 'Preis = (Kurs - Strike) * 100'. Put the number after the '*' here.")
+fxMode     = input.string("Underlying is EUR/XXX (divide by price)", "Currency conversion to EUR", options=["Underlying is EUR/XXX (divide by price)", "Fixed rate (XXX per 1 EUR)", "Price already in EUR"], group=G2, tooltip="EUR/AUD, EUR/USD ...: first option. Other pairs (e.g. USD/JPY): use a fixed XXX-per-EUR rate.")
+fxFixed    = input.float(1.0, "Fixed rate (XXX per 1 EUR)", minval=0.000001, group=G2)
+spreadE    = input.float(0.01, "Spread Bid/Ask (EUR)", minval=0.0, step=0.001, group=G2)
+askManual  = input.float(0.0, "Ask price override (EUR, 0 = use formula)", minval=0.0, step=0.001, group=G2, tooltip="Optional. If set, it is used as the purchase price and all other certificate prices are shifted by the same difference to the formula.")
+feeE       = input.float(0.0, "Fee per order (EUR)", minval=0.0, step=0.1, group=G2)
+
+// ── 3. Risk ─────────────────────────────────────────────────────
+account    = input.float(10000.0, "Account size (EUR)", minval=1.0, group=G3)
+riskPct    = input.float(1.0, "Max loss (% of account)", minval=0.01, maxval=100.0, step=0.1, group=G3)
+budget     = input.float(1000.0, "Max investment in the certificate (EUR, 0 = no limit)", minval=0.0, group=G3)
+
+// ── 4. Display ──────────────────────────────────────────────────
+wBars      = input.int(25, "Width of position box (bars)", minval=5, maxval=200, group=G4)
+
+// ════════════════════ Helpers ════════════════════
+isLong     = str.startswith(dirStr, "Long")
+autoStopOn = str.startswith(stopMode, "Auto")
+fxUnder    = str.startswith(fxMode, "Underlying")
+fxFixedOn  = str.startswith(fxMode, "Fixed")
+
+f_div(float s) =>
+    fxUnder ? s : (fxFixedOn ? fxFixed : 1.0)
+
+f_theo(float s) =>
+    math.max(0.0, (isLong ? s - strike : strike - s) * mult / f_div(s))
+
+f_p(float v)  => str.tostring(v, format.mintick)
+f_e(float v)  => str.tostring(v, "0.00") + " EUR"
+f_o(float v)  => str.tostring(v, "0.000") + " EUR"
+f_pc(float v) => str.tostring(v, "0.00") + "%"
+
+// ════════════════════ Calculation ════════════════════
+maxLoss    = account * riskPct / 100.0
+
+theoEntry  = f_theo(entryP)
+askCalc    = theoEntry + spreadE / 2.0
+entryCost  = askManual > 0 ? askManual : askCalc
+offset     = askManual > 0 ? askManual - askCalc : 0.0
+
+// Auto stop: underlying level at which the loss on the full budget equals max loss
+nBudAuto    = (budget > 0 and entryCost > 0) ? math.floor(budget / entryCost) : 0
+allowedLoss = nBudAuto > 0 ? (maxLoss - 2.0 * feeE) / nBudAuto : na
+xTheo       = entryCost - allowedLoss - offset + spreadE / 2.0   // theoretical certificate value at the stop
+fxVal       = fxFixedOn ? fxFixed : 1.0
+autoStop    = float(na)
+if not na(xTheo) and xTheo > 0
+    if fxUnder
+        autoStop := isLong ? strike * mult / (mult - xTheo) : strike * mult / (mult + xTheo)
+    else
+        autoStop := isLong ? strike + xTheo * fxVal / mult : strike - xTheo * fxVal / mult
+
+stopP = autoStopOn ? autoStop : stopIn
+
+ordOk = not na(stopP) and entryP > 0 and tpP > 0 and stopP > 0 and (isLong ? (tpP > entryP and entryP > stopP and stopP > koLvl) : (tpP < entryP and entryP < stopP and stopP < koLvl))
+
+exitSL     = ordOk ? math.max(0.0, f_theo(stopP) + offset - spreadE / 2.0) : na
+exitTP     = ordOk ? math.max(0.0, f_theo(tpP) + offset - spreadE / 2.0) : na
+lossPer    = entryCost - exitSL
+calcOk     = ordOk and entryCost > 0 and lossPer > 0
+
+nRisk      = calcOk ? math.max(0, math.floor((maxLoss - 2.0 * feeE) / lossPer)) : 0
+nBud       = calcOk ? (budget > 0 ? math.floor(budget / entryCost) : nRisk) : 0
+nPcs       = math.min(nRisk, nBud)
+
+invest     = nPcs * entryCost
+lossEur    = nPcs * lossPer + 2.0 * feeE
+profitEur  = nPcs * (exitTP - entryCost) - 2.0 * feeE
+rr         = lossEur > 0 ? profitEur / lossEur : na
+lev        = entryCost > 0 ? mult * entryP / f_div(entryP) / entryCost : na
+
+distStopPct  = ordOk ? (stopP - entryP) / entryP * 100.0 : na
+distTpPct    = ordOk ? (tpP - entryP) / entryP * 100.0 : na
+distKoPct    = (koLvl - entryP) / entryP * 100.0
+stopOfKoPct  = ordOk ? math.abs(entryP - stopP) / math.abs(entryP - koLvl) * 100.0 : na
+koBufferPct  = ordOk ? math.abs(stopP - koLvl) / stopP * 100.0 : na
+atrV         = ta.atr(14)
+stopAtr      = (ordOk and atrV > 0) ? math.abs(entryP - stopP) / atrV : na
+
+// ════════════════════ Alerts ════════════════════
+slTouch = ordOk and (isLong ? low <= stopP : high >= stopP)
+tpTouch = ordOk and (isLong ? high >= tpP : low <= tpP)
+koTouch = koLvl > 0 and (isLong ? low <= koLvl : high >= koLvl)
+alertcondition(slTouch, "Stop level touched", "Underlying touched the stop level - close the certificate")
+alertcondition(tpTouch, "Target level touched", "Underlying touched the target level")
+alertcondition(koTouch, "Knock-Out barrier touched", "Underlying touched the knock-out barrier")
+
+// ════════════════════ Drawing ════════════════════
+cBg     = color.new(#131722, 8)
+cTxt    = #D1D4DC
+cDim    = #9598A1
+cGreen  = #26A69A
+cRed    = #EF5350
+cBlue   = #2962FF
+cOrange = #FF9800
+
+var table tbl = table.new(position.top_right, 2, 19, bgcolor=cBg, frame_color=#363A45, frame_width=1, border_color=#363A45, border_width=1)
+var line lnE = na
+var line lnS = na
+var line lnT = na
+var line lnK = na
+var label lbE = na
+var label lbS = na
+var label lbT = na
+var label lbK = na
+var box bxP = na
+var box bxL = na
+
+if barstate.isfirst
+    table.merge_cells(tbl, 0, 0, 1, 0)
+
+f_row(int r, string k, string v, color vc = #D1D4DC) =>
+    table.cell(tbl, 0, r, k, text_color=cDim, text_halign=text.align_left, text_size=size.small, bgcolor=cBg)
+    table.cell(tbl, 1, r, v, text_color=vc, text_halign=text.align_right, text_size=size.small, bgcolor=cBg)
+
+if barstate.islast
+    // reset
+    line.delete(lnE)
+    line.delete(lnS)
+    line.delete(lnT)
+    line.delete(lnK)
+    label.delete(lbE)
+    label.delete(lbS)
+    label.delete(lbT)
+    label.delete(lbK)
+    box.delete(bxP)
+    box.delete(bxL)
+    table.clear(tbl, 0, 0, 1, 18)
+
+    dirTxt = isLong ? "Turbo LONG" : "Turbo SHORT"
+
+    if not ordOk
+        table.cell(tbl, 0, 0, "SETUP ERROR", text_color=color.white, text_halign=text.align_center, text_size=size.normal, bgcolor=cRed)
+        f_row(1, "Required order", isLong ? "Target > Entry > Stop > KO" : "KO > Stop > Entry > Target", cOrange)
+        f_row(2, "Entry", f_p(entryP))
+        f_row(3, "Stop", na(stopP) ? "n/a (auto stop needs budget > 0)" : f_p(stopP))
+        f_row(4, "Target", f_p(tpP))
+        f_row(5, "Knock-Out", f_p(koLvl))
+    else
+        table.cell(tbl, 0, 0, "KO RISK CALCULATOR  |  " + dirTxt, text_color=color.white, text_halign=text.align_center, text_size=size.normal, bgcolor=cBlue)
+        f_row(1, "Max loss", f_e(maxLoss) + "  (" + str.tostring(riskPct, "0.0#") + "% of " + str.tostring(account, "0") + ")")
+        f_row(2, "Entry (underlying)", f_p(entryP))
+        f_row(3, autoStopOn ? "Stop (auto)" : "Stop", f_p(stopP) + "  (" + f_pc(distStopPct) + ")", cRed)
+        f_row(4, "Target", f_p(tpP) + "  (" + f_pc(distTpPct) + ")", cGreen)
+        f_row(5, "Knock-Out", f_p(koLvl) + "  (" + f_pc(distKoPct) + ")", cOrange)
+        f_row(6, "Buy price (Ask)", f_o(entryCost))
+        f_row(7, "SL on certificate (Bid)", f_o(exitSL), cRed)
+        f_row(8, "TP on certificate (Bid)", f_o(exitTP), cGreen)
+        f_row(9, "PIECES", str.tostring(nPcs) + "  (" + (nRisk <= nBud ? "risk-limited" : "budget-limited") + ")", color.white)
+        f_row(10, "Investment", f_e(invest) + "  (" + f_pc(invest / account * 100.0) + " of account)")
+        f_row(11, "Loss at stop", "-" + f_e(lossEur) + "  (" + f_pc(lossEur / account * 100.0) + " of account)", cRed)
+        f_row(12, "Profit at target", "+" + f_e(profitEur), cGreen)
+        f_row(13, "R : R", na(rr) ? "n/a" : str.tostring(rr, "0.00"))
+        f_row(14, "Leverage (approx.)", str.tostring(lev, "0.0") + "x")
+        f_row(15, "Stop uses % of way to KO", f_pc(stopOfKoPct) + "  (KO buffer " + f_pc(koBufferPct) + ")")
+        f_row(16, "Stop distance in ATR(14)", na(stopAtr) ? "n/a" : str.tostring(stopAtr, "0.0#") + " ATR", (not na(stopAtr) and stopAtr < 1.0) ? cOrange : cTxt)
+        f_row(17, "Loss if KO / gap", "up to -" + f_e(invest + 2.0 * feeE), cOrange)
+        if nPcs <= 0
+            f_row(18, "WARNING", "0 pieces: stop too far or budget too small", cOrange)
+        else if not na(stopAtr) and stopAtr < 1.0
+            f_row(18, "WARNING", "Stop < 1 ATR: market noise can trigger it", cOrange)
+        else
+            f_row(18, "Note", "Model price, financing & spread changes not included", cDim)
+
+        // lines & labels
+        xL = math.max(0, bar_index - 30)
+        xR = bar_index + wBars
+        xB = bar_index
+        lnE := line.new(xL, entryP, xR, entryP, color=cBlue, width=2)
+        lnS := line.new(xL, stopP, xR, stopP, color=cRed, width=2)
+        lnT := line.new(xL, tpP, xR, tpP, color=cGreen, width=2)
+        lnK := line.new(xL, koLvl, xR, koLvl, color=cOrange, width=1, style=line.style_dashed)
+        bxP := box.new(xB, math.max(entryP, tpP), xR, math.min(entryP, tpP), border_color=na, bgcolor=color.new(cGreen, 85))
+        bxL := box.new(xB, math.max(entryP, stopP), xR, math.min(entryP, stopP), border_color=na, bgcolor=color.new(cRed, 85))
+        lbE := label.new(xR, entryP, "Entry " + f_p(entryP) + " | " + str.tostring(nPcs) + " pcs @ " + f_o(entryCost), xloc=xloc.bar_index, style=label.style_label_left, color=cBlue, textcolor=color.white, size=size.small)
+        lbS := label.new(xR, stopP, "SL " + f_p(stopP) + " | cert. " + f_o(exitSL) + " | -" + f_e(lossEur), xloc=xloc.bar_index, style=label.style_label_left, color=cRed, textcolor=color.white, size=size.small)
+        lbT := label.new(xR, tpP, "TP " + f_p(tpP) + " | cert. " + f_o(exitTP) + " | +" + f_e(profitEur), xloc=xloc.bar_index, style=label.style_label_left, color=cGreen, textcolor=color.white, size=size.small)
+        lbK := label.new(xR, koLvl, "KO " + f_p(koLvl), xloc=xloc.bar_index, style=label.style_label_left, color=cOrange, textcolor=color.black, size=size.small)
