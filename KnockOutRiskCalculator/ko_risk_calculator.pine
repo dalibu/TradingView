@@ -36,6 +36,7 @@ fxFixed    = input.float(1.0, "Fixed rate (XXX per 1 EUR)", minval=0.000001, gro
 spreadE    = input.float(0.01, "Spread Bid/Ask (EUR)", minval=0.0, step=0.001, group=G2)
 askManual  = input.float(0.0, "Ask price override (EUR, 0 = use formula)", minval=0.0, step=0.001, group=G2, tooltip="Optional. If set, it is used as the purchase price and all other certificate prices are shifted by the same difference to the formula.")
 feeE       = input.float(0.0, "Fee per order (EUR)", minval=0.0, step=0.1, group=G2)
+askTol     = input.float(0.05, "Warning tolerance: Ask vs formula (EUR)", minval=0.0, step=0.01, group=G2, tooltip="The orange warning appears when your Ask override differs from the formula price by more than this. Differences of a few cents are normal (timing, data source, issuer margin).")
 
 // ── 3. Risk ─────────────────────────────────────────────────────
 account    = input.float(10000.0, "Account size (EUR)", minval=1.0, group=G3)
@@ -257,7 +258,7 @@ if barstate.islast
         f_row(18, "If KO / gap", "-" + f_e(invest + 2.0 * feeE), cOrange)
         if exitSL <= 0.0005
             f_msg(19, "⚠ Stop beyond strike: SL = 0", cRed)
-        else if math.abs(offset) > 0.03
+        else if math.abs(offset) > askTol
             f_msg(19, "⚠ Ask ≠ formula: check FX/Strike", cOrange)
         else if nPcs <= 0
             f_msg(19, "⚠ 0 pieces: stop too far / budget", cOrange)
