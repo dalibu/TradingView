@@ -256,7 +256,9 @@ if barstate.islast
         f_row(16, "SL → KO path", str.tostring(stopOfKoPct, "0") + "% (buf " + str.tostring(koBufferPct, "0.00") + "%)")
         f_row(17, "Stop in ATR(14)", na(stopAtr) ? "n/a" : str.tostring(stopAtr, "0.0#"), (not na(stopAtr) and stopAtr < 1.0) ? cOrange : na)
         f_row(18, "If KO / gap", "-" + f_e(invest + 2.0 * feeE), cOrange)
-        if exitSL <= 0.0005
+        if (fxLiveOn and na(fxRaw)) or (fxFixedOn and fxFixed == 1.0)
+            f_msg(19, "⚠ FX rate = 1.0: check currency mode", cRed)
+        else if exitSL <= 0.0005
             f_msg(19, "⚠ Stop beyond strike: SL = 0", cRed)
         else if math.abs(offset) > askTol
             f_msg(19, "⚠ Ask ≠ formula: check FX/Strike", cOrange)
