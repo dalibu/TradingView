@@ -26,6 +26,7 @@ stopMode = input.string("Manual (as set on chart)", "Stop mode", options=["Manua
 
 // ── 2. Product ──────────────────────────────────────────────────
 koLvl      = input.float(1.5819, "Knock-Out barrier", step=0.0001, group=G2)
+prodLbl   = input.string("", "Label / WKN (shown in table header)", group=G2, tooltip="Free text, e.g. the WKN. Helps to tell several instances of this indicator apart (one per certificate).")
 sameStr    = input.bool(true, "Strike = Knock-Out barrier (normal Turbo)", group=G2, tooltip="Tick for a classic Turbo (strike and KO are equal). Untick for Mini Future / Stop-Loss products and enter the Strike (financing level) separately below.")
 strikeIn   = input.float(1.5819, "Strike (used only if the box above is unticked)", step=0.0001, group=G2)
 mult       = input.float(100.0, "Multiplier (price = (S-Strike) x Mult / FX)", minval=0.0001, group=G2, tooltip="finanzen.net: 'Preis = (Kurs - Strike) * 100'. Put the number after the '*' here.")
@@ -237,7 +238,7 @@ if barstate.islast
             lnK := line.new(xL, koLvl, xR, koLvl, color=cOrange, width=1, style=line.style_dashed)
             lbK := label.new(xR, koLvl, "KO " + f_p(koLvl), xloc=xloc.bar_index, style=label.style_label_left, color=cOrange, textcolor=cOnOr, size=size.small)
     else
-        table.cell(tbl, 0, 0, "KO CALC  |  " + dirTxt, text_color=color.white, text_halign=text.align_center, text_size=tSize, bgcolor=cBlue)
+        table.cell(tbl, 0, 0, "KO CALC  |  " + dirTxt + (prodLbl != "" ? "  |  " + prodLbl : ""), text_color=color.white, text_halign=text.align_center, text_size=tSize, bgcolor=cBlue)
         f_row(1, "Max loss", f_e(maxLoss) + " (" + str.tostring(riskPct, "0.0#") + "%)")
         f_row(2, "Entry", f_p(entryP))
         f_row(3, autoStopOn ? "Stop (auto)" : "Stop", f_p(stopP) + "  " + f_sp(distStopPct), cRed)
