@@ -16,17 +16,25 @@ showHist = input.bool(true, title = "Show Historical Data", group = "Historical 
 s1_en    = input.bool(true, title = "Enable", group = "Session 1", inline = "s1a")
 s1_name  = input.string("Tokyo", title = "", group = "Session 1", inline = "s1a")
 s1_color = input.color(#fdd835, title = "", group = "Session 1", inline = "s1a")
-s1_sesh  = input.session("0900-0930", title = "OR Window", group = "Session 1", inline = "s1b", tooltip = "Opening Range window in the selected time zone. The window length defines the OR length.")
-s1_full  = input.session("0900-1500", title = "Session", group = "Session 1", inline = "s1c", tooltip = "Full trading session in the selected time zone. ORH/ORL, targets and signals stop being extended/generated when it ends.")
+s1_sesh  = input.session("0900-0915", title = "OR Window", group = "Session 1", inline = "s1b", tooltip = "Opening Range window in the selected time zone. The window length defines the OR length.")
+s1_full  = input.session("0900-1530", title = "Session", group = "Session 1", inline = "s1c", tooltip = "Full trading session in the selected time zone. ORH/ORL, targets and signals stop being extended/generated when it ends.")
 s1_tz    = input.string("Asia/Tokyo", title = "", group = "Session 1", inline = "s1c", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
 
-//Session 2 (default: New York, blue)
+//Session 2 (default: London, blue)
 s2_en    = input.bool(true, title = "Enable", group = "Session 2", inline = "s2a")
-s2_name  = input.string("New York", title = "", group = "Session 2", inline = "s2a")
+s2_name  = input.string("London", title = "", group = "Session 2", inline = "s2a")
 s2_color = input.color(#2962ff, title = "", group = "Session 2", inline = "s2a")
-s2_sesh  = input.session("0930-1000", title = "OR Window", group = "Session 2", inline = "s2b", tooltip = "Opening Range window in the selected time zone. The window length defines the OR length.")
-s2_full  = input.session("0930-1600", title = "Session", group = "Session 2", inline = "s2c", tooltip = "Full trading session in the selected time zone. ORH/ORL, targets and signals stop being extended/generated when it ends.")
-s2_tz    = input.string("America/New_York", title = "", group = "Session 2", inline = "s2c", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
+s2_sesh  = input.session("0800-0815", title = "OR Window", group = "Session 2", inline = "s2b", tooltip = "Opening Range window in the selected time zone. The window length defines the OR length.")
+s2_full  = input.session("0800-1630", title = "Session", group = "Session 2", inline = "s2c", tooltip = "Full trading session in the selected time zone. ORH/ORL, targets and signals stop being extended/generated when it ends.")
+s2_tz    = input.string("Europe/London", title = "", group = "Session 2", inline = "s2c", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
+
+//Session 3 (default: New York, red)
+s3_en    = input.bool(true, title = "Enable", group = "Session 3", inline = "s3a")
+s3_name  = input.string("New York", title = "", group = "Session 3", inline = "s3a")
+s3_color = input.color(#f23645, title = "", group = "Session 3", inline = "s3a")
+s3_sesh  = input.session("0930-0945", title = "OR Window", group = "Session 3", inline = "s3b", tooltip = "Opening Range window in the selected time zone. The window length defines the OR length.")
+s3_full  = input.session("0930-1600", title = "Session", group = "Session 3", inline = "s3c", tooltip = "Full trading session in the selected time zone. ORH/ORL, targets and signals stop being extended/generated when it ends.")
+s3_tz    = input.string("America/New_York", title = "", group = "Session 3", inline = "s3c", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
 
 //Breakout Signals
 sigTog = input.bool(true, title = "Show Breakout Signals", group = "Breakout Signals")
@@ -324,8 +332,10 @@ orb(bool en, string name, string sesh, string full, string tz, color sc) =>
 
 ma1 = orb(s1_en, s1_name, s1_sesh, s1_full, s1_tz, s1_color)
 ma2 = orb(s2_en, s2_name, s2_sesh, s2_full, s2_tz, s2_color)
+ma3 = orb(s3_en, s3_name, s3_sesh, s3_full, s3_tz, s3_color)
 
 plot(ma1, style = plot.style_linebr, color = s1_color, display = (maTog and s1_en) ? display.all : display.none, title = "Session 1 MA", editable = false)
 plot(ma2, style = plot.style_linebr, color = s2_color, display = (maTog and s2_en) ? display.all : display.none, title = "Session 2 MA", editable = false)
+plot(ma3, style = plot.style_linebr, color = s3_color, display = (maTog and s3_en) ? display.all : display.none, title = "Session 3 MA", editable = false)
 
 //---------------------------------------------------------------------------------------------------------------------}
