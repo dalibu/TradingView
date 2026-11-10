@@ -68,10 +68,14 @@ txtSize = str.lower(input.string("Small", title = "Text Size", options = ["Tiny"
 invis = color.rgb(0,0,0,100)
 
 //---------------------------------------------------------------------------------------------------------------------}
-//Error
+//Timeframe check
 //---------------------------------------------------------------------------------------------------------------------{
-if timeframe.in_seconds(timeframe.period) >= timeframe.in_seconds("D")
-    runtime.error("Timeframe is too High! Please Reduce Timeframe to be Less-Than 1 Day.")
+//ORB zones need intraday data. On 1 day and higher timeframes the zones are switched off and a warning is shown instead of an error.
+tfTooHigh = timeframe.in_seconds(timeframe.period) >= timeframe.in_seconds("D")
+
+var table warnTbl = table.new(position.top_center, 1, 1, bgcolor = color.new(color.red, 10), border_width = 0)
+if barstate.islast and tfTooHigh
+    warnTbl.cell(0, 0, "⚠ Multi ORB: this script is designed for intraday timeframes.\nCurrent timeframe (" + timeframe.period + ") is too high, so ORB zones are not drawn.\nPlease switch to a timeframe below 1 day (ideally 1–15 min).", text_color = color.white, text_size = size.normal, text_halign = text.align_center)
 
 //---------------------------------------------------------------------------------------------------------------------}
 //Functions
@@ -309,9 +313,9 @@ orb(bool en, string name, string sesh, string full, string tz, color sc) =>
 //Run sessions
 //---------------------------------------------------------------------------------------------------------------------{
 
-orb(s1_en, s1_name, s1_sesh, s1_full, s1_tz, s1_color)
-orb(s2_en, s2_name, s2_sesh, s2_full, s2_tz, s2_color)
-orb(s3_en, s3_name, s3_sesh, s3_full, s3_tz, s3_color)
+orb(s1_en and not tfTooHigh, s1_name, s1_sesh, s1_full, s1_tz, s1_color)
+orb(s2_en and not tfTooHigh, s2_name, s2_sesh, s2_full, s2_tz, s2_color)
+orb(s3_en and not tfTooHigh, s3_name, s3_sesh, s3_full, s3_tz, s3_color)
 
 //Moving average: one regular MA over the whole chart, no resets
 sma_ = ta.sma(close, maLen)
