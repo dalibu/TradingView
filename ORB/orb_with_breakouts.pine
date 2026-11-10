@@ -50,10 +50,11 @@ tSrc = input.string("Close", title = "Target Cross Source", options = ["Close","
 tDispType = input.string("Adaptive", title = "Target Display", options = ["Adaptive","Extended"], group = "Targets", tooltip = "Adaptive: Displays and hides targets Adaptivly based on the current price.\nExtended: Extends all targets to the current bar and does not hide any targets after generation.")
 tSessCol = input.bool(false, title = "Targets Use Session Color", group = "Targets", tooltip = "Off: targets are green/red (as in the original). On: targets are drawn in the color of their session.")
 
-//Session Moving Average (shared settings, drawn in each session's color)
-maTog = input.bool(false, title = "", inline = "MA", group = "Session Moving Average")
-maLen = input.int(20, title = "", inline = "MA", group = "Session Moving Average")
-maType = input.string("EMA", title = "", options=["SMA", "EMA", "RMA", "WMA", "VWMA"], inline = "MA", group = "Session Moving Average", tooltip  = "Moving average resets on the start of each session (at Opening Range Start). Each session's MA uses that session's color.")
+//Moving Average (a regular moving average of the whole chart, no resets)
+maTog = input.bool(false, title = "", inline = "MA", group = "Moving Average")
+maLen = input.int(20, title = "", inline = "MA", group = "Moving Average")
+maType = input.string("EMA", title = "", options=["SMA", "EMA", "RMA", "WMA", "VWMA"], inline = "MA", group = "Moving Average")
+maColor = input.color(color.orange, title = "", inline = "MA", group = "Moving Average")
 
 //Style
 green = input.color(color.new(#089981,60), title = " Bull Target Color", group = "Style", inline = "Bull")
@@ -75,26 +76,6 @@ if timeframe.in_seconds(timeframe.period) >= timeframe.in_seconds("D")
 //---------------------------------------------------------------------------------------------------------------------}
 //Functions
 //---------------------------------------------------------------------------------------------------------------------{
-fz(_val) => _val == 0 ? 1 : _val
-
-day_ma(_start,_type,s,l) =>
-    bs_nd = fz(ta.barssince(_start))
-    v_len = bs_nd < l?bs_nd:l
-    var float ma = na
-    if _type == "EMA"
-        k = 2/(v_len + 1)
-        ma := (s*k) + (nz(ma[1])*(1-k))
-    if _type == "RMA"
-        a = (1/v_len)
-        ma := a * s + (1 - a) * nz(ma[1])
-    if _type == "SMA"
-        ma := ta.sma(s,v_len)
-    if _type == "WMA"
-        ma := ta.wma(s,v_len)
-    if _type == "VWMA"
-        ma := ta.vwma(s,v_len)
-    ma
-
 linestyle(_input) =>
     _input == "___"?line.style_solid:
      _input == "- - -"?line.style_dashed:
@@ -322,20 +303,23 @@ orb(bool en, string name, string sesh, string full, string tz, color sc) =>
           textcolor = downSigColor,
           size = sigSize))
 
-    //Session moving average (returned, plotted outside)
-    ma = day_ma(or_start,maType,close,maLen)
-    or_start ? na : ma
+    or_start
 
 //---------------------------------------------------------------------------------------------------------------------}
 //Run sessions
 //---------------------------------------------------------------------------------------------------------------------{
 
-ma1 = orb(s1_en, s1_name, s1_sesh, s1_full, s1_tz, s1_color)
-ma2 = orb(s2_en, s2_name, s2_sesh, s2_full, s2_tz, s2_color)
-ma3 = orb(s3_en, s3_name, s3_sesh, s3_full, s3_tz, s3_color)
+orb(s1_en, s1_name, s1_sesh, s1_full, s1_tz, s1_color)
+orb(s2_en, s2_name, s2_sesh, s2_full, s2_tz, s2_color)
+orb(s3_en, s3_name, s3_sesh, s3_full, s3_tz, s3_color)
 
-plot(ma1, style = plot.style_linebr, color = s1_color, display = (maTog and s1_en) ? display.all : display.none, title = "Session 1 MA", editable = false)
-plot(ma2, style = plot.style_linebr, color = s2_color, display = (maTog and s2_en) ? display.all : display.none, title = "Session 2 MA", editable = false)
-plot(ma3, style = plot.style_linebr, color = s3_color, display = (maTog and s3_en) ? display.all : display.none, title = "Session 3 MA", editable = false)
+//Moving average: one regular MA over the whole chart, no resets
+sma_ = ta.sma(close, maLen)
+ema_ = ta.ema(close, maLen)
+rma_ = ta.rma(close, maLen)
+wma_ = ta.wma(close, maLen)
+vwma_ = ta.vwma(close, maLen)
+ma = maType == "SMA" ? sma_ : maType == "EMA" ? ema_ : maType == "RMA" ? rma_ : maType == "WMA" ? wma_ : vwma_
+plot(ma, color = maColor, display = maTog ? display.all : display.none, title = "Moving Average", editable = false)
 
 //---------------------------------------------------------------------------------------------------------------------}
