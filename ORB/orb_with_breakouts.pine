@@ -17,14 +17,16 @@ s1_en    = input.bool(true, title = "Enable", group = "Session 1", inline = "s1a
 s1_name  = input.string("Tokyo", title = "", group = "Session 1", inline = "s1a")
 s1_color = input.color(#fdd835, title = "", group = "Session 1", inline = "s1a")
 s1_sesh  = input.session("0900-0930", title = "OR Window", group = "Session 1", inline = "s1b", tooltip = "Opening Range window in the selected time zone. The window length defines the OR length.")
-s1_tz    = input.string("Asia/Tokyo", title = "", group = "Session 1", inline = "s1b", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
+s1_full  = input.session("0900-1500", title = "Session", group = "Session 1", inline = "s1c", tooltip = "Full trading session in the selected time zone. ORH/ORL, targets and signals stop being extended/generated when it ends.")
+s1_tz    = input.string("Asia/Tokyo", title = "", group = "Session 1", inline = "s1c", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
 
 //Session 2 (default: New York, blue)
 s2_en    = input.bool(true, title = "Enable", group = "Session 2", inline = "s2a")
 s2_name  = input.string("New York", title = "", group = "Session 2", inline = "s2a")
 s2_color = input.color(#2962ff, title = "", group = "Session 2", inline = "s2a")
 s2_sesh  = input.session("0930-1000", title = "OR Window", group = "Session 2", inline = "s2b", tooltip = "Opening Range window in the selected time zone. The window length defines the OR length.")
-s2_tz    = input.string("America/New_York", title = "", group = "Session 2", inline = "s2b", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
+s2_full  = input.session("0930-1600", title = "Session", group = "Session 2", inline = "s2c", tooltip = "Full trading session in the selected time zone. ORH/ORL, targets and signals stop being extended/generated when it ends.")
+s2_tz    = input.string("America/New_York", title = "", group = "Session 2", inline = "s2c", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
 
 //Breakout Signals
 sigTog = input.bool(true, title = "Show Breakout Signals", group = "Breakout Signals")
@@ -105,7 +107,7 @@ type target
 //ORB engine (one independent instance per call, each keeps its own state)
 //---------------------------------------------------------------------------------------------------------------------{
 
-orb(bool en, string name, string sesh, string tz, color sc) =>
+orb(bool en, string name, string sesh, string full, string tz, color sc) =>
 
     //State (persistent per call)
     var up_targs = array.new<target>()
@@ -151,6 +153,7 @@ orb(bool en, string name, string sesh, string tz, color sc) =>
 
     //Establishing when the OR session is
     or_sesh := en and not na(time(timeframe.period, sesh, tz))
+    in_full = en and not na(time(timeframe.period, full, tz))
 
     or_start = or_sesh and not or_sesh[1]
     or_end = or_sesh[1] and not or_sesh
@@ -217,8 +220,8 @@ orb(bool en, string name, string sesh, string tz, color sc) =>
         day_dir := orm > prev_orm ? 1 : orm < prev_orm ? -1 : 0
         linefill.new(h_ln.ln,l_ln.ln, day_dir == 1 ? greenFill : day_dir == -1 ? redFill : invis)
 
-    //Running outside of OR session
-    if not or_sesh and or_token
+    //Running outside of OR session (only until the end of the trading session)
+    if not or_sesh and or_token and in_full
         h_ln.ln.set_x2(bar_index)
         l_ln.ln.set_x2(bar_index)
         h_ln.lab.set_x(bar_index)
@@ -243,7 +246,7 @@ orb(bool en, string name, string sesh, string tz, color sc) =>
 
     xdown = ta.crossunder(close,orl)
     xdown2 = ta.crossunder(close,orl-orw*tPer)
-    if (useBias ? ((day_dir != 1 and xdown) or (day_dir == 1 and xdown2)) : xdown) and down_check
+    if (useBias ? ((day_dir != 1 and xdown) or (day_dir == 1 and xdown2)) : xdown) and down_check and in_full
         down_signal := true
         down_check := false
 
@@ -252,12 +255,12 @@ orb(bool en, string name, string sesh, string tz, color sc) =>
 
     xup = ta.crossover(close,orh)
     xup2 = ta.crossover(close,orh+orw*tPer)
-    if (useBias ? ((day_dir != -1 and xup) or (day_dir == -1 and xup2)) : xup) and up_check
+    if (useBias ? ((day_dir != -1 and xup) or (day_dir == -1 and xup2)) : xup) and up_check and in_full
         up_signal := true
         up_check := false
 
     //Targets
-    if not or_sesh and or_token
+    if not or_sesh and or_token and in_full
         if up_count < up_max and tTog
             for i = (up_count+1) to up_max
                 up_targs.push(target.new(
@@ -276,7 +279,7 @@ orb(bool en, string name, string sesh, string tz, color sc) =>
                     down_count := down_max
 
     //Extending to current bar
-    if tDispType == "Extended" and tTog
+    if tDispType == "Extended" and tTog and in_full
         for targ in up_targs
             targ.ln.set_x2(bar_index)
             targ.lab.set_x(bar_index)
@@ -284,7 +287,7 @@ orb(bool en, string name, string sesh, string tz, color sc) =>
             targ.ln.set_x2(bar_index)
             targ.lab.set_x(bar_index)
 
-    if tDispType == "Adaptive" and tTog
+    if tDispType == "Adaptive" and tTog and in_full
         for targ in up_targs
             if targ.ln.get_y1() <= (orh+(orw*tPer*(up_cur))) and targ.ln.get_y1() >= (orh+(orw*tPer*(up_cur-2)))
                 targ.ln.set_x2(bar_index+1)
@@ -319,8 +322,8 @@ orb(bool en, string name, string sesh, string tz, color sc) =>
 //Run sessions
 //---------------------------------------------------------------------------------------------------------------------{
 
-ma1 = orb(s1_en, s1_name, s1_sesh, s1_tz, s1_color)
-ma2 = orb(s2_en, s2_name, s2_sesh, s2_tz, s2_color)
+ma1 = orb(s1_en, s1_name, s1_sesh, s1_full, s1_tz, s1_color)
+ma2 = orb(s2_en, s2_name, s2_sesh, s2_full, s2_tz, s2_color)
 
 plot(ma1, style = plot.style_linebr, color = s1_color, display = (maTog and s1_en) ? display.all : display.none, title = "Session 1 MA", editable = false)
 plot(ma2, style = plot.style_linebr, color = s2_color, display = (maTog and s2_en) ? display.all : display.none, title = "Session 2 MA", editable = false)
