@@ -36,6 +36,14 @@ s3_sesh  = input.session("0930-0945", title = "OR Window", group = "Session 3", 
 s3_full  = input.session("0930-1600", title = "Session", group = "Session 3", inline = "s3c", tooltip = "Full trading session in the selected time zone. ORH/ORL, targets and signals stop being extended/generated when it ends.")
 s3_tz    = input.string("America/New_York", title = "", group = "Session 3", inline = "s3c", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
 
+//Session 4 (default: NY Data, purple - US economic data releases at 08:30 ET)
+s4_en    = input.bool(true, title = "Enable", group = "Session 4", inline = "s4a")
+s4_name  = input.string("NY Data", title = "", group = "Session 4", inline = "s4a")
+s4_color = input.color(#9c27b0, title = "", group = "Session 4", inline = "s4a")
+s4_sesh  = input.session("0830-0845", title = "OR Window", group = "Session 4", inline = "s4b", tooltip = "Opening Range window in the selected time zone. The window length defines the OR length.")
+s4_full  = input.session("0830-1000", title = "Session", group = "Session 4", inline = "s4c", tooltip = "Full trading session in the selected time zone. ORH/ORL, targets and signals stop being extended/generated when it ends.")
+s4_tz    = input.string("America/New_York", title = "", group = "Session 4", inline = "s4c", options = ["Asia/Tokyo", "Asia/Hong_Kong", "Asia/Shanghai", "Asia/Singapore", "Asia/Kolkata", "Asia/Dubai", "Europe/London", "Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"])
+
 //Breakout Signals
 sigTog = input.bool(true, title = "Show Breakout Signals", group = "Breakout Signals")
 useBias = input.string("No Bias", title = "Signal Bias", options = ["No Bias","Daily Bias"], group = "Breakout Signals", tooltip = "OR Fill Color is directional based on if the current Day/Session ORM is Above or Below the Previous ORM.\nExamples\nNo Bias: Signals Occur Regardless of OR Color\nDaily Bias: Signals do not fire until Target 1 when Breakout is in opposite direction of OR Color.") == "No Bias" ? false : true
@@ -89,6 +97,8 @@ if not tfTooHigh
         tfBadSessions += (tfBadSessions == "" ? "" : ", ") + s2_name
     if s3_en and tfSec > orLenSec(s3_sesh)
         tfBadSessions += (tfBadSessions == "" ? "" : ", ") + s3_name
+    if s4_en and tfSec > orLenSec(s4_sesh)
+        tfBadSessions += (tfBadSessions == "" ? "" : ", ") + s4_name
 
 var table warnTbl = table.new(position.top_center, 1, 1, border_width = 0)
 if barstate.islast
@@ -336,6 +346,7 @@ orb(bool en, string name, string sesh, string full, string tz, color sc) =>
 orb(s1_en and not tfTooHigh, s1_name, s1_sesh, s1_full, s1_tz, s1_color)
 orb(s2_en and not tfTooHigh, s2_name, s2_sesh, s2_full, s2_tz, s2_color)
 orb(s3_en and not tfTooHigh, s3_name, s3_sesh, s3_full, s3_tz, s3_color)
+orb(s4_en and not tfTooHigh, s4_name, s4_sesh, s4_full, s4_tz, s4_color)
 
 //Moving average: one regular MA over the whole chart, no resets
 sma_ = ta.sma(close, maLen)
