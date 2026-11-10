@@ -71,11 +71,31 @@ invis = color.rgb(0,0,0,100)
 //Timeframe check
 //---------------------------------------------------------------------------------------------------------------------{
 //ORB zones need intraday data. On 1 day and higher timeframes the zones are switched off and a warning is shown instead of an error.
-tfTooHigh = timeframe.in_seconds(timeframe.period) >= timeframe.in_seconds("D")
+tfSec = timeframe.in_seconds(timeframe.period)
+tfTooHigh = tfSec >= timeframe.in_seconds("D")
 
-var table warnTbl = table.new(position.top_center, 1, 1, bgcolor = color.new(color.red, 10), border_width = 0)
-if barstate.islast and tfTooHigh
-    warnTbl.cell(0, 0, "⚠ Multi ORB: this script is designed for intraday timeframes.\nCurrent timeframe (" + timeframe.period + ") is too high, so ORB zones are not drawn.\nPlease switch to a timeframe below 1 day (ideally 1–15 min).", text_color = color.white, text_size = size.normal, text_halign = text.align_center)
+//Length of an OR window in seconds, parsed from a session string like "0900-0915" (handles windows crossing midnight)
+orLenSec(string sesh) =>
+    t1 = str.tonumber(str.substring(sesh, 0, 2)) * 60 + str.tonumber(str.substring(sesh, 2, 4))
+    t2 = str.tonumber(str.substring(sesh, 5, 7)) * 60 + str.tonumber(str.substring(sesh, 7, 9))
+    (t2 >= t1 ? t2 - t1 : t2 + 1440 - t1) * 60
+
+//Enabled sessions whose OR window is shorter than one chart bar (OR boundaries would be inaccurate)
+string tfBadSessions = ""
+if not tfTooHigh
+    if s1_en and tfSec > orLenSec(s1_sesh)
+        tfBadSessions += (tfBadSessions == "" ? "" : ", ") + s1_name
+    if s2_en and tfSec > orLenSec(s2_sesh)
+        tfBadSessions += (tfBadSessions == "" ? "" : ", ") + s2_name
+    if s3_en and tfSec > orLenSec(s3_sesh)
+        tfBadSessions += (tfBadSessions == "" ? "" : ", ") + s3_name
+
+var table warnTbl = table.new(position.top_center, 1, 1, border_width = 0)
+if barstate.islast
+    if tfTooHigh
+        warnTbl.cell(0, 0, "⚠ Multi ORB: this script is designed for intraday timeframes.\nCurrent timeframe (" + timeframe.period + ") is too high, so ORB zones are not drawn.\nPlease switch to a timeframe below 1 day (ideally 1–15 min).", bgcolor = color.new(color.red, 10), text_color = color.white, text_size = size.normal, text_halign = text.align_center)
+    else if tfBadSessions != ""
+        warnTbl.cell(0, 0, "⚠ Multi ORB: current timeframe (" + timeframe.period + ") is longer than the OR window of: " + tfBadSessions + ".\nOR levels will be inaccurate. Please use a timeframe not longer than the OR window (e.g. 1–15 min).", bgcolor = color.new(color.orange, 10), text_color = color.white, text_size = size.normal, text_halign = text.align_center)
 
 //---------------------------------------------------------------------------------------------------------------------}
 //Functions
