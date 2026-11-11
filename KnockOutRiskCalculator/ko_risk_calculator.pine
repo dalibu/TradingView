@@ -110,6 +110,7 @@ invest     = nPcs * entryCost
 lossEur    = nPcs * lossPer + 2.0 * feeE
 profitEur  = nPcs * (exitTP - entryCost) - 2.0 * feeE
 rr         = lossEur > 0 ? profitEur / lossEur : na
+rrPrice    = ordOk ? math.abs(tpP - entryP) / math.abs(entryP - stopP) : na
 lev        = entryCost > 0 ? mult * entryP / f_div(entryP) / entryCost : na
 
 distStopPct  = ordOk ? (stopP - entryP) / entryP * 100.0 : na
@@ -253,7 +254,7 @@ if barstate.islast
         f_row(11, "Invested", f_e(invest) + " (" + str.tostring(invest / account * 100.0, "0.0") + "%)")
         f_row(12, "Loss at SL", "-" + f_e(lossEur) + " (" + str.tostring(lossEur / account * 100.0, "0.0#") + "%)", cRed)
         f_row(13, "Profit at TP", "+" + f_e(profitEur), cGreen)
-        f_row(14, "R : R", na(rr) ? "n/a" : str.tostring(rr, "0.00"))
+        f_row(14, "R:R net | price", (na(rr) ? "n/a" : str.tostring(rr, "0.00")) + " | " + (na(rrPrice) ? "n/a" : str.tostring(rrPrice, "0.00")))
         f_row(15, "Leverage", str.tostring(lev, "0.0") + "x")
         f_row(16, "SL → KO path", str.tostring(stopOfKoPct, "0") + "% (buf " + str.tostring(koBufferPct, "0.00") + "%)")
         f_row(17, "Stop in ATR(14)", na(stopAtr) ? "n/a" : str.tostring(stopAtr, "0.0#"), (not na(stopAtr) and stopAtr < 1.0) ? cOrange : na)
