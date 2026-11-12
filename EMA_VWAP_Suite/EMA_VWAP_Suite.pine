@@ -1,0 +1,278 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © poor_dev
+
+//@version=5
+indicator("EMA/VWAP Suite", overlay=true)
+
+// --- EMA Inputs ---
+show_ema1 = input.bool(true, title="Show EMA 1", group="EMA Settings")
+len1 = input.int(3, title="EMA 1 Length", group="EMA Settings")
+show_ema2 = input.bool(true, title="Show EMA 2", group="EMA Settings")
+len2 = input.int(9, title="EMA 2 Length", group="EMA Settings")
+show_ema3 = input.bool(true, title="Show EMA 3", group="EMA Settings")
+len3 = input.int(19, title="EMA 3 Length", group="EMA Settings")
+show_ema4 = input.bool(true, title="Show EMA 4", group="EMA Settings")
+len4 = input.int(38, title="EMA 4 Length", group="EMA Settings")
+show_ema5 = input.bool(true, title="Show EMA 5", group="EMA Settings")
+len5 = input.int(50, title="EMA 5 Length", group="EMA Settings")
+show_ema6 = input.bool(true, title="Show EMA 6", group="EMA Settings")
+len6 = input.int(65, title="EMA 6 Length", group="EMA Settings")
+show_ema7 = input.bool(true, title="Show EMA 7", group="EMA Settings")
+len7 = input.int(100, title="EMA 7 Length", group="EMA Settings")
+show_ema8 = input.bool(true, title="Show EMA 8", group="EMA Settings")
+len8 = input.int(200, title="EMA 8 Length", group="EMA Settings")
+
+// --- EMA Label Customization ---
+show_ema_labels = input.bool(true, title="Show EMA % Difference Labels", group="EMA Label Settings")
+ema_label_size_input = input.int(10, title="EMA Label Font Size (8-20)", minval=8, maxval=20, step=1, group="EMA Label Settings")
+var string ema_label_size = ema_label_size_input < 12 ? "tiny" : ema_label_size_input <= 14 ? "small" : ema_label_size_input <= 17 ? "normal" : "large"
+
+// --- EMA Calculations ---
+ema1 = ta.ema(close, len1)
+ema2 = ta.ema(close, len2)
+ema3 = ta.ema(close, len3)
+ema4 = ta.ema(close, len4)
+ema5 = ta.ema(close, len5)
+ema6 = ta.ema(close, len6)
+ema7 = ta.ema(close, len7)
+ema8 = ta.ema(close, len8)
+
+// --- EMA % Difference Calculations ---
+pctDiff1 = ((close - ema1) / close) * 100
+pctDiff2 = ((close - ema2) / close) * 100
+pctDiff3 = ((close - ema3) / close) * 100
+pctDiff4 = ((close - ema4) / close) * 100
+pctDiff5 = ((close - ema5) / close) * 100
+pctDiff6 = ((close - ema6) / close) * 100
+pctDiff7 = ((close - ema7) / close) * 100
+pctDiff8 = ((close - ema8) / close) * 100
+
+// --- Plot EMAs ---
+plot_ema1 = plot(ema1, color=color.white, linewidth=1, title="EMA 1", display=show_ema1 ? display.all : display.none)
+plot_ema2 = plot(ema2, color=color.fuchsia, linewidth=1, title="EMA 2", display=show_ema2 ? display.all : display.none)
+plot_ema3 = plot(ema3, color=color.red, linewidth=1, title="EMA 3", display=show_ema3 ? display.all : display.none)
+plot_ema4 = plot(ema4, color=color.orange, linewidth=1, title="EMA 4", display=show_ema4 ? display.all : display.none)
+plot_ema5 = plot(ema5, color=color.yellow, linewidth=1, title="EMA 5", display=show_ema5 ? display.all : display.none)
+plot_ema6 = plot(ema6, color=color.lime, linewidth=1, title="EMA 6", display=show_ema6 ? display.all : display.none)
+plot_ema7 = plot(ema7, color=color.green, linewidth=1, title="EMA 7", display=show_ema7 ? display.all : display.none)
+plot_ema8 = plot(ema8, color=color.aqua, linewidth=1, title="EMA 8", display=show_ema8 ? display.all : display.none)
+
+// --- EMA Label Management ---
+var label label1 = na
+var label label2 = na
+var label label3 = na
+var label label4 = na
+var label label5 = na
+var label label6 = na
+var label label7 = na
+var label label8 = na
+
+if ta.barssince(ta.change(time) != 0) == 0 and show_ema_labels
+    if show_ema1
+        label.delete(label1[1])
+        label1 := label.new(bar_index + 12, ema1, "(" + str.tostring(math.round(pctDiff1, 2)) + "%)", style=label.style_none, textcolor=color.white, size=ema_label_size)
+    if show_ema2
+        label.delete(label2[1])
+        label2 := label.new(bar_index + 12, ema2, "(" + str.tostring(math.round(pctDiff2, 2)) + "%)", style=label.style_none, textcolor=color.fuchsia, size=ema_label_size)
+    if show_ema3
+        label.delete(label3[1])
+        label3 := label.new(bar_index + 12, ema3, "(" + str.tostring(math.round(pctDiff3, 2)) + "%)", style=label.style_none, textcolor=color.red, size=ema_label_size)
+    if show_ema4
+        label.delete(label4[1])
+        label4 := label.new(bar_index + 12, ema4, "(" + str.tostring(math.round(pctDiff4, 2)) + "%)", style=label.style_none, textcolor=color.orange, size=ema_label_size)
+    if show_ema5
+        label.delete(label5[1])
+        label5 := label.new(bar_index + 12, ema5, "(" + str.tostring(math.round(pctDiff5, 2)) + "%)", style=label.style_none, textcolor=color.yellow, size=ema_label_size)
+    if show_ema6
+        label.delete(label6[1])
+        label6 := label.new(bar_index + 12, ema6, "(" + str.tostring(math.round(pctDiff6, 2)) + "%)", style=label.style_none, textcolor=color.lime, size=ema_label_size)
+    if show_ema7
+        label.delete(label7[1])
+        label7 := label.new(bar_index + 12, ema7, "(" + str.tostring(math.round(pctDiff7, 2)) + "%)", style=label.style_none, textcolor=color.green, size=ema_label_size)
+    if show_ema8
+        label.delete(label8[1])
+        label8 := label.new(bar_index + 12, ema8, "(" + str.tostring(math.round(pctDiff8, 2)) + "%)", style=label.style_none, textcolor=color.aqua, size=ema_label_size)
+
+// --- VWAP Inputs ---
+// Anchored VWAP Settings
+show_avwap1 = input.bool(true, title="Show AVWAP 1", group="Anchored VWAP 1 Settings")
+avwap1_color = input.color(color.fuchsia, title="AVWAP 1 Color", group="Anchored VWAP 1 Settings")
+avwap1_anchor = input.string("Session", title="AVWAP 1 Anchor", options=["Session", "Week", "Month"], group="Anchored VWAP 1 Settings")
+avwap1_src = input(hlc3, title="AVWAP 1 Source", group="Anchored VWAP 1 Settings")
+avwap1_offset = input.int(0, title="AVWAP 1 Offset", minval=0, group="Anchored VWAP 1 Settings")
+avwap1_show_bands = input.bool(false, title="Show AVWAP 1 Bands", group="AVWAP 1 Bands Settings")
+avwap1_band_mult = input.float(1.0, title="AVWAP 1 Band Multiplier", minval=0, step=0.5, group="AVWAP 1 Bands Settings")
+
+show_avwap2 = input.bool(false, title="Show AVWAP 2", group="Anchored VWAP 2 Settings")
+avwap2_color = input.color(color.purple, title="AVWAP 2 Color", group="Anchored VWAP 2 Settings")
+avwap2_anchor = input.string("Week", title="AVWAP 2 Anchor", options=["Session", "Week", "Month"], group="Anchored VWAP 2 Settings")
+avwap2_src = input(hlc3, title="AVWAP 2 Source", group="Anchored VWAP 2 Settings")
+avwap2_offset = input.int(0, title="AVWAP 2 Offset", minval=0, group="Anchored VWAP 2 Settings")
+avwap2_show_bands = input.bool(false, title="Show AVWAP 2 Bands", group="AVWAP 2 Bands Settings")
+avwap2_band_mult = input.float(1.0, title="AVWAP 2 Band Multiplier", minval=0, step=0.5, group="AVWAP 2 Bands Settings")
+
+show_avwap3 = input.bool(false, title="Show AVWAP 3", group="Anchored VWAP 3 Settings")
+avwap3_color = input.color(color.teal, title="AVWAP 3 Color", group="Anchored VWAP 3 Settings")
+avwap3_anchor = input.string("Month", title="AVWAP 3 Anchor", options=["Session", "Week", "Month"], group="Anchored VWAP 3 Settings")
+avwap3_src = input(hlc3, title="AVWAP 3 Source", group="Anchored VWAP 3 Settings")
+avwap3_offset = input.int(0, title="AVWAP 3 Offset", minval=0, group="Anchored VWAP 3 Settings")
+avwap3_show_bands = input.bool(false, title="Show AVWAP 3 Bands", group="AVWAP 3 Bands Settings")
+avwap3_band_mult = input.float(1.0, title="AVWAP 3 Band Multiplier", minval=0, step=0.5, group="AVWAP 3 Bands Settings")
+
+// Rolling VWAP Settings
+show_rvwap1 = input.bool(false, title="Show RVWAP 1", group="Rolling VWAP 1 Settings")
+rvwap1_color = input.color(color.navy, title="RVWAP 1 Color", group="Rolling VWAP 1 Settings")
+rvwap1_len = input.int(20, title="RVWAP 1 Period Length", minval=1, group="Rolling VWAP 1 Settings")
+rvwap1_src = input(hlc3, title="RVWAP 1 Source", group="Rolling VWAP 1 Settings")
+rvwap1_offset = input.int(0, title="RVWAP 1 Offset", minval=0, group="Rolling VWAP 1 Settings")
+rvwap1_show_bands = input.bool(false, title="Show RVWAP 1 Bands", group="Rolling VWAP 1 Bands Settings")
+rvwap1_band_mult = input.float(1.0, title="RVWAP 1 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 1 Bands Settings")
+
+show_rvwap2 = input.bool(false, title="Show RVWAP 2", group="Rolling VWAP 2 Settings")
+rvwap2_color = input.color(color.maroon, title="RVWAP 2 Color", group="Rolling VWAP 2 Settings")
+rvwap2_len = input.int(50, title="RVWAP 2 Period Length", minval=1, group="Rolling VWAP 2 Settings")
+rvwap2_src = input(hlc3, title="RVWAP 2 Source", group="Rolling VWAP 2 Settings")
+rvwap2_offset = input.int(0, title="RVWAP 2 Offset", minval=0, group="Rolling VWAP 2 Settings")
+rvwap2_show_bands = input.bool(false, title="Show RVWAP 2 Bands", group="Rolling VWAP 2 Settings")
+rvwap2_band_mult = input.float(1.0, title="RVWAP 2 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 2 Settings")
+
+show_rvwap3 = input.bool(false, title="Show RVWAP 3", group="Rolling VWAP 3 Settings")
+rvwap3_color = input.color(color.fuchsia, title="RVWAP 3 Color", group="Rolling VWAP 3 Settings")
+rvwap3_len = input.int(100, title="RVWAP 3 Period Length", minval=1, group="Rolling VWAP 3 Settings")
+rvwap3_src = input(hlc3, title="RVWAP 3 Source", group="Rolling VWAP 3 Settings")
+rvwap3_offset = input.int(0, title="RVWAP 3 Offset", minval=0, group="Rolling VWAP 3 Settings")
+rvwap3_show_bands = input.bool(false, title="Show RVWAP 3 Bands", group="Rolling VWAP 3 Settings")
+rvwap3_band_mult = input.float(1.0, title="RVWAP 3 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 3 Settings")
+
+// --- VWAP Label Customization ---
+show_vwap_labels = input.bool(true, title="Show VWAP % Difference Labels", group="VWAP Label Settings")
+vwap_label_size_input = input.int(10, title="VWAP Label Font Size (8-20)", minval=8, maxval=20, step=1, group="VWAP Label Settings")
+var string vwap_label_size = vwap_label_size_input < 12 ? "tiny" : vwap_label_size_input <= 14 ? "small" : vwap_label_size_input <= 17 ? "normal" : "large"
+
+// --- Anchored VWAP Calculations ---
+var bool isNewPeriod1 = false
+var bool isNewPeriod2 = false
+var bool isNewPeriod3 = false
+if avwap1_anchor == "Session"
+    isNewPeriod1 := timeframe.change("D")
+else if avwap1_anchor == "Week"
+    isNewPeriod1 := timeframe.change("W")
+else if avwap1_anchor == "Month"
+    isNewPeriod1 := timeframe.change("M")
+else
+    isNewPeriod1 := false
+
+if avwap2_anchor == "Session"
+    isNewPeriod2 := timeframe.change("D")
+else if avwap2_anchor == "Week"
+    isNewPeriod2 := timeframe.change("W")
+else if avwap2_anchor == "Month"
+    isNewPeriod2 := timeframe.change("M")
+else
+    isNewPeriod2 := false
+
+if avwap3_anchor == "Session"
+    isNewPeriod3 := timeframe.change("D")
+else if avwap3_anchor == "Week"
+    isNewPeriod3 := timeframe.change("W")
+else if avwap3_anchor == "Month"
+    isNewPeriod3 := timeframe.change("M")
+else
+    isNewPeriod3 := false
+
+[avwap1, avwap1_stdevUpper, _] = ta.vwap(avwap1_src, isNewPeriod1, 1)
+[avwap2, avwap2_stdevUpper, _] = ta.vwap(avwap2_src, isNewPeriod2, 1)
+[avwap3, avwap3_stdevUpper, _] = ta.vwap(avwap3_src, isNewPeriod3, 1)
+
+// --- Rolling VWAP Calculations ---
+rvwap1 = ta.vwap(rvwap1_src, rvwap1_len)
+rvwap2 = ta.vwap(rvwap2_src, rvwap2_len)
+rvwap3 = ta.vwap(rvwap3_src, rvwap3_len)
+
+// --- VWAP Bands Calculations ---
+avwap1_stdev = avwap1_stdevUpper - avwap1
+avwap1_upper = avwap1 + avwap1_stdev * avwap1_band_mult
+avwap1_lower = avwap1 - avwap1_stdev * avwap1_band_mult
+avwap2_stdev = avwap2_stdevUpper - avwap2
+avwap2_upper = avwap2 + avwap2_stdev * avwap2_band_mult
+avwap2_lower = avwap2 - avwap2_stdev * avwap2_band_mult
+avwap3_stdev = avwap3_stdevUpper - avwap3
+avwap3_upper = avwap3 + avwap3_stdev * avwap3_band_mult
+avwap3_lower = avwap3 - avwap3_stdev * avwap3_band_mult
+
+rvwap1_stdev = ta.stdev(rvwap1_src, rvwap1_len)
+rvwap1_upper = rvwap1 + rvwap1_stdev * rvwap1_band_mult
+rvwap1_lower = rvwap1 - rvwap1_stdev * rvwap1_band_mult
+rvwap2_stdev = ta.stdev(rvwap2_src, rvwap2_len)
+rvwap2_upper = rvwap2 + rvwap2_stdev * rvwap2_band_mult
+rvwap2_lower = rvwap2 - rvwap2_stdev * rvwap2_band_mult
+rvwap3_stdev = ta.stdev(rvwap3_src, rvwap3_len)
+rvwap3_upper = rvwap3 + rvwap3_stdev * rvwap3_band_mult
+rvwap3_lower = rvwap3 - rvwap3_stdev * rvwap3_band_mult
+
+// --- VWAP % Difference Calculations ---
+avwap1_pctDiff = ((close - avwap1) / close) * 100
+avwap2_pctDiff = ((close - avwap2) / close) * 100
+avwap3_pctDiff = ((close - avwap3) / close) * 100
+rvwap1_pctDiff = ((close - rvwap1) / close) * 100
+rvwap2_pctDiff = ((close - rvwap2) / close) * 100
+rvwap3_pctDiff = ((close - rvwap3) / close) * 100
+
+// --- Plot VWAPs ---
+plot_avwap1 = plot(avwap1, title="AVWAP 1", color=avwap1_color, offset=avwap1_offset, display=show_avwap1 ? display.all : display.none)
+plot_avwap1_upper = plot(avwap1_upper, title="AVWAP 1 Upper Band", color=color.green, offset=avwap1_offset, display=avwap1_show_bands ? display.all : display.none)
+plot_avwap1_lower = plot(avwap1_lower, title="AVWAP 1 Lower Band", color=color.green, offset=avwap1_offset, display=avwap1_show_bands ? display.all : display.none)
+fill(plot_avwap1_upper, plot_avwap1_lower, color=color.new(color.green, 95), display=avwap1_show_bands ? display.all : display.none)
+
+plot_avwap2 = plot(avwap2, title="AVWAP 2", color=avwap2_color, offset=avwap2_offset, display=show_avwap2 ? display.all : display.none)
+plot_avwap2_upper = plot(avwap2_upper, title="AVWAP 2 Upper Band", color=color.olive, offset=avwap2_offset, display=avwap2_show_bands ? display.all : display.none)
+plot_avwap2_lower = plot(avwap2_lower, title="AVWAP 2 Lower Band", color=color.olive, offset=avwap2_offset, display=avwap2_show_bands ? display.all : display.none)
+fill(plot_avwap2_upper, plot_avwap2_lower, color=color.new(color.olive, 95), display=avwap2_show_bands ? display.all : display.none)
+
+plot_avwap3 = plot(avwap3, title="AVWAP 3", color=avwap3_color, offset=avwap3_offset, display=show_avwap3 ? display.all : display.none)
+plot_avwap3_upper = plot(avwap3_upper, title="AVWAP 3 Upper Band", color=color.teal, offset=avwap3_offset, display=avwap3_show_bands ? display.all : display.none)
+plot_avwap3_lower = plot(avwap3_lower, title="AVWAP 3 Lower Band", color=color.teal, offset=avwap3_offset, display=avwap3_show_bands ? display.all : display.none)
+fill(plot_avwap3_upper, plot_avwap3_lower, color=color.new(color.teal, 95), display=avwap3_show_bands ? display.all : display.none)
+
+plot_rvwap1 = plot(rvwap1, title="RVWAP 1", color=rvwap1_color, offset=rvwap1_offset, display=show_rvwap1 ? display.all : display.none)
+plot_rvwap1_upper = plot(rvwap1_upper, title="RVWAP 1 Upper Band", color=color.green, offset=rvwap1_offset, display=rvwap1_show_bands ? display.all : display.none)
+plot_rvwap1_lower = plot(rvwap1_lower, title="RVWAP 1 Lower Band", color=color.green, offset=rvwap1_offset, display=rvwap1_show_bands ? display.all : display.none)
+fill(plot_rvwap1_upper, plot_rvwap1_lower, color=color.new(color.green, 95), display=rvwap1_show_bands ? display.all : display.none)
+
+plot_rvwap2 = plot(rvwap2, title="RVWAP 2", color=rvwap2_color, offset=rvwap2_offset, display=show_rvwap2 ? display.all : display.none)
+plot_rvwap2_upper = plot(rvwap2_upper, title="RVWAP 2 Upper Band", color=color.olive, offset=rvwap2_offset, display=rvwap2_show_bands ? display.all : display.none)
+plot_rvwap2_lower = plot(rvwap2_lower, title="RVWAP 2 Lower Band", color=color.olive, offset=rvwap2_offset, display=rvwap2_show_bands ? display.all : display.none)
+fill(plot_rvwap2_upper, plot_rvwap2_lower, color=color.new(color.olive, 95), display=rvwap2_show_bands ? display.all : display.none)
+
+plot_rvwap3 = plot(rvwap3, title="RVWAP 3", color=rvwap3_color, offset=rvwap3_offset, display=show_rvwap3 ? display.all : display.none)
+plot_rvwap3_upper = plot(rvwap3_upper, title="RVWAP 3 Upper Band", color=color.teal, offset=rvwap3_offset, display=rvwap3_show_bands ? display.all : display.none)
+plot_rvwap3_lower = plot(rvwap3_lower, title="RVWAP 3 Lower Band", color=color.teal, offset=rvwap3_offset, display=rvwap3_show_bands ? display.all : display.none)
+fill(plot_rvwap3_upper, plot_rvwap3_lower, color=color.new(color.teal, 95), display=rvwap3_show_bands ? display.all : display.none)
+
+// --- VWAP Label Management ---
+var label vwap_label1 = na
+var label vwap_label2 = na
+var label vwap_label3 = na
+var label vwap_label4 = na
+var label vwap_label5 = na
+var label vwap_label6 = na
+
+if ta.barssince(ta.change(time) != 0) == 0 and show_vwap_labels
+    if show_avwap1
+        label.delete(vwap_label1[1])
+        vwap_label1 := label.new(bar_index + 30, avwap1, "AVWAP1 (" + str.tostring(math.round(avwap1_pctDiff, 2)) + "%)", style=label.style_none, textcolor=avwap1_color, size=vwap_label_size)
+    if show_avwap2
+        label.delete(vwap_label2[1])
+        vwap_label2 := label.new(bar_index + 30, avwap2, "AVWAP2 (" + str.tostring(math.round(avwap2_pctDiff, 2)) + "%)", style=label.style_none, textcolor=avwap2_color, size=vwap_label_size)
+    if show_avwap3
+        label.delete(vwap_label3[1])
+        vwap_label3 := label.new(bar_index + 30, avwap3, "AVWAP3 (" + str.tostring(math.round(avwap3_pctDiff, 2)) + "%)", style=label.style_none, textcolor=avwap3_color, size=vwap_label_size)
+    if show_rvwap1
+        label.delete(vwap_label4[1])
+        vwap_label4 := label.new(bar_index + 30, rvwap1, "RVWAP1 (" + str.tostring(math.round(rvwap1_pctDiff, 2)) + "%)", style=label.style_none, textcolor=rvwap1_color, size=vwap_label_size)
+    if show_rvwap2
+        label.delete(vwap_label5[1])
+        vwap_label5 := label.new(bar_index + 30, rvwap2, "RVWAP2 (" + str.tostring(math.round(rvwap2_pctDiff, 2)) + "%)", style=label.style_none, textcolor=rvwap2_color, size=vwap_label_size)
+    if show_rvwap3
+        label.delete(vwap_label6[1])
+        vwap_label6 := label.new(bar_index + 30, rvwap3, "RVWAP3 (" + str.tostring(math.round(rvwap3_pctDiff, 2)) + "%)", style=label.style_none, textcolor=rvwap3_color, size=vwap_label_size)
