@@ -133,16 +133,16 @@ rvwap2_color = input.color(color.maroon, title="RVWAP 2 Color", group="Rolling V
 rvwap2_len = input.int(50, title="RVWAP 2 Period Length", minval=1, group="Rolling VWAP 2 Settings")
 rvwap2_src = input(hlc3, title="RVWAP 2 Source", group="Rolling VWAP 2 Settings")
 rvwap2_offset = input.int(0, title="RVWAP 2 Offset", minval=0, group="Rolling VWAP 2 Settings")
-rvwap2_show_bands = input.bool(false, title="Show RVWAP 2 Bands", group="Rolling VWAP 2 Settings")
-rvwap2_band_mult = input.float(1.0, title="RVWAP 2 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 2 Settings")
+rvwap2_show_bands = input.bool(false, title="Show RVWAP 2 Bands", group="Rolling VWAP 2 Bands Settings")
+rvwap2_band_mult = input.float(1.0, title="RVWAP 2 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 2 Bands Settings")
 
 show_rvwap3 = input.bool(false, title="Show RVWAP 3", group="Rolling VWAP 3 Settings")
 rvwap3_color = input.color(color.fuchsia, title="RVWAP 3 Color", group="Rolling VWAP 3 Settings")
 rvwap3_len = input.int(100, title="RVWAP 3 Period Length", minval=1, group="Rolling VWAP 3 Settings")
 rvwap3_src = input(hlc3, title="RVWAP 3 Source", group="Rolling VWAP 3 Settings")
 rvwap3_offset = input.int(0, title="RVWAP 3 Offset", minval=0, group="Rolling VWAP 3 Settings")
-rvwap3_show_bands = input.bool(false, title="Show RVWAP 3 Bands", group="Rolling VWAP 3 Settings")
-rvwap3_band_mult = input.float(1.0, title="RVWAP 3 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 3 Settings")
+rvwap3_show_bands = input.bool(false, title="Show RVWAP 3 Bands", group="Rolling VWAP 3 Bands Settings")
+rvwap3_band_mult = input.float(1.0, title="RVWAP 3 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 3 Bands Settings")
 
 // --- VWAP Label Customization ---
 show_vwap_labels = input.bool(true, title="Show VWAP % Difference Labels", group="VWAP Label Settings")
@@ -277,6 +277,47 @@ if ta.barssince(ta.change(time) != 0) == 0 and show_vwap_labels
         label.delete(vwap_label6[1])
         vwap_label6 := label.new(bar_index + 30, rvwap3, "RVWAP3 (" + str.tostring(math.round(rvwap3_pctDiff, 2)) + "%)", style=label.style_none, textcolor=rvwap3_color, size=vwap_label_size)
 
-// --- Crossover Circles ---
-plot(ta.crossover(ema2, avwap1) ? avwap1 : na, title="Buy Crossover", color=#70FF75, style=plot.style_circles, linewidth=4)
-plot(ta.crossunder(ema2, avwap1) ? avwap1 : na, title="Sell Crossover", color=#FF4454, style=plot.style_circles, linewidth=4)
+// --- Crossover Triangles & Price Levels ---
+show_cross_tri = input.bool(true, title="Show Crossover Triangles", group="Crossover Signal Settings")
+buy_tri_color = input.color(#00FF00, title="Buy Triangle Color", group="Crossover Signal Settings")
+sell_tri_color = input.color(#FF0033, title="Sell Triangle Color", group="Crossover Signal Settings")
+tri_size_str = input.string("small", title="Triangle Size", options=["tiny", "small", "normal", "large"], group="Crossover Signal Settings")
+
+show_cross_line = input.bool(true, title="Show Crossover Price Line", group="Crossover Signal Settings")
+cross_line_len = input.int(10, title="Price Line Length (Bars)", minval=1, maxval=100, group="Crossover Signal Settings")
+cross_line_width = input.int(1, title="Price Line Width", minval=1, maxval=5, group="Crossover Signal Settings")
+cross_line_style_str = input.string("Solid", title="Price Line Style", options=["Solid", "Dashed", "Dotted"], group="Crossover Signal Settings")
+
+show_cross_text = input.bool(true, title="Show Line Label (CALL / PUT)", group="Crossover Signal Settings")
+buy_text = input.string("CALL", title="Buy Label Text", group="Crossover Signal Settings")
+sell_text = input.string("PUT", title="Sell Label Text", group="Crossover Signal Settings")
+cross_text_size_str = input.string("small", title="Label Text Size", options=["tiny", "small", "normal", "large"], group="Crossover Signal Settings")
+
+cross_up = ta.crossover(ema2, avwap1)
+cross_dn = ta.crossunder(ema2, avwap1)
+
+var string line_style = cross_line_style_str == "Dashed" ? line.style_dashed : cross_line_style_str == "Dotted" ? line.style_dotted : line.style_solid
+
+// Точное расположение треугольников (вершиной в точку пересечения)
+plotshape(show_cross_tri and cross_up and tri_size_str == "tiny" ? avwap1 : na, title="Buy Triangle (Tiny)", style=shape.triangleup, location=location.absolute, color=buy_tri_color, size=size.tiny)
+plotshape(show_cross_tri and cross_up and tri_size_str == "small" ? avwap1 : na, title="Buy Triangle (Small)", style=shape.triangleup, location=location.absolute, color=buy_tri_color, size=size.small)
+plotshape(show_cross_tri and cross_up and tri_size_str == "normal" ? avwap1 : na, title="Buy Triangle (Normal)", style=shape.triangleup, location=location.absolute, color=buy_tri_color, size=size.normal)
+plotshape(show_cross_tri and cross_up and tri_size_str == "large" ? avwap1 : na, title="Buy Triangle (Large)", style=shape.triangleup, location=location.absolute, color=buy_tri_color, size=size.large)
+
+plotshape(show_cross_tri and cross_dn and tri_size_str == "tiny" ? avwap1 : na, title="Sell Triangle (Tiny)", style=shape.triangledown, location=location.absolute, color=sell_tri_color, size=size.tiny)
+plotshape(show_cross_tri and cross_dn and tri_size_str == "small" ? avwap1 : na, title="Sell Triangle (Small)", style=shape.triangledown, location=location.absolute, color=sell_tri_color, size=size.small)
+plotshape(show_cross_tri and cross_dn and tri_size_str == "normal" ? avwap1 : na, title="Sell Triangle (Normal)", style=shape.triangledown, location=location.absolute, color=sell_tri_color, size=size.normal)
+plotshape(show_cross_tri and cross_dn and tri_size_str == "large" ? avwap1 : na, title="Sell Triangle (Large)", style=shape.triangledown, location=location.absolute, color=sell_tri_color, size=size.large)
+
+// Линии уровня цены пересечения и подписи CALL / PUT
+if cross_up
+    if show_cross_line
+        line.new(bar_index, avwap1, bar_index + cross_line_len, avwap1, color=buy_tri_color, width=cross_line_width, style=line_style)
+    if show_cross_text
+        label.new(bar_index + cross_line_len, avwap1, buy_text + " (" + str.tostring(avwap1, format.mintick) + ")", style=label.style_label_left, color=color.new(color.black, 100), textcolor=buy_tri_color, size=cross_text_size_str)
+
+if cross_dn
+    if show_cross_line
+        line.new(bar_index, avwap1, bar_index + cross_line_len, avwap1, color=sell_tri_color, width=cross_line_width, style=line_style)
+    if show_cross_text
+        label.new(bar_index + cross_line_len, avwap1, sell_text + " (" + str.tostring(avwap1, format.mintick) + ")", style=label.style_label_left, color=color.new(color.black, 100), textcolor=sell_tri_color, size=cross_text_size_str)
