@@ -283,7 +283,8 @@ buy_lbl_color = input.color(#00FF00, title="Buy Label Color", group="Crossover S
 sell_lbl_color = input.color(#FF0033, title="Sell Label Color", group="Crossover Signal Settings")
 lbl_size_str = input.string("small", title="Crossover Label Size", options=["tiny", "small", "normal", "large"], group="Crossover Signal Settings")
 
-show_cross_line = input.bool(true, title="Show Crossover Price Line", group="Crossover Signal Settings")
+show_cross_line = input.bool(true, title="Show Entry Price Line", group="Crossover Signal Settings")
+entry_price_src = input.source(close, title="Entry Price Source", group="Crossover Signal Settings")
 cross_line_len = input.int(10, title="Price Line Length (Bars)", minval=1, maxval=100, group="Crossover Signal Settings")
 cross_line_width = input.int(1, title="Price Line Width", minval=1, maxval=5, group="Crossover Signal Settings")
 cross_line_style_str = input.string("Solid", title="Price Line Style", options=["Solid", "Dashed", "Dotted"], group="Crossover Signal Settings")
@@ -298,7 +299,7 @@ cross_dn = ta.crossunder(ema2, avwap1)
 
 var string line_style = cross_line_style_str == "Dashed" ? line.style_dashed : cross_line_style_str == "Dotted" ? line.style_dotted : line.style_solid
 
-// Метки в стиле примера: shape.labelup / shape.labeldown с символами ▲ и ▼
+// Метки пересечения остаются на самой точке пересечения индикаторов (avwap1)
 plotshape(show_cross_lbl and cross_up and lbl_size_str == "tiny" ? avwap1 : na, title="Bullish Cross (Tiny)", style=shape.labelup, location=location.absolute, color=buy_lbl_color, text="▲", textcolor=chart.fg_color, size=size.tiny)
 plotshape(show_cross_lbl and cross_up and lbl_size_str == "small" ? avwap1 : na, title="Bullish Cross (Small)", style=shape.labelup, location=location.absolute, color=buy_lbl_color, text="▲", textcolor=chart.fg_color, size=size.small)
 plotshape(show_cross_lbl and cross_up and lbl_size_str == "normal" ? avwap1 : na, title="Bullish Cross (Normal)", style=shape.labelup, location=location.absolute, color=buy_lbl_color, text="▲", textcolor=chart.fg_color, size=size.normal)
@@ -309,15 +310,15 @@ plotshape(show_cross_lbl and cross_dn and lbl_size_str == "small" ? avwap1 : na,
 plotshape(show_cross_lbl and cross_dn and lbl_size_str == "normal" ? avwap1 : na, title="Bearish Cross (Normal)", style=shape.labeldown, location=location.absolute, color=sell_lbl_color, text="▼", textcolor=chart.fg_color, size=size.normal)
 plotshape(show_cross_lbl and cross_dn and lbl_size_str == "large" ? avwap1 : na, title="Bearish Cross (Large)", style=shape.labeldown, location=location.absolute, color=sell_lbl_color, text="▼", textcolor=chart.fg_color, size=size.large)
 
-// Линии уровня цены пересечения и подписи CALL / PUT
+// Линии уровня реальной цены входа (entry_price_src = close) и подписи CALL / PUT
 if cross_up
     if show_cross_line
-        line.new(bar_index, avwap1, bar_index + cross_line_len, avwap1, color=buy_lbl_color, width=cross_line_width, style=line_style)
+        line.new(bar_index, entry_price_src, bar_index + cross_line_len, entry_price_src, color=buy_lbl_color, width=cross_line_width, style=line_style)
     if show_cross_text
-        label.new(bar_index + cross_line_len, avwap1, buy_text + " (" + str.tostring(avwap1, format.mintick) + ")", style=label.style_label_left, color=color.new(color.black, 100), textcolor=buy_lbl_color, size=cross_text_size_str)
+        label.new(bar_index + cross_line_len, entry_price_src, buy_text + " (" + str.tostring(entry_price_src, format.mintick) + ")", style=label.style_label_left, color=color.new(color.black, 100), textcolor=buy_lbl_color, size=cross_text_size_str)
 
 if cross_dn
     if show_cross_line
-        line.new(bar_index, avwap1, bar_index + cross_line_len, avwap1, color=sell_lbl_color, width=cross_line_width, style=line_style)
+        line.new(bar_index, entry_price_src, bar_index + cross_line_len, entry_price_src, color=sell_lbl_color, width=cross_line_width, style=line_style)
     if show_cross_text
-        label.new(bar_index + cross_line_len, avwap1, sell_text + " (" + str.tostring(avwap1, format.mintick) + ")", style=label.style_label_left, color=color.new(color.black, 100), textcolor=sell_lbl_color, size=cross_text_size_str)
+        label.new(bar_index + cross_line_len, entry_price_src, sell_text + " (" + str.tostring(entry_price_src, format.mintick) + ")", style=label.style_label_left, color=color.new(color.black, 100), textcolor=sell_lbl_color, size=cross_text_size_str)
