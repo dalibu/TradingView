@@ -133,16 +133,16 @@ rvwap2_color = input.color(color.maroon, title="RVWAP 2 Color", group="Rolling V
 rvwap2_len = input.int(50, title="RVWAP 2 Period Length", minval=1, group="Rolling VWAP 2 Settings")
 rvwap2_src = input(hlc3, title="RVWAP 2 Source", group="Rolling VWAP 2 Settings")
 rvwap2_offset = input.int(0, title="RVWAP 2 Offset", minval=0, group="Rolling VWAP 2 Settings")
-rvwap2_show_bands = input.bool(false, title="Show RVWAP 2 Bands", group="Rolling VWAP 2 Bands Settings")
-rvwap2_band_mult = input.float(1.0, title="RVWAP 2 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 2 Bands Settings")
+rvwap2_show_bands = input.bool(false, title="Show RVWAP 2 Bands", group="Rolling VWAP 2 Settings")
+rvwap2_band_mult = input.float(1.0, title="RVWAP 2 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 2 Settings")
 
 show_rvwap3 = input.bool(false, title="Show RVWAP 3", group="Rolling VWAP 3 Settings")
 rvwap3_color = input.color(color.fuchsia, title="RVWAP 3 Color", group="Rolling VWAP 3 Settings")
 rvwap3_len = input.int(100, title="RVWAP 3 Period Length", minval=1, group="Rolling VWAP 3 Settings")
 rvwap3_src = input(hlc3, title="RVWAP 3 Source", group="Rolling VWAP 3 Settings")
 rvwap3_offset = input.int(0, title="RVWAP 3 Offset", minval=0, group="Rolling VWAP 3 Settings")
-rvwap3_show_bands = input.bool(false, title="Show RVWAP 3 Bands", group="Rolling VWAP 3 Bands Settings")
-rvwap3_band_mult = input.float(1.0, title="RVWAP 3 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 3 Bands Settings")
+rvwap3_show_bands = input.bool(false, title="Show RVWAP 3 Bands", group="Rolling VWAP 3 Settings")
+rvwap3_band_mult = input.float(1.0, title="RVWAP 3 Band Multiplier", minval=0, step=0.5, group="Rolling VWAP 3 Settings")
 
 // --- VWAP Label Customization ---
 show_vwap_labels = input.bool(true, title="Show VWAP % Difference Labels", group="VWAP Label Settings")
@@ -278,5 +278,5 @@ if ta.barssince(ta.change(time) != 0) == 0 and show_vwap_labels
         vwap_label6 := label.new(bar_index + 30, rvwap3, "RVWAP3 (" + str.tostring(math.round(rvwap3_pctDiff, 2)) + "%)", style=label.style_none, textcolor=rvwap3_color, size=vwap_label_size)
 
 // --- Crossover Circles ---
-plot(ta.crossover(ema2, avwap1) ? avwap1 : na, title="Buy Crossover", color=color.green, style=plot.style_circles, linewidth=4)
-plot(ta.crossunder(ema2, avwap1) ? avwap1 : na, title="Sell Crossover", color=color.red, style=plot.style_circles, linewidth=4)
+plot(ta.crossover(ema2, avwap1) ? avwap1 : na, title="Buy Crossover", color=#70FF75, style=plot.style_circles, linewidth=4)
+plot(ta.crossunder(ema2, avwap1) ? avwap1 : na, title="Sell Crossover", color=#FF4454, style=plot.style_circles, linewidth=4)
