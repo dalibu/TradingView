@@ -1,38 +1,51 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross v2 (filtered)", overlay=true, max_labels_count=500)
+indicator("EMA 9 + VWAP Cross v3", overlay=true, max_labels_count=500)
 
 // ───────── Настройки ─────────
 emaLen   = input.int(9, "Длина EMA", minval=1, group="EMA / VWAP")
 vwapSrc  = input.source(ohlc4, "Источник VWAP", group="EMA / VWAP")
 
-sessStr  = input.string("0930-1600", "RTH сессия", group="Сессия")
-tzStr    = input.string("America/New_York", "Часовой пояс", group="Сессия")
-winMin   = input.int(60, "Торговать N минут после открытия (0 = весь день)", minval=0, group="Сессия")
+sessStr  = input.string("0800-1700", "Сессия (VWAP считается внутри неё)", group="Сессия")
+tzStr    = input.string("Europe/London", "Часовой пояс", group="Сессия")
+winMin   = input.int(180, "Торговать N минут после старта сессии (0 = вся)", minval=0, group="Сессия")
 
 atrLen   = input.int(14, "ATR длина", group="Фильтры")
 useAdx   = input.bool(true, "ADX фильтр", group="Фильтры")
 adxLen   = input.int(14, "ADX длина", group="Фильтры")
-adxMin   = input.int(36, "ADX минимум (в видео 36)", group="Фильтры")
+adxMin   = input.int(25, "ADX минимум", group="Фильтры")
 useChop  = input.bool(true, "Счётчик чопа: пересечения close/VWAP", group="Фильтры")
 chopLen  = input.int(20, "Окно (свечей)", group="Фильтры")
 maxCross = input.int(2, "Макс. пересечений VWAP в окне", group="Фильтры")
 minDist  = input.float(0.15, "Мин. расстояние close от VWAP, × ATR", step=0.05, group="Фильтры")
 
-atrMult  = input.float(1.5, "Стоп, × ATR", step=0.1, group="Риск / выход")
-rr       = input.float(3.0, "Цель, R", step=0.5, group="Риск / выход")
-useEma   = input.bool(false, "Доп. выход: закрытие за EMA 9", group="Риск / выход")
-cooldown = input.int(5, "Пауза после выхода, свечей", minval=0, group="Риск / выход")
-maxTrd   = input.int(3, "Макс. сделок в день", minval=1, group="Риск / выход")
-dayLossR = input.float(2.0, "Дневной лимит убытка, R", step=0.5, group="Риск / выход")
+stopType = input.string("Структура", "Тип стопа", options=["ATR", "Структура", "VWAP"], group="Стоп")
+atrMult  = input.float(1.5, "ATR: стоп, × ATR", step=0.1, group="Стоп")
+structLen = input.int(8, "Структура: свечей назад", minval=2, group="Стоп")
+bufAtr   = input.float(0.2, "Буфер за уровнем, × ATR (структура/VWAP)", step=0.05, group="Стоп")
+minRisk  = input.float(0.8, "Мин. размер стопа, × ATR", step=0.1, group="Стоп")
+maxRisk  = input.float(3.0, "Макс. размер стопа, × ATR", step=0.1, group="Стоп")
+
+exitMode = input.string("Частично + трейлинг", "Режим выхода", options=["Фикс. цель", "Частично + трейлинг"], group="Выход")
+rr       = input.float(2.0, "Фикс. цель, R", step=0.5, group="Выход")
+partR    = input.float(1.0, "Частично: фиксация 50% на, R", step=0.25, group="Выход")
+useEma   = input.bool(false, "Фикс. цель: доп. выход по закрытию за EMA 9", group="Выход")
+
+reMax    = input.int(1, "Повторных входов после стопа (0 = выкл.)", minval=0, group="Повторный вход")
+
+cooldown = input.int(3, "Пауза после выхода, свечей", minval=0, group="Лимиты")
+maxTrd   = input.int(4, "Макс. входов в день", minval=1, group="Лимиты")
+dayLossR = input.float(2.5, "Дневной лимит убытка, R", step=0.5, group="Лимиты")
 
 showTbl  = input.bool(true, "Таблица статистики", group="Вид")
 
 // ───────── Расчёты ─────────
 ema = ta.ema(close, emaLen)
 atr = ta.atr(atrLen)
+float lowS  = ta.lowest(low, structLen)
+float highS = ta.highest(high, structLen)
 
-inRTH   = not na(time(timeframe.period, sessStr, tzStr))
-newSess = inRTH and not inRTH[1]
+inSess  = not na(time(timeframe.period, sessStr, tzStr))
+newSess = inSess and not inSess[1]
 
 var float cumPV = 0.0
 var float cumV  = 0.0
@@ -45,14 +58,14 @@ if newSess
     sessStart := time
     dayR := 0.0
     dayTrades := 0
-if inRTH
+if inSess
     cumPV += vwapSrc * volume
     cumV  += volume
 
-float vwap = (inRTH and cumV > 0) ? cumPV / cumV : na
+float vwap = (inSess and cumV > 0) ? cumPV / cumV : na
 
-float mins = inRTH ? (time - sessStart) / 60000.0 : na
-bool inWin = inRTH and (winMin == 0 or mins <= winMin)
+float mins = inSess ? (time - sessStart) / 60000.0 : na
+bool inWin = inSess and (winMin == 0 or mins <= winMin)
 
 [_, _, adxVal] = ta.dmi(adxLen, adxLen)
 bool adxOk = not useAdx or adxVal >= adxMin
@@ -66,41 +79,65 @@ var float entryPrice = na
 var float stopP = na
 var float tpP = na
 var float riskD = na
+var bool  partDone = false
 var int   lastExitBar = -1000
+var bool  lastStopped = false
+var int   lastDir = 0
+var int   reCount = 0
 var int   nTrades = 0
 var int   nWins = 0
 var float totalR = 0.0
 
 bool exitFlag = false
+bool stoppedOut = false
 float resR = 0.0
-bool wasLong = pos == 1
+int exitedDir = pos
 
 if pos != 0
     float dir = pos
+    bool wasPart = partDone
+    float wRem = wasPart ? 0.5 : 1.0
+    float banked = wasPart ? 0.5 * partR : 0.0
+    bool partialMode = exitMode == "Частично + трейлинг"
     bool hitStop = pos == 1 ? low <= stopP : high >= stopP
-    bool hitTp   = pos == 1 ? high >= tpP  : low <= tpP
-    bool emaX    = useEma and (pos == 1 ? close < ema : close > ema)
-    bool eod     = inRTH[1] and not inRTH
+    bool eod = inSess[1] and not inSess
+
     if hitStop
         exitFlag := true
-        resR := -1.0
-    else if hitTp
+        stoppedOut := not wasPart
+        resR := banked + wRem * dir * (stopP - entryPrice) / riskD
+    else if partialMode
+        bool hitPart = pos == 1 ? high >= entryPrice + partR * riskD : low <= entryPrice - partR * riskD
+        if not wasPart and hitPart
+            partDone := true
+            stopP := entryPrice
+        else if wasPart and (pos == 1 ? close < ema : close > ema)
+            exitFlag := true
+            resR := banked + wRem * dir * (close - entryPrice) / riskD
+    else
+        bool hitTp = pos == 1 ? high >= tpP : low <= tpP
+        bool emaX = useEma and (pos == 1 ? close < ema : close > ema)
+        if hitTp
+            exitFlag := true
+            resR := rr
+        else if emaX
+            exitFlag := true
+            resR := dir * (close - entryPrice) / riskD
+
+    if not exitFlag and eod
         exitFlag := true
-        resR := rr
-    else if emaX
-        exitFlag := true
-        resR := dir * (close - entryPrice) / riskD
-    else if eod
-        exitFlag := true
-        resR := dir * (close[1] - entryPrice) / riskD
+        resR := banked + wRem * dir * (close[1] - entryPrice) / riskD
 
 if exitFlag
     pos := 0
+    partDone := false
     nTrades += 1
     nWins += resR > 0 ? 1 : 0
     totalR += resR
     dayR += resR
     lastExitBar := bar_index
+    lastStopped := stoppedOut
+    lastDir := exitedDir
 
 // ───────── Сигналы входа ─────────
 bool baseOk = inWin and adxOk and chopOk and not na(vwap) and not na(atr)
@@ -109,37 +146,68 @@ bool limitsOk = dayTrades < maxTrd and dayR > -dayLossR and (bar_index - lastExi
 bool longSig  = ta.crossover(ema, vwap)  and close > vwap + minDist * atr
 bool shortSig = ta.crossunder(ema, vwap) and close < vwap - minDist * atr
 
+bool reLong  = lastStopped and lastDir == 1  and reCount < reMax and ta.crossover(close, ema)  and ema > vwap and close > vwap
+bool reShort = lastStopped and lastDir == -1 and reCount < reMax and ta.crossunder(close, ema) and ema < vwap and close < vwap
+
 bool enterLong = false
 bool enterShort = false
+bool enterRe = false
+
 if pos == 0 and not exitFlag and baseOk and limitsOk
+    int newDir = 0
+    bool isRe = false
     if longSig
-        enterLong := true
-        pos := 1
+        newDir := 1
     else if shortSig
-        enterShort := true
-        pos := -1
-    if pos != 0
+        newDir := -1
+    else if reLong
+        newDir := 1
+        isRe := true
+    else if reShort
+        newDir := -1
+        isRe := true
+
+    if newDir != 0
+        float rawStop = close - newDir * atrMult * atr
+        if stopType == "Структура"
+            rawStop := newDir == 1 ? lowS - bufAtr * atr : highS + bufAtr * atr
+        else if stopType == "VWAP"
+            rawStop := newDir == 1 ? vwap - bufAtr * atr : vwap + bufAtr * atr
+        float risk0 = math.min(math.max(math.abs(close - rawStop), minRisk * atr), maxRisk * atr)
+
+        pos := newDir
+        partDone := false
         entryPrice := close
-        riskD := atrMult * atr
-        stopP := close - pos * riskD
-        tpP   := close + pos * rr * riskD
+        riskD := risk0
+        stopP := close - newDir * risk0
+        tpP := close + newDir * rr * risk0
         dayTrades += 1
+        enterLong := newDir == 1
+        enterShort := newDir == -1
+        enterRe := isRe
+        if isRe
+            reCount += 1
+        else
+            reCount := 0
+            lastStopped := false
 
 // ───────── Отрисовка ─────────
 plot(ema,  "EMA 9", color=color.orange, linewidth=2)
 plot(vwap, "VWAP",  color=color.aqua,   linewidth=2)
-plot(pos != 0 ? stopP : na, "Стоп", color=color.new(color.red, 20),   style=plot.style_linebr)
-plot(pos != 0 ? tpP   : na, "Цель", color=color.new(color.green, 20), style=plot.style_linebr)
+plot(pos != 0 ? stopP : na, "Стоп", color=color.new(color.red, 20), style=plot.style_linebr)
+plot(pos != 0 and exitMode == "Фикс. цель" ? tpP : na, "Цель", color=color.new(color.green, 20), style=plot.style_linebr)
 
-plotshape(enterLong,  "CALL", style=shape.labelup,   location=location.belowbar, color=color.green, textcolor=color.white, text="CALL", size=size.small)
-plotshape(enterShort, "PUT",  style=shape.labeldown, location=location.abovebar, color=color.red,   textcolor=color.white, text="PUT",  size=size.small)
+plotshape(enterLong and not enterRe,  "CALL", style=shape.labelup,   location=location.belowbar, color=color.green, textcolor=color.white, text="CALL", size=size.small)
+plotshape(enterShort and not enterRe, "PUT",  style=shape.labeldown, location=location.abovebar, color=color.red,   textcolor=color.white, text="PUT",  size=size.small)
+plotshape(enterLong and enterRe,  "CALL re", style=shape.labelup,   location=location.belowbar, color=color.teal,   textcolor=color.white, text="CALL+", size=size.small)
+plotshape(enterShort and enterRe, "PUT re",  style=shape.labeldown, location=location.abovebar, color=color.maroon, textcolor=color.white, text="PUT+",  size=size.small)
 plotshape(exitFlag and resR > 0,  "Выход +", style=shape.xcross, location=location.abovebar, color=color.green, size=size.tiny)
 plotshape(exitFlag and resR <= 0, "Выход -", style=shape.xcross, location=location.abovebar, color=color.red,   size=size.tiny)
 
-bgcolor(inRTH and not chopOk ? color.new(color.gray, 90) : na, title="Чоп")
+bgcolor(inSess and not chopOk ? color.new(color.gray, 90) : na, title="Чоп")
 
 // ───────── Таблица ─────────
-var table t = table.new(position.top_right, 2, 4, bgcolor=color.new(color.black, 20), border_width=1)
+var table t = table.new(position.top_right, 2, 5, bgcolor=color.new(color.black, 20), border_width=1)
 if showTbl and barstate.islast
     table.cell(t, 0, 0, "Сделок",   text_color=color.white)
     table.cell(t, 1, 0, str.tostring(nTrades), text_color=color.white)
@@ -147,10 +215,12 @@ if showTbl and barstate.islast
     table.cell(t, 1, 1, nTrades > 0 ? str.tostring(100.0 * nWins / nTrades, "#.0") + "%" : "-", text_color=color.white)
     table.cell(t, 0, 2, "Итого R",  text_color=color.white)
     table.cell(t, 1, 2, str.tostring(totalR, "#.0"), text_color=totalR >= 0 ? color.lime : color.red)
-    table.cell(t, 0, 3, "R сегодня", text_color=color.white)
-    table.cell(t, 1, 3, str.tostring(dayR, "#.0"), text_color=dayR >= 0 ? color.lime : color.red)
+    table.cell(t, 0, 3, "R / сделку", text_color=color.white)
+    table.cell(t, 1, 3, nTrades > 0 ? str.tostring(totalR / nTrades, "#.00") : "-", text_color=color.white)
+    table.cell(t, 0, 4, "R сегодня", text_color=color.white)
+    table.cell(t, 1, 4, str.tostring(dayR, "#.0"), text_color=dayR >= 0 ? color.lime : color.red)
 
 // ───────── Алерты ─────────
-alertcondition(enterLong,  "CALL сигнал", "EMA9 > VWAP: CALL (фильтры пройдены)")
-alertcondition(enterShort, "PUT сигнал",  "EMA9 < VWAP: PUT (фильтры пройдены)")
+alertcondition(enterLong,  "CALL сигнал", "EMA9/VWAP: CALL (в т.ч. повторный вход)")
+alertcondition(enterShort, "PUT сигнал",  "EMA9/VWAP: PUT (в т.ч. повторный вход)")
 alertcondition(exitFlag,   "Выход",       "Выход из позиции")
