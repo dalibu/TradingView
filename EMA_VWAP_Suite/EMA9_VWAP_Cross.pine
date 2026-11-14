@@ -1,0 +1,113 @@
+//@version=6
+indicator("EMA 9 + VWAP Cross (3m)", overlay=true, max_labels_count=500)
+
+// ───────── Настройки ─────────
+grpEma  = "EMA"
+emaLen  = input.int(9, "Длина EMA", minval=1, group=grpEma)
+emaSrc  = input.source(close, "Источник EMA", group=grpEma)
+
+grpVwap = "VWAP"
+vwapSrc = input.source(ohlc4, "Источник VWAP (OHLC4)", group=grpVwap)
+rthOnly = input.bool(true, "Считать VWAP только по RTH (с 9:30)", group=grpVwap)
+
+grpSess = "Сессия / фильтры"
+sessStr = input.string("0930-1600", "RTH сессия", group=grpSess)
+tzStr   = input.string("America/New_York", "Часовой пояс", group=grpSess)
+limitWin = input.bool(false, "Торговать только первые N минут после открытия", group=grpSess)
+winMin   = input.int(120, "N минут", minval=1, group=grpSess)
+useAdx   = input.bool(false, "ADX-фильтр (против чопа)", group=grpSess)
+adxLen   = input.int(14, "ADX длина", group=grpSess)
+adxMin   = input.int(20, "ADX минимум", group=grpSess)
+
+grpExit = "Выход"
+stopPct = input.float(0.0, "Стоп по базовому активу, % (0 = выкл.)", minval=0.0, step=0.05, group=grpExit)
+exitEOD = input.bool(true, "Закрывать в конце RTH-сессии", group=grpExit)
+
+// ───────── Расчёты ─────────
+ema = ta.ema(emaSrc, emaLen)
+
+inRTH   = not na(time(timeframe.period, sessStr, tzStr))
+newSess = inRTH and not inRTH[1]
+
+var float cumPV = 0.0
+var float cumV  = 0.0
+var int   sessStartTime = na
+if newSess
+    cumPV := 0.0
+    cumV  := 0.0
+    sessStartTime := time
+if inRTH
+    cumPV += vwapSrc * volume
+    cumV  += volume
+
+float vwapRth = cumV > 0 ? cumPV / cumV : na
+float vwapDay = ta.vwap(vwapSrc, timeframe.change("D"))
+float vwap    = rthOnly ? (inRTH ? vwapRth : na) : vwapDay
+
+// Время с открытия, минут
+float minsFromOpen = (inRTH and not na(sessStartTime)) ? (time - sessStartTime) / 60000.0 : na
+bool inWindow = not limitWin or (not na(minsFromOpen) and minsFromOpen <= winMin)
+
+[_, _, adxVal] = ta.dmi(adxLen, adxLen)
+bool adxOk = not useAdx or adxVal >= adxMin
+
+bool canTrade = (not rthOnly or inRTH) and inWindow and adxOk
+
+// ───────── Сигналы входа ─────────
+bool longEntry  = ta.crossover(ema, vwap)  and canTrade   // EMA9 пересекает VWAP снизу вверх -> CALL
+bool shortEntry = ta.crossunder(ema, vwap) and canTrade   // EMA9 пересекает VWAP сверху вниз -> PUT
+
+// ───────── Ведение позиции и выход ─────────
+var int   pos = 0          // 1 = long, -1 = short
+var float entryPrice = na
+
+bool exitLong  = false
+bool exitShort = false
+
+if pos == 1
+    bool byEma  = close < ema
+    bool byStop = stopPct > 0 and low <= entryPrice * (1 - stopPct / 100)
+    bool byEod  = exitEOD and inRTH[1] and not inRTH
+    exitLong := byEma or byStop or byEod
+if pos == -1
+    bool byEma  = close > ema
+    bool byStop = stopPct > 0 and high >= entryPrice * (1 + stopPct / 100)
+    bool byEod  = exitEOD and inRTH[1] and not inRTH
+    exitShort := byEma or byStop or byEod
+
+if exitLong or exitShort
+    pos := 0
+    entryPrice := na
+
+// Новый вход (после проверки выхода; на баре входа выход не проверяется)
+bool enterLong  = false
+bool enterShort = false
+if pos == 0 and not (exitLong or exitShort)
+    if longEntry
+        pos := 1
+        entryPrice := close
+        enterLong := true
+    else if shortEntry
+        pos := -1
+        entryPrice := close
+        enterShort := true
+
+// ───────── Отрисовка ─────────
+plot(ema,  "EMA 9", color=color.new(color.orange, 0), linewidth=2)
+plot(vwap, "VWAP",  color=color.new(color.aqua, 0),   linewidth=2)
+
+plotshape(enterLong,  "CALL вход", style=shape.labelup,   location=location.belowbar,
+     color=color.new(color.green, 0), textcolor=color.white, text="CALL", size=size.small)
+plotshape(enterShort, "PUT вход",  style=shape.labeldown, location=location.abovebar,
+     color=color.new(color.red, 0),   textcolor=color.white, text="PUT",  size=size.small)
+plotshape(exitLong,   "Выход из лонга",  style=shape.xcross, location=location.abovebar,
+     color=color.new(color.gray, 0), size=size.tiny, text="exit")
+plotshape(exitShort,  "Выход из шорта",  style=shape.xcross, location=location.belowbar,
+     color=color.new(color.gray, 0), size=size.tiny, text="exit")
+
+bgcolor(pos == 1 ? color.new(color.green, 92) : pos == -1 ? color.new(color.red, 92) : na)
+
+// ───────── Алерты ─────────
+alertcondition(enterLong,  "CALL сигнал", "EMA9 пересекла VWAP вверх — CALL")
+alertcondition(enterShort, "PUT сигнал",  "EMA9 пересекла VWAP вниз — PUT")
+alertcondition(exitLong or exitShort, "Выход", "Выход из позиции (закрытие за EMA9 / стоп / конец сессии)")
