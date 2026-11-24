@@ -19,7 +19,7 @@
 //  5. Anchors capture from the open of the first confirmed bar at/after the
 //     anchor time, within "Max capture lag".
 // ============================================================================
-indicator("M1D — Overnight Range & Trend-Day Probability", "M1D ON/TDP", overlay = true, max_lines_count = 100, max_labels_count = 100, max_boxes_count = 50)
+indicator("[ArtiShock] M1D — Overnight Range & Trend-Day Probability", "[ArtiShock] M1D ON/TDP", overlay = true, max_lines_count = 100, max_labels_count = 100, max_boxes_count = 50)
 
 // == CONSTANTS ===============================================================
 
