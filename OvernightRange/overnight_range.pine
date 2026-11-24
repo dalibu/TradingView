@@ -13,8 +13,9 @@
 // DESIGN NOTES:
 //  1. "Points" = raw price difference in quote units; no mintick scaling.
 //  2. All session logic runs on "America/New_York"; DST handled by TradingView.
-//  3. The overnight block spans Asia open -> Cash open and includes the
-//     01:00-02:00 untracked hour. Globex trades through it; intended.
+//  3. The overnight block spans "ON block opens" -> "ON block closes" (both
+//     configurable; defaults 18:00 -> 09:30) and includes the 01:00-02:00
+//     untracked hour. Globex trades through it; intended.
 //  4. Detection/freezing runs on barstate.isconfirmed (anti-repaint).
 //  5. Anchors capture from the open of the first confirmed bar at/after the
 //     anchor time, within "Max capture lag".
@@ -47,10 +48,30 @@ int   maxCaptureLag  = input.int(60, "Max capture lag (min)", minval = 1, maxval
 
 int  asiaOpenHour   = input.int(18, "ON block opens — hour", minval = 0, maxval = 23, group = "Overnight Block", inline = "onO")
 int  asiaOpenMinute = input.int(0,  "min",                   minval = 0, maxval = 59, group = "Overnight Block", inline = "onO")
+int  onCloseHour    = input.int(9,  "ON block closes — hour", minval = 0, maxval = 23, group = "Overnight Block", inline = "onC", tooltip = "Right edge of the overnight block: the ON range freezes here. Independent of the Cash Open anchor time. The window may wrap midnight (e.g. 18:00 -> 09:30).")
+int  onCloseMinute  = input.int(30, "min",                    minval = 0, maxval = 59, group = "Overnight Block", inline = "onC")
 int  rthCloseHour   = input.int(16, "Anchor lines stop — hour", minval = 0, maxval = 23, group = "Overnight Block", inline = "rthC", tooltip = "The cash close: where the open-anchor lines and their labels stop extending.")
 int  rthCloseMinute = input.int(14, "min",                   minval = 0, maxval = 59, group = "Overnight Block", inline = "rthC")
-bool showOnBlock    = input.bool(true, "Draw the ON Range block", group = "Overnight Block", tooltip = "The overnight box, Asia open -> cash open. Its height IS the ON Range the bias is computed from.")
+bool showOnBlock    = input.bool(true, "Draw the ON Range block", group = "Overnight Block", tooltip = "The overnight box, from the ON block open to the ON block close. Its height IS the ON Range the bias is computed from.")
 color onBlockColor  = input.color(color.new(#616266, 88), "ON block fill (border matches)", group = "Overnight Block")
+
+// == INPUTS — ON BLOCK LEVELS ================================================
+// Three lines across the ON range at 1/3, 1/2 and 2/3 — like a Fibonacci tool,
+// they split the block into three equal zones and run along its full width.
+
+bool   showOnLevels = input.bool(true, "Draw ON thirds lines", group = "ON Block Levels", tooltip = "Lines at 33.3% / 50% / 66.7% of the ON range, drawn along the overnight block. They grow with the block and freeze at the ON close.")
+bool   onL1Show     = input.bool(true,      "33%", group = "ON Block Levels", inline = "oL1")
+string onL1Style    = input.string("Dotted", "",   options = ["Solid", "Dashed", "Dotted"], group = "ON Block Levels", inline = "oL1")
+color  onL1Color    = input.color(color.new(#616266, 0), "", group = "ON Block Levels", inline = "oL1")
+int    onL1Width    = input.int(1, "", minval = 1, maxval = 5, group = "ON Block Levels", inline = "oL1")
+bool   onL2Show     = input.bool(true,      "50%", group = "ON Block Levels", inline = "oL2")
+string onL2Style    = input.string("Dashed", "",   options = ["Solid", "Dashed", "Dotted"], group = "ON Block Levels", inline = "oL2")
+color  onL2Color    = input.color(color.new(#616266, 0), "", group = "ON Block Levels", inline = "oL2")
+int    onL2Width    = input.int(1, "", minval = 1, maxval = 5, group = "ON Block Levels", inline = "oL2")
+bool   onL3Show     = input.bool(true,      "66%", group = "ON Block Levels", inline = "oL3")
+string onL3Style    = input.string("Dotted", "",   options = ["Solid", "Dashed", "Dotted"], group = "ON Block Levels", inline = "oL3")
+color  onL3Color    = input.color(color.new(#616266, 0), "", group = "ON Block Levels", inline = "oL3")
+int    onL3Width    = input.int(1, "", minval = 1, maxval = 5, group = "ON Block Levels", inline = "oL3")
 
 // == INPUTS — RANGE METRICS ==================================================
 
@@ -160,6 +181,14 @@ resolveSize(string sizeName) => switch sizeName
     "normal" => size.normal
     =>          size.small
 
+//@function Resolves a line-style input string to a Pine line style constant
+//@param styleName (string) One of "Solid", "Dashed", "Dotted"
+//@returns (string) Matching line.style_* constant
+resolveLineStyle(string styleName) => switch styleName
+    "Solid"  => line.style_solid
+    "Dashed" => line.style_dashed
+    =>          line.style_dotted
+
 //@function Resolves the table-position input string to a Pine position constant
 //@param posName (string) Human-readable corner name
 //@returns (string) Matching position.* constant
@@ -184,6 +213,7 @@ fmtPct0(float value) => na(value) ? "—" : str.tostring(value, "#") + "%"
 // == DERIVED SESSION CONSTANTS ===============================================
 
 int asiaOpenMin     = minuteOfDay(asiaOpenHour,    asiaOpenMinute)
+int onCloseMin      = minuteOfDay(onCloseHour,     onCloseMinute)
 int rthCloseMin     = minuteOfDay(rthCloseHour,    rthCloseMinute)
 int midnightMin     = minuteOfDay(midnightHour,    midnightMinute)
 int newsMin         = minuteOfDay(newsHour,        newsMinute)
@@ -221,8 +251,8 @@ float awrValue = request.security(syminfo.tickerid, "W", ta.sma(high - low, awrL
 
 // == ON RANGE ENGINE =========================================================
 
-//@variable True while inside the merged overnight block (Asia open -> Cash open)
-bool inOvernight = inWindow(nyMin, asiaOpenMin, cashOpenMin)
+//@variable True while inside the overnight block (ON open -> ON close, both configurable)
+bool inOvernight = inWindow(nyMin, asiaOpenMin, onCloseMin)
 bool overnightStart = inOvernight and not inOvernight[1]
 bool overnightEnd   = not inOvernight and inOvernight[1]
 
@@ -230,9 +260,9 @@ bool overnightEnd   = not inOvernight and inOvernight[1]
 var float onHigh = na
 //@variable Running overnight low, reset at each Asia open
 var float onLow = na
-//@variable Overnight range frozen at the cash open and held for the day
+//@variable Overnight range frozen at the ON close and held for the day
 var float onRangeFrozen = na
-//@variable True once the cash-open freeze has happened for the current cycle
+//@variable True once the ON-close freeze has happened for the current cycle
 var bool onIsFrozen = false
 
 if barstate.isconfirmed
@@ -413,8 +443,8 @@ if barstate.isconfirmed
             else if close < anchorPrice
                 bearVotes += 1
 
-// -- ON RANGE BLOCK: opens on the Asia-open candle, grows with the live     --
-// -- overnight high/low, freezes at the cash open. One block only — the     --
+// -- ON RANGE BLOCK: opens on the ON-open candle, grows with the live       --
+// -- overnight high/low, freezes at the ON close. One block only — the      --
 // -- previous day's is deleted the moment a new one opens.                  --
 if showOnBlock and overnightStart and not onBlockLive
     if not na(onBox)
@@ -435,6 +465,51 @@ if not na(onBox) and inOvernight and not onIsFrozen
         label.set_y(onLabel, math.max(nz(onHigh, high), high))
 if onIsFrozen and onBlockLive
     onBlockLive := false
+
+// == ON BLOCK LEVELS (1/3, 1/2, 2/3) =========================================
+// Horizontal lines across the ON block: created on the ON-open candle, grown
+// with the live overnight high/low, frozen at the ON close. One set only — the
+// previous day's lines are deleted when the next ON block opens. Like the box,
+// only y and the right edge are updated, never the left edge.
+
+//@variable Fractions of the ON range (measured up from the low) each line sits at
+var array<float>  onLevelFracs  = array.from(1.0 / 3.0, 0.5, 2.0 / 3.0)
+//@variable Per-line visibility toggles
+var array<bool>   onLevelShow   = array.from(onL1Show, onL2Show, onL3Show)
+//@variable Per-line style constants
+var array<string> onLevelStyles = array.from(resolveLineStyle(onL1Style), resolveLineStyle(onL2Style), resolveLineStyle(onL3Style))
+//@variable Per-line colours
+var array<color>  onLevelColors = array.from(onL1Color, onL2Color, onL3Color)
+//@variable Per-line widths
+var array<int>    onLevelWidths = array.from(onL1Width, onL2Width, onL3Width)
+//@variable Line handles for the current ON block
+var array<line>   onLevelLines  = array.new<line>(3, na)
+//@variable True while the lines are still growing with the ON block
+var bool onLevelsLive = false
+
+if showOnLevels and overnightStart and not onLevelsLive
+    for i = 0 to 2
+        line oldLevel = onLevelLines.get(i)
+        if not na(oldLevel)
+            line.delete(oldLevel)
+        onLevelLines.set(i, na)
+        if onLevelShow.get(i)
+            float lvY0 = low + (high - low) * onLevelFracs.get(i)
+            line newLevel = line.new(bar_index, lvY0, bar_index, lvY0, xloc = xloc.bar_index, color = onLevelColors.get(i), width = onLevelWidths.get(i), style = onLevelStyles.get(i))
+            onLevelLines.set(i, newLevel)
+    onLevelsLive := true
+if onLevelsLive and inOvernight and not onIsFrozen
+    float lvHi = math.max(nz(onHigh, high), high)
+    float lvLo = math.min(nz(onLow, low), low)
+    for i = 0 to 2
+        line liveLevel = onLevelLines.get(i)
+        if not na(liveLevel)
+            float lvY = lvLo + (lvHi - lvLo) * onLevelFracs.get(i)
+            line.set_y1(liveLevel, lvY)
+            line.set_y2(liveLevel, lvY)
+            line.set_x2(liveLevel, bar_index)
+if onIsFrozen and onLevelsLive
+    onLevelsLive := false
 
 // == AR PROJECTION LINES =====================================================
 // One set at a time, measured from the selected anchor's open. Recreated on
@@ -522,9 +597,9 @@ string chartBiasText = "Trend Day " + probGrade + " · ON " + fmtPct0(onPctAdr) 
 //@variable Text colour for the bias row / label
 color probColor = probLean == "Bullish" ? bullColor : probLean == "Bearish" ? bearColor : color.new(#000000, 0)
 
-// == TREND DAY LABEL — under the ON box, bottom-right corner =================
+// == TREND DAY LABEL — under the ON box, bottom-right corner, at the ON close 
 
-if showProbLabel and cashCross and na(probLabel) and not na(onHigh)
+if showProbLabel and overnightEnd and na(probLabel) and not na(onHigh)
     bool  hasBox = not na(onBox)
     int   px = hasBox ? box.get_right(onBox) : rightX
     float py = hasBox ? box.get_bottom(onBox) : nz(onLow, low)
@@ -631,7 +706,7 @@ bool alertCrossMidnight = not na(midnightOpenPrice) and rawCrossMidnight
 bool alertCrossCashOpen = not na(cashOpenPrice) and rawCrossCashOpen
 bool alertOnExhaustion  = not na(onPctAdr) and onPctAdr >= exhaustPct and nz(onPctAdr[1], 0.0) < exhaustPct
 
-alertcondition(alertProbFinalised, "Trend-Day Probability Finalised", "M1D: overnight range frozen at the cash open — trend-day probability finalised on {{ticker}}")
+alertcondition(alertProbFinalised, "Trend-Day Probability Finalised", "M1D: overnight range frozen at the ON close — trend-day probability finalised on {{ticker}}")
 alertcondition(alertCrossMidnight, "Cross Midnight Open",             "M1D: price crossed the Midnight Open on {{ticker}} @ {{close}}")
 alertcondition(alertCrossCashOpen, "Cross Cash Open",                 "M1D: price crossed the Cash Open on {{ticker}} @ {{close}}")
 alertcondition(alertOnExhaustion,  "ON Range Exhaustion",             "M1D: overnight range exceeded the exhaustion threshold vs ADR on {{ticker}} — reversal-zone conditions")
