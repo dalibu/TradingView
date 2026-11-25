@@ -1,23 +1,35 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross (v1 + статистика)", overlay=true, max_labels_count=500)
+indicator("EMA 9 + VWAP Cross (v1 + статистика + флэт v3)", overlay=true, max_labels_count=500)
 
-// ───────── Настройки (как в v1) ─────────
-grpEma  = "EMA"
-emaLen  = input.int(9, "Длина EMA", minval=1, group=grpEma)
-emaSrc  = input.source(close, "Источник EMA", group=grpEma)
+// ───────── Настройки ─────────
+emaLen  = input.int(9, "Длина EMA", minval=1, group="EMA")
+emaSrc  = input.source(close, "Источник EMA", group="EMA")
+showE2  = input.bool(true, "Показывать вторую EMA (для сверки с трендом)", group="EMA")
+ema2Len = input.int(21, "Длина второй EMA", minval=1, group="EMA")
+showE3  = input.bool(true, "Показывать третью EMA (для сверки с трендом)", group="EMA")
+ema3Len = input.int(200, "Длина третьей EMA", minval=1, group="EMA")
 
-grpVwap = "VWAP"
-vwapSrc = input.source(ohlc4, "Источник VWAP (OHLC4)", group=grpVwap)
-rthOnly = input.bool(true, "Считать VWAP только по сессии", group=grpVwap)
+vwapSrc = input.source(ohlc4, "Источник VWAP (OHLC4)", group="VWAP")
+rthOnly = input.bool(true, "Считать VWAP только по сессии", group="VWAP")
 
-grpSess = "Сессия / фильтры"
-sessStr = input.string("0930-1600", "Сессия", group=grpSess)
-tzStr   = input.string("America/New_York", "Часовой пояс", group=grpSess)
-limitWin = input.bool(false, "Торговать только первые N минут после открытия", group=grpSess)
-winMin   = input.int(120, "N минут", minval=1, group=grpSess)
-useAdx   = input.bool(false, "ADX-фильтр (против чопа)", group=grpSess)
-adxLen   = input.int(14, "ADX длина", group=grpSess)
-adxMin   = input.int(20, "ADX минимум", group=grpSess)
+sessStr = input.string("0930-1600", "Сессия", group="Сессия")
+tzStr   = input.string("America/New_York", "Часовой пояс", group="Сессия")
+limitWin = input.bool(false, "Торговать только первые N минут после открытия", group="Сессия")
+winMin   = input.int(120, "N минут", minval=1, group="Сессия")
+
+// Определение тренда / флэта (ADX + ширина Bollinger)
+useFlat   = input.bool(true, "Включить логику определения флэта (выкл. = торговать все сигналы)", group="Тренд / флэт")
+adxLen    = input.int(14, "ADX период", minval=1, group="Тренд / флэт")
+adxThresh = input.int(20, "ADX порог тренда", minval=5, maxval=50, group="Тренд / флэт")
+bbLen     = input.int(20, "BB период", minval=2, group="Тренд / флэт")
+bbMult    = input.float(2.0, "BB множитель", step=0.1, group="Тренд / флэт")
+bbwK      = input.float(0.85, "Ширина BB должна быть выше среднего × ", step=0.05, group="Тренд / флэт")
+requireDI = input.bool(false, "Направление: CALL только при +DI > -DI, PUT при -DI > +DI", group="Тренд / флэт")
+skipFlat  = input.bool(true, "Пропускать входы на флэте (не торговать)", group="Тренд / флэт")
+showBg    = input.bool(true, "Подсвечивать флэт серым фоном", group="Тренд / флэт")
+useFast   = input.bool(true, "Ускоренный выход из флэта (ADX растёт + ширина BB растёт)", group="Тренд / флэт")
+adxRise   = input.float(2.0, "Рост ADX за 2 свечи, пунктов (для ускорения)", step=0.5, group="Тренд / флэт")
+pendBars  = input.int(10, "Отложенный вход: сигнал на флэте живёт N свечей (0 = выкл.)", minval=0, group="Тренд / флэт")
 
 grpExit = "Выход"
 stopPct = input.float(0.0, "Стоп по базовому активу, % (0 = выкл.)", minval=0.0, step=0.05, group=grpExit)
@@ -31,6 +43,8 @@ tblPosStr = input.string("Верх справа", "Положение табли
 
 // ───────── Расчёты ─────────
 ema = ta.ema(emaSrc, emaLen)
+ema2 = ta.ema(close, ema2Len)
+ema3 = ta.ema(close, ema3Len)
 
 inRTH   = not na(time(timeframe.period, sessStr, tzStr))
 newSess = inRTH and not inRTH[1]
@@ -53,14 +67,26 @@ float vwap    = rthOnly ? (inRTH ? vwapRth : na) : vwapDay
 float minsFromOpen = (inRTH and not na(sessStartTime)) ? (time - sessStartTime) / 60000.0 : na
 bool inWindow = not limitWin or (not na(minsFromOpen) and minsFromOpen <= winMin)
 
-[_, _, adxVal] = ta.dmi(adxLen, adxLen)
-bool adxOk = not useAdx or adxVal >= adxMin
+// Режим рынка
+[diPlus, diMinus, adx] = ta.dmi(adxLen, adxLen)
+float bbBasis = ta.sma(close, bbLen)
+float bbDev   = bbMult * ta.stdev(close, bbLen)
+float bbw     = 2 * bbDev / bbBasis
+float bbwAvg  = ta.sma(bbw, bbLen)
 
-bool canTrade = (not rthOnly or inRTH) and inWindow and adxOk
+bool isTrend    = adx >= adxThresh and bbw > bbwAvg * bbwK
+bool isBullTr   = isTrend and diPlus > diMinus
+bool isBearTr   = isTrend and diMinus > diPlus
+bool fastTrend  = useFast and (adx - adx[2] >= adxRise) and bbw > bbw[2]
+bool isTrendEff = isTrend or fastTrend
+bool okLong     = not useFlat or (isTrendEff and (not requireDI or diPlus > diMinus))
+bool okShort    = not useFlat or (isTrendEff and (not requireDI or diMinus > diPlus))
 
-// ───────── Сигналы входа ─────────
-bool longEntry  = ta.crossover(ema, vwap)  and canTrade
-bool shortEntry = ta.crossunder(ema, vwap) and canTrade
+bool canTrade = (not rthOnly or inRTH) and inWindow
+
+// ───────── Сигналы ─────────
+bool longRaw  = ta.crossover(ema, vwap)  and canTrade
+bool shortRaw = ta.crossunder(ema, vwap) and canTrade
 
 // ───────── Статистика: переменные ─────────
 var int   nTr = 0
@@ -82,6 +108,13 @@ var int   loseStreak = 0
 var int   maxLoseStreak = 0
 var int   sumBars = 0
 var int   entryBar = 0
+var bool  entryFlat = false
+var int   nT = 0
+var int   wT = 0
+var float sumT = 0.0
+var int   nF = 0
+var int   wF = 0
+var float sumF = 0.0
 
 // ───────── Ведение позиции и выход ─────────
 var int   pos = 0
@@ -133,37 +166,103 @@ if exitLong or exitShort
     else
         nShort += 1
         winShort += pnl > 0 ? 1 : 0
+    if entryFlat
+        nF += 1
+        wF += pnl > 0 ? 1 : 0
+        sumF += pnl
+    else
+        nT += 1
+        wT += pnl > 0 ? 1 : 0
+        sumT += pnl
     pos := 0
     entryPrice := na
 
-bool enterLong = false
-bool enterShort = false
+var int pendDir = 0
+var int pendBar = 0
+bool enterLongL  = false
+bool enterShortL = false
+bool enterLongT  = false
+bool enterShortT = false
+bool enterLongF  = false
+bool enterShortF = false
+bool skippedLong  = false
+bool skippedShort = false
+
 if pos == 0
-    if longEntry
-        pos := 1
-        entryPrice := close
-        entryBar := bar_index
-        enterLong := true
-    else if shortEntry
-        pos := -1
-        entryPrice := close
-        entryBar := bar_index
-        enterShort := true
+    if longRaw
+        if okLong or not skipFlat
+            pos := 1
+            entryPrice := close
+            entryBar := bar_index
+            entryFlat := not okLong
+            enterLongT := okLong
+            enterLongF := not okLong
+            pendDir := 0
+        else
+            skippedLong := true
+            pendDir := 1
+            pendBar := bar_index
+    else if shortRaw
+        if okShort or not skipFlat
+            pos := -1
+            entryPrice := close
+            entryBar := bar_index
+            entryFlat := not okShort
+            enterShortT := okShort
+            enterShortF := not okShort
+            pendDir := 0
+        else
+            skippedShort := true
+            pendDir := -1
+            pendBar := bar_index
+
+// Отложенный вход: сигнал был пропущен на флэте, но рынок перешёл в тренд, а цена всё ещё на нужной стороне
+if pos == 0 and pendDir != 0 and not skippedLong and not skippedShort
+    bool stale = pendBars == 0 or bar_index - pendBar > pendBars or not canTrade
+    if pendDir == 1
+        if stale or ema <= vwap
+            pendDir := 0
+        else if okLong and close > ema
+            pos := 1
+            entryPrice := close
+            entryBar := bar_index
+            entryFlat := false
+            enterLongL := true
+            pendDir := 0
+    else
+        if stale or ema >= vwap
+            pendDir := 0
+        else if okShort and close < ema
+            pos := -1
+            entryPrice := close
+            entryBar := bar_index
+            entryFlat := false
+            enterShortL := true
+            pendDir := 0
 
 // ───────── Отрисовка ─────────
 plot(ema,  "EMA 9", color=color.new(color.orange, 0), linewidth=2)
 plot(vwap, "VWAP",  color=color.new(color.aqua, 0),   linewidth=2)
+plot(ema2, "EMA 2 (21)",  color=color.new(color.fuchsia, 0), linewidth=1, display=showE2 ? display.all : display.none)
+plot(ema3, "EMA 3 (200)", color=color.new(color.white, 0),   linewidth=2, display=showE3 ? display.all : display.none)
 
-plotshape(enterLong,  "CALL вход", style=shape.labelup,   location=location.belowbar,
-     color=color.new(color.green, 0), textcolor=color.white, text="CALL", size=size.small)
-plotshape(enterShort, "PUT вход",  style=shape.labeldown, location=location.abovebar,
-     color=color.new(color.red, 0),   textcolor=color.white, text="PUT",  size=size.small)
-plotshape(exitLong,   "Выход из лонга",  style=shape.xcross, location=location.abovebar,
-     color=color.new(color.gray, 0), size=size.tiny, text="exit")
-plotshape(exitShort,  "Выход из шорта",  style=shape.xcross, location=location.belowbar,
-     color=color.new(color.gray, 0), size=size.tiny, text="exit")
+// Входы в тренде
+plotshape(enterLongT,  "CALL (тренд)", style=shape.labelup,   location=location.belowbar, color=color.green, textcolor=color.white, text="CALL", size=size.small)
+plotshape(enterShortT, "PUT (тренд)",  style=shape.labeldown, location=location.abovebar, color=color.red,   textcolor=color.white, text="PUT",  size=size.small)
+// Отложенные входы (после выхода из флэта)
+plotshape(enterLongL,  "CALL (отложенный)", style=shape.labelup,   location=location.belowbar, color=color.teal,   textcolor=color.white, text="CALL*", size=size.small)
+plotshape(enterShortL, "PUT (отложенный)",  style=shape.labeldown, location=location.abovebar, color=color.maroon, textcolor=color.white, text="PUT*",  size=size.small)
+// Входы на флэте, если торговля на флэте разрешена
+plotshape(enterLongF,  "CALL (флэт)",  style=shape.labelup,   location=location.belowbar, color=color.gray,  textcolor=color.white, text="CALL~", size=size.small)
+plotshape(enterShortF, "PUT (флэт)",   style=shape.labeldown, location=location.abovebar, color=color.gray,  textcolor=color.white, text="PUT~",  size=size.small)
+// Пропущенные сигналы на флэте
+plotshape(skippedLong,  "Пропуск CALL", style=shape.circle, location=location.belowbar, color=color.new(color.gray, 20), size=size.tiny)
+plotshape(skippedShort, "Пропуск PUT",  style=shape.circle, location=location.abovebar, color=color.new(color.gray, 20), size=size.tiny)
 
-bgcolor(pos == 1 ? color.new(color.green, 92) : pos == -1 ? color.new(color.red, 92) : na)
+plotshape(exitLong,   "Выход из лонга",  style=shape.xcross, location=location.abovebar, color=color.new(color.gray, 0), size=size.tiny, text="exit")
+plotshape(exitShort,  "Выход из шорта",  style=shape.xcross, location=location.belowbar, color=color.new(color.gray, 0), size=size.tiny, text="exit")
+
+bgcolor(showBg and useFlat and inRTH and not isTrendEff ? color.new(color.gray, 88) : na, title="Флэт")
 
 // ───────── Таблица статистики ─────────
 tblPosition = switch tblPosStr
@@ -172,7 +271,7 @@ tblPosition = switch tblPosStr
     "Низ справа"  => position.bottom_right
     => position.bottom_left
 
-var table t = table.new(tblPosition, 2, 17, bgcolor=color.new(color.black, 15), border_width=1, frame_color=color.gray, frame_width=1)
+var table t = table.new(tblPosition, 2, 21, bgcolor=color.new(color.black, 15), border_width=1, frame_color=color.gray, frame_width=1)
 
 f_row(table tbl, int r, string a, string b, color c) =>
     table.cell(tbl, 0, r, a, text_color=color.silver, text_halign=text.align_left, text_size=size.small)
@@ -191,6 +290,7 @@ if showTbl and barstate.islast
     float pf = grossL > 0 ? grossP / grossL : na
     float expct = nTr > 0 ? sumPnl / nTr : na
     string wl = str.tostring(nWin) + " / " + str.tostring(nLoss)
+    string mkt = not useFlat ? "логика выкл." : isBullTr ? "бычий тренд" : isBearTr ? "медвежий тренд" : isTrendEff ? "тренд (быстрый)" : "флэт"
 
     f_row(t, 0,  "Единицы", unitStr == "% от цены входа" ? "% от входа" : "пункты цены", color.white)
     f_row(t, 1,  "Сделок", str.tostring(nTr), color.white)
@@ -209,8 +309,18 @@ if showTbl and barstate.islast
     f_row(t, 14, "Лонг: сделок / winrate", str.tostring(nLong) + " / " + f_pct(winLong, nLong), color.white)
     f_row(t, 15, "Шорт: сделок / winrate", str.tostring(nShort) + " / " + f_pct(winShort, nShort), color.white)
     f_row(t, 16, "Ср. длит., свечей", nTr > 0 ? str.tostring(1.0 * sumBars / nTr, "#.0") : "-", color.white)
+    f_row(t, 17, "Тренд: n / winrate / итого", str.tostring(nT) + " / " + f_pct(wT, nT) + " / " + f_num(sumT), sumT >= 0 ? color.lime : color.red)
+    f_row(t, 18, "Флэт: n / winrate / итого", str.tostring(nF) + " / " + f_pct(wF, nF) + " / " + f_num(sumF), sumF >= 0 ? color.lime : color.red)
+    string psE2 = na(ema2) ? "-" : (close > ema2 ? "выше" : "ниже")
+    string psE3 = na(ema3) ? "-" : (close > ema3 ? "выше" : "ниже")
+    color psCol = (close > nz(ema2, close) and close > nz(ema3, close)) ? color.lime : (close < nz(ema2, close) and close < nz(ema3, close)) ? color.red : color.gray
+    f_row(t, 20, "Цена vs EMA " + str.tostring(ema2Len) + " / " + str.tostring(ema3Len), psE2 + " / " + psE3, psCol)
+    f_row(t, 19, "Рынок сейчас (ADX)", mkt + " (" + str.tostring(adx, "#.0") + ")", useFlat and isTrendEff ? color.lime : color.gray)
 
 // ───────── Алерты ─────────
-alertcondition(enterLong,  "CALL сигнал", "EMA9 пересекла VWAP вверх — CALL")
-alertcondition(enterShort, "PUT сигнал",  "EMA9 пересекла VWAP вниз — PUT")
-alertcondition(exitLong or exitShort, "Выход", "Выход из позиции (закрытие за EMA9 / стоп / конец сессии)")
+alertcondition(enterLongT,  "CALL (тренд)", "EMA9 пересекла VWAP вверх — CALL, рынок в тренде")
+alertcondition(enterShortT, "PUT (тренд)",  "EMA9 пересекла VWAP вниз — PUT, рынок в тренде")
+alertcondition(enterLongL,  "CALL отложенный", "Отложенный CALL после выхода из флэта")
+alertcondition(enterShortL, "PUT отложенный",  "Отложенный PUT после выхода из флэта")
+alertcondition(enterLongF or enterShortF, "Вход на флэте", "Сигнал на флэте (торговля на флэте включена)")
+alertcondition(exitLong or exitShort, "Выход", "Выход из позиции")
