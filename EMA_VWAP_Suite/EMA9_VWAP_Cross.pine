@@ -1,5 +1,5 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross (v1 + статистика + флэт v3)", overlay=true, max_labels_count=500)
+indicator("EMA 9 + VWAP Cross (v1 + статистика + флэт v4)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // ───────── Настройки ─────────
 emaLen  = input.int(9, "Длина EMA", minval=1, group="EMA")
@@ -40,6 +40,17 @@ showTbl  = input.bool(true, "Показывать таблицу", group=grpStat
 unitStr  = input.string("Пункты цены", "Единицы результата", options=["Пункты цены", "% от цены входа"], group=grpStat)
 costPts  = input.float(0.0, "Издержки на сделку (спред/комиссия), пункты цены", minval=0.0, step=0.001, group=grpStat)
 tblPosStr = input.string("Верх справа", "Положение таблицы", options=["Верх справа", "Верх слева", "Низ справа", "Низ слева"], group=grpStat)
+
+grpLine = "Линии сделок (вход → выход)"
+showLines    = input.bool(true, "Рисовать линию от входа до выхода", group=grpLine)
+lineColorMode = input.string("По направлению", "Цвет линии", options=["По направлению", "По результату"], group=grpLine)
+colCall = input.color(color.green, "CALL (по направлению)", group=grpLine)
+colPut  = input.color(color.red,   "PUT (по направлению)",  group=grpLine)
+colWin  = input.color(color.lime,  "Прибыльная (по результату)", group=grpLine)
+colLoss = input.color(color.orange, "Убыточная (по результату)", group=grpLine)
+lineW   = input.int(2, "Толщина линии", minval=1, maxval=5, group=grpLine)
+lineStyleStr = input.string("Сплошная", "Стиль линии", options=["Сплошная", "Пунктир", "Точки"], group=grpLine)
+showResLbl = input.bool(true, "Подпись результата сделки на выходе", group=grpLine)
 
 // ───────── Расчёты ─────────
 ema = ta.ema(emaSrc, emaLen)
@@ -123,6 +134,7 @@ var float entryPrice = na
 bool exitLong  = false
 bool exitShort = false
 float exitPx = na
+float exitPnl = na
 
 if pos == 1
     bool byEma  = close < ema
@@ -143,6 +155,7 @@ if exitLong or exitShort
     float dir = pos
     float pnlPts = dir * (exitPx - entryPrice) - costPts
     float pnl = unitStr == "% от цены входа" ? pnlPts / entryPrice * 100 : pnlPts
+    exitPnl := pnl
     nTr += 1
     sumPnl += pnl
     equity += pnl
@@ -316,6 +329,31 @@ if showTbl and barstate.islast
     color psCol = (close > nz(ema2, close) and close > nz(ema3, close)) ? color.lime : (close < nz(ema2, close) and close < nz(ema3, close)) ? color.red : color.gray
     f_row(t, 20, "Цена vs EMA " + str.tostring(ema2Len) + " / " + str.tostring(ema3Len), psE2 + " / " + psE3, psCol)
     f_row(t, 19, "Рынок сейчас (ADX)", mkt + " (" + str.tostring(adx, "#.0") + ")", useFlat and isTrendEff ? color.lime : color.gray)
+
+// ───────── Линии сделок (вход → выход) ─────────
+lineSty = switch lineStyleStr
+    "Пунктир" => line.style_dashed
+    "Точки"   => line.style_dotted
+    => line.style_solid
+
+var line tLine = na
+bool newLongEntry  = enterLongT or enterLongF or enterLongL
+bool newShortEntry = enterShortT or enterShortF or enterShortL
+bool didExit = exitLong or exitShort
+
+if showLines and didExit and not na(tLine)
+    line.set_xy2(tLine, bar_index, exitPx)
+    if lineColorMode == "По результату"
+        line.set_color(tLine, exitPnl > 0 ? colWin : colLoss)
+    if showResLbl
+        label.new(bar_index, exitPx, (exitPnl > 0 ? "+" : "") + f_num(exitPnl), style=label.style_none, textcolor=exitPnl > 0 ? colWin : colLoss, size=size.small)
+    tLine := na
+
+if showLines
+    if newLongEntry or newShortEntry
+        tLine := line.new(bar_index, entryPrice, bar_index, entryPrice, color=newLongEntry ? colCall : colPut, width=lineW, style=lineSty)
+    else if pos != 0 and not na(tLine)
+        line.set_xy2(tLine, bar_index, close)
 
 // ───────── Алерты ─────────
 alertcondition(enterLongT,  "CALL (тренд)", "EMA9 пересекла VWAP вверх — CALL, рынок в тренде")
