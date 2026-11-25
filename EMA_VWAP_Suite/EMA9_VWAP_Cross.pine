@@ -1,5 +1,5 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross (v1 + статистика + флэт v4)", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("EMA 9 + VWAP Cross (v1 + статистика + флэт v5)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // ───────── Настройки ─────────
 emaLen  = input.int(9, "Длина EMA", minval=1, group="EMA")
@@ -30,6 +30,11 @@ showBg    = input.bool(true, "Подсвечивать флэт серым фо�
 useFast   = input.bool(true, "Ускоренный выход из флэта (ADX растёт + ширина BB растёт)", group="Тренд / флэт")
 adxRise   = input.float(2.0, "Рост ADX за 2 свечи, пунктов (для ускорения)", step=0.5, group="Тренд / флэт")
 pendBars  = input.int(10, "Отложенный вход: сигнал на флэте живёт N свечей (0 = выкл.)", minval=0, group="Тренд / флэт")
+flatMethod = input.string("ADX + BB", "Метод определения тренда", options=["ADX + BB", "Чоп вокруг VWAP", "Оба (тренд, если оба метода согласны)"], group="Тренд / флэт")
+chopLenF  = input.int(10, "Чоп: окно, свечей", minval=3, group="Тренд / флэт")
+maxCrossF = input.int(2, "Чоп: макс. пересечений close/VWAP в окне для тренда", minval=0, group="Тренд / флэт")
+useBrk    = input.bool(true, "Пробой диапазона = немедленный тренд", group="Тренд / флэт")
+brkLen    = input.int(12, "Пробой: диапазон последних N свечей", minval=3, group="Тренд / флэт")
 
 grpExit = "Выход"
 stopPct = input.float(0.0, "Стоп по базовому активу, % (0 = выкл.)", minval=0.0, step=0.05, group=grpExit)
@@ -85,13 +90,21 @@ float bbDev   = bbMult * ta.stdev(close, bbLen)
 float bbw     = 2 * bbDev / bbBasis
 float bbwAvg  = ta.sma(bbw, bbLen)
 
-bool isTrend    = adx >= adxThresh and bbw > bbwAvg * bbwK
+bool trendAdx   = adx >= adxThresh and bbw > bbwAvg * bbwK
+float crossFlagF = ta.cross(close, vwap) ? 1.0 : 0.0
+float chopCnt   = math.sum(crossFlagF, chopLenF)
+bool trendChop  = chopCnt <= maxCrossF
+bool isTrend    = flatMethod == "ADX + BB" ? trendAdx : flatMethod == "Чоп вокруг VWAP" ? trendChop : (trendAdx and trendChop)
 bool isBullTr   = isTrend and diPlus > diMinus
 bool isBearTr   = isTrend and diMinus > diPlus
 bool fastTrend  = useFast and (adx - adx[2] >= adxRise) and bbw > bbw[2]
 bool isTrendEff = isTrend or fastTrend
-bool okLong     = not useFlat or (isTrendEff and (not requireDI or diPlus > diMinus))
-bool okShort    = not useFlat or (isTrendEff and (not requireDI or diMinus > diPlus))
+float hhBrk     = ta.highest(high, brkLen)[1]
+float llBrk     = ta.lowest(low, brkLen)[1]
+bool brkUp      = useBrk and close > hhBrk
+bool brkDn      = useBrk and close < llBrk
+bool okLong     = not useFlat or (isTrendEff and (not requireDI or diPlus > diMinus)) or brkUp
+bool okShort    = not useFlat or (isTrendEff and (not requireDI or diMinus > diPlus)) or brkDn
 
 bool canTrade = (not rthOnly or inRTH) and inWindow
 
@@ -284,7 +297,7 @@ tblPosition = switch tblPosStr
     "Низ справа"  => position.bottom_right
     => position.bottom_left
 
-var table t = table.new(tblPosition, 2, 21, bgcolor=color.new(color.black, 15), border_width=1, frame_color=color.gray, frame_width=1)
+var table t = table.new(tblPosition, 2, 22, bgcolor=color.new(color.black, 15), border_width=1, frame_color=color.gray, frame_width=1)
 
 f_row(table tbl, int r, string a, string b, color c) =>
     table.cell(tbl, 0, r, a, text_color=color.silver, text_halign=text.align_left, text_size=size.small)
@@ -329,6 +342,8 @@ if showTbl and barstate.islast
     color psCol = (close > nz(ema2, close) and close > nz(ema3, close)) ? color.lime : (close < nz(ema2, close) and close < nz(ema3, close)) ? color.red : color.gray
     f_row(t, 20, "Цена vs EMA " + str.tostring(ema2Len) + " / " + str.tostring(ema3Len), psE2 + " / " + psE3, psCol)
     f_row(t, 19, "Рынок сейчас (ADX)", mkt + " (" + str.tostring(adx, "#.0") + ")", useFlat and isTrendEff ? color.lime : color.gray)
+    string diag = "ADX " + (adx >= adxThresh ? "да" : "нет") + " | BB " + (bbw > bbwAvg * bbwK ? "да" : "нет") + " | чоп " + str.tostring(chopCnt, "#") + "/" + str.tostring(maxCrossF) + " | пробой " + (brkUp ? "вверх" : brkDn ? "вниз" : "нет")
+    f_row(t, 21, "Диагностика (посл. свеча)", diag, color.silver)
 
 // ───────── Линии сделок (вход → выход) ─────────
 lineSty = switch lineStyleStr
