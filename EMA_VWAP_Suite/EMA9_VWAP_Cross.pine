@@ -1,5 +1,5 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross (v1 + статистика + флэт v5)", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("EMA 9 + VWAP Cross (v1 + статистика + флэт v6)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // ───────── Настройки ─────────
 emaLen  = input.int(9, "Длина EMA", minval=1, group="EMA")
@@ -35,6 +35,18 @@ chopLenF  = input.int(10, "Чоп: окно, свечей", minval=3, group="Т�
 maxCrossF = input.int(2, "Чоп: макс. пересечений close/VWAP в окне для тренда", minval=0, group="Тренд / флэт")
 useBrk    = input.bool(true, "Пробой диапазона = немедленный тренд", group="Тренд / флэт")
 brkLen    = input.int(12, "Пробой: диапазон последних N свечей", minval=3, group="Тренд / флэт")
+
+grpConf = "Подтверждение входа"
+useBrkConf = input.bool(true, "1. Пробой экстремума сигнальной свечи (закрытие за уровнем)", group=grpConf)
+confN      = input.int(2, "Ждать подтверждения, свечей", minval=1, group=grpConf)
+useBody    = input.bool(true, "4. Сильная сигнальная свеча", group=grpConf)
+atrLenQ    = input.int(14, "ATR период (для свечи)", minval=1, group=grpConf)
+bodyAtr    = input.float(0.5, "Тело свечи не меньше, × ATR", step=0.1, group=grpConf)
+closePct   = input.float(0.6, "Закрытие в верхней/нижней доле диапазона", minval=0.5, maxval=1.0, step=0.05, group=grpConf)
+useVolExp  = input.bool(true, "5. Расширение волатильности (ATR быстрый > ATR медленный)", group=grpConf)
+volFast    = input.int(5, "ATR быстрый", minval=1, group=grpConf)
+volSlow    = input.int(20, "ATR медленный", minval=2, group=grpConf)
+volK       = input.float(1.0, "Множитель", step=0.05, group=grpConf)
 
 grpExit = "Выход"
 stopPct = input.float(0.0, "Стоп по базовому активу, % (0 = выкл.)", minval=0.0, step=0.05, group=grpExit)
@@ -107,6 +119,17 @@ bool okLong     = not useFlat or (isTrendEff and (not requireDI or diPlus > diMi
 bool okShort    = not useFlat or (isTrendEff and (not requireDI or diMinus > diPlus)) or brkDn
 
 bool canTrade = (not rthOnly or inRTH) and inWindow
+
+// Качество сигнальной свечи и волатильность
+float atrQ    = ta.atr(atrLenQ)
+float atrFastV = ta.atr(volFast)
+float atrSlowV = ta.atr(volSlow)
+float bodyV   = math.abs(close - open)
+float rngV    = high - low
+float closePos = rngV > 0 ? (close - low) / rngV : 0.5
+bool volOk    = not useVolExp or (atrFastV > atrSlowV * volK)
+bool qualLongOk  = volOk and (not useBody or (close > open and bodyV >= bodyAtr * atrQ and closePos >= closePct))
+bool qualShortOk = volOk and (not useBody or (close < open and bodyV >= bodyAtr * atrQ and closePos <= 1 - closePct))
 
 // ───────── Сигналы ─────────
 bool longRaw  = ta.crossover(ema, vwap)  and canTrade
@@ -203,6 +226,13 @@ if exitLong or exitShort
     pos := 0
     entryPrice := na
 
+var int confDir = 0
+var int confBar = 0
+var float confLevel = na
+var bool confFlat = false
+var int nWaitC = 0
+var int nConfDone = 0
+var int nRej = 0
 var int pendDir = 0
 var int pendBar = 0
 bool enterLongL  = false
@@ -213,34 +243,94 @@ bool enterLongF  = false
 bool enterShortF = false
 bool skippedLong  = false
 bool skippedShort = false
+bool waitLong  = false
+bool waitShort = false
+bool rejLong   = false
+bool rejShort  = false
 
 if pos == 0
     if longRaw
         if okLong or not skipFlat
-            pos := 1
-            entryPrice := close
-            entryBar := bar_index
-            entryFlat := not okLong
-            enterLongT := okLong
-            enterLongF := not okLong
-            pendDir := 0
+            if not qualLongOk
+                rejLong := true
+                nRej += 1
+            else if useBrkConf
+                confDir := 1
+                confBar := bar_index
+                confLevel := high
+                confFlat := not okLong
+                waitLong := true
+                nWaitC += 1
+                pendDir := 0
+            else
+                pos := 1
+                entryPrice := close
+                entryBar := bar_index
+                entryFlat := not okLong
+                enterLongT := okLong
+                enterLongF := not okLong
+                pendDir := 0
         else
             skippedLong := true
             pendDir := 1
             pendBar := bar_index
     else if shortRaw
         if okShort or not skipFlat
-            pos := -1
-            entryPrice := close
-            entryBar := bar_index
-            entryFlat := not okShort
-            enterShortT := okShort
-            enterShortF := not okShort
-            pendDir := 0
+            if not qualShortOk
+                rejShort := true
+                nRej += 1
+            else if useBrkConf
+                confDir := -1
+                confBar := bar_index
+                confLevel := low
+                confFlat := not okShort
+                waitShort := true
+                nWaitC += 1
+                pendDir := 0
+            else
+                pos := -1
+                entryPrice := close
+                entryBar := bar_index
+                entryFlat := not okShort
+                enterShortT := okShort
+                enterShortF := not okShort
+                pendDir := 0
         else
             skippedShort := true
             pendDir := -1
             pendBar := bar_index
+
+// Подтверждение: закрытие за экстремумом сигнальной свечи в течение N свечей
+if pos != 0
+    confDir := 0
+if pos == 0 and confDir != 0 and not waitLong and not waitShort
+    bool confStale = bar_index - confBar > confN or not canTrade
+    if confDir == 1
+        if confStale or ema <= vwap
+            confDir := 0
+        else if close > confLevel
+            pos := 1
+            entryPrice := close
+            entryBar := bar_index
+            entryFlat := confFlat
+            enterLongT := not confFlat
+            enterLongF := confFlat
+            confDir := 0
+            pendDir := 0
+            nConfDone += 1
+    else
+        if confStale or ema >= vwap
+            confDir := 0
+        else if close < confLevel
+            pos := -1
+            entryPrice := close
+            entryBar := bar_index
+            entryFlat := confFlat
+            enterShortT := not confFlat
+            enterShortF := confFlat
+            confDir := 0
+            pendDir := 0
+            nConfDone += 1
 
 // Отложенный вход: сигнал был пропущен на флэте, но рынок перешёл в тренд, а цена всё ещё на нужной стороне
 if pos == 0 and pendDir != 0 and not skippedLong and not skippedShort
@@ -281,6 +371,11 @@ plotshape(enterShortL, "PUT (отложенный)",  style=shape.labeldown, loc
 // Входы на флэте, если торговля на флэте разрешена
 plotshape(enterLongF,  "CALL (флэт)",  style=shape.labelup,   location=location.belowbar, color=color.gray,  textcolor=color.white, text="CALL~", size=size.small)
 plotshape(enterShortF, "PUT (флэт)",   style=shape.labeldown, location=location.abovebar, color=color.gray,  textcolor=color.white, text="PUT~",  size=size.small)
+// Сигналы, ожидающие подтверждения, и отклонённые по качеству свечи/волатильности
+plotshape(waitLong,  "Ждём подтверждения CALL", style=shape.diamond, location=location.belowbar, color=color.new(color.blue, 10), size=size.tiny)
+plotshape(waitShort, "Ждём подтверждения PUT",  style=shape.diamond, location=location.abovebar, color=color.new(color.blue, 10), size=size.tiny)
+plotshape(rejLong,   "Отклонён CALL (качество)", style=shape.cross, location=location.belowbar, color=color.new(color.orange, 10), size=size.tiny)
+plotshape(rejShort,  "Отклонён PUT (качество)",  style=shape.cross, location=location.abovebar, color=color.new(color.orange, 10), size=size.tiny)
 // Пропущенные сигналы на флэте
 plotshape(skippedLong,  "Пропуск CALL", style=shape.circle, location=location.belowbar, color=color.new(color.gray, 20), size=size.tiny)
 plotshape(skippedShort, "Пропуск PUT",  style=shape.circle, location=location.abovebar, color=color.new(color.gray, 20), size=size.tiny)
@@ -297,7 +392,7 @@ tblPosition = switch tblPosStr
     "Низ справа"  => position.bottom_right
     => position.bottom_left
 
-var table t = table.new(tblPosition, 2, 22, bgcolor=color.new(color.black, 15), border_width=1, frame_color=color.gray, frame_width=1)
+var table t = table.new(tblPosition, 2, 23, bgcolor=color.new(color.black, 15), border_width=1, frame_color=color.gray, frame_width=1)
 
 f_row(table tbl, int r, string a, string b, color c) =>
     table.cell(tbl, 0, r, a, text_color=color.silver, text_halign=text.align_left, text_size=size.small)
@@ -344,6 +439,7 @@ if showTbl and barstate.islast
     f_row(t, 19, "Рынок сейчас (ADX)", mkt + " (" + str.tostring(adx, "#.0") + ")", useFlat and isTrendEff ? color.lime : color.gray)
     string diag = "ADX " + (adx >= adxThresh ? "да" : "нет") + " | BB " + (bbw > bbwAvg * bbwK ? "да" : "нет") + " | чоп " + str.tostring(chopCnt, "#") + "/" + str.tostring(maxCrossF) + " | пробой " + (brkUp ? "вверх" : brkDn ? "вниз" : "нет")
     f_row(t, 21, "Диагностика (посл. свеча)", diag, color.silver)
+    f_row(t, 22, "Подтв.: ждали / вошли / откл.", str.tostring(nWaitC) + " / " + str.tostring(nConfDone) + " / " + str.tostring(nRej), color.white)
 
 // ───────── Линии сделок (вход → выход) ─────────
 lineSty = switch lineStyleStr
