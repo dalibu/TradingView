@@ -1,81 +1,127 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross (v1 + статистика + флэт v6)", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("EMA 9 + VWAP Cross v7 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
 
-// ───────── Настройки ─────────
-emaLen  = input.int(9, "Длина EMA", minval=1, group="EMA")
-emaSrc  = input.source(close, "Источник EMA", group="EMA")
-showE2  = input.bool(true, "Показывать вторую EMA (для сверки с трендом)", group="EMA")
-ema2Len = input.int(21, "Длина второй EMA", minval=1, group="EMA")
-showE3  = input.bool(true, "Показывать третью EMA (для сверки с трендом)", group="EMA")
-ema3Len = input.int(200, "Длина третьей EMA", minval=1, group="EMA")
+// ═════════════════════════ НАСТРОЙКИ ═════════════════════════
+// ── EMA / VWAP
+emaLen   = input.int(9, "Длина EMA (основная)", minval=1, group="EMA / VWAP")
+emaSrc   = input.source(close, "Источник EMA", group="EMA / VWAP")
+showE2   = input.bool(true, "Показывать вторую EMA", group="EMA / VWAP")
+ema2Len  = input.int(21, "Длина второй EMA", minval=1, group="EMA / VWAP")
+showE3   = input.bool(true, "Показывать третью EMA", group="EMA / VWAP")
+ema3Len  = input.int(200, "Длина третьей EMA", minval=1, group="EMA / VWAP")
+vwapSrc  = input.source(ohlc4, "Источник VWAP (OHLC4)", group="EMA / VWAP")
+rthOnly  = input.bool(true, "Считать VWAP только по сессии", group="EMA / VWAP")
+colEma   = input.color(#FF9800, "Цвет EMA основной", group="EMA / VWAP")
+colVwap  = input.color(#00ACC1, "Цвет VWAP", group="EMA / VWAP")
+colEma2  = input.color(#E040FB, "Цвет второй EMA", group="EMA / VWAP")
+colEma3  = input.color(#FBC02D, "Цвет третьей EMA", group="EMA / VWAP")
 
-vwapSrc = input.source(ohlc4, "Источник VWAP (OHLC4)", group="VWAP")
-rthOnly = input.bool(true, "Считать VWAP только по сессии", group="VWAP")
-
-sessStr = input.string("0930-1600", "Сессия", group="Сессия")
-tzStr   = input.string("America/New_York", "Часовой пояс", group="Сессия")
+// ── Сессия
+sessStr  = input.string("0930-1600", "Сессия", group="Сессия")
+tzStr    = input.string("America/New_York", "Часовой пояс", group="Сессия")
 limitWin = input.bool(false, "Торговать только первые N минут после открытия", group="Сессия")
 winMin   = input.int(120, "N минут", minval=1, group="Сессия")
+exitEOD  = input.bool(true, "Закрывать все сделки в конце сессии", group="Сессия")
 
-// Определение тренда / флэта (ADX + ширина Bollinger)
-useFlat   = input.bool(true, "Включить логику определения флэта (выкл. = торговать все сигналы)", group="Тренд / флэт")
+// ── Тренд / флэт
+useFlat   = input.bool(true, "Включить логику определения флэта", group="Тренд / флэт")
+flatMethod = input.string("ADX + BB", "Метод определения тренда", options=["ADX + BB", "Чоп вокруг VWAP", "Оба (тренд, если оба согласны)"], group="Тренд / флэт")
 adxLen    = input.int(14, "ADX период", minval=1, group="Тренд / флэт")
 adxThresh = input.int(20, "ADX порог тренда", minval=5, maxval=50, group="Тренд / флэт")
 bbLen     = input.int(20, "BB период", minval=2, group="Тренд / флэт")
 bbMult    = input.float(2.0, "BB множитель", step=0.1, group="Тренд / флэт")
-bbwK      = input.float(0.85, "Ширина BB должна быть выше среднего × ", step=0.05, group="Тренд / флэт")
-requireDI = input.bool(false, "Направление: CALL только при +DI > -DI, PUT при -DI > +DI", group="Тренд / флэт")
-skipFlat  = input.bool(true, "Пропускать входы на флэте (не торговать)", group="Тренд / флэт")
-showBg    = input.bool(true, "Подсвечивать флэт серым фоном", group="Тренд / флэт")
-useFast   = input.bool(true, "Ускоренный выход из флэта (ADX растёт + ширина BB растёт)", group="Тренд / флэт")
-adxRise   = input.float(2.0, "Рост ADX за 2 свечи, пунктов (для ускорения)", step=0.5, group="Тренд / флэт")
-pendBars  = input.int(10, "Отложенный вход: сигнал на флэте живёт N свечей (0 = выкл.)", minval=0, group="Тренд / флэт")
-flatMethod = input.string("ADX + BB", "Метод определения тренда", options=["ADX + BB", "Чоп вокруг VWAP", "Оба (тренд, если оба метода согласны)"], group="Тренд / флэт")
+bbwK      = input.float(0.85, "Ширина BB выше среднего ×", step=0.05, group="Тренд / флэт")
 chopLenF  = input.int(10, "Чоп: окно, свечей", minval=3, group="Тренд / флэт")
-maxCrossF = input.int(2, "Чоп: макс. пересечений close/VWAP в окне для тренда", minval=0, group="Тренд / флэт")
+maxCrossF = input.int(2, "Чоп: макс. пересечений close/VWAP для тренда", minval=0, group="Тренд / флэт")
 useBrk    = input.bool(true, "Пробой диапазона = немедленный тренд", group="Тренд / флэт")
 brkLen    = input.int(12, "Пробой: диапазон последних N свечей", minval=3, group="Тренд / флэт")
+useFast   = input.bool(true, "Ускоренный выход из флэта (ADX и ширина BB растут)", group="Тренд / флэт")
+adxRise   = input.float(2.0, "Рост ADX за 2 свечи, пунктов", step=0.5, group="Тренд / флэт")
+requireDI = input.bool(false, "Направление по DI (CALL при +DI > -DI, PUT при -DI > +DI)", group="Тренд / флэт")
+skipFlat  = input.bool(true, "Пропускать входы на флэте", group="Тренд / флэт")
+pendBars  = input.int(10, "Отложенный вход: сигнал на флэте живёт N свечей (0 = выкл.)", minval=0, group="Тренд / флэт")
+showBg    = input.bool(true, "Подсвечивать флэт серым фоном", group="Тренд / флэт")
 
-grpConf = "Подтверждение входа"
+// ── Подтверждение входа
+grpConf    = "Подтверждение входа"
 useBrkConf = input.bool(true, "1. Пробой экстремума сигнальной свечи (закрытие за уровнем)", group=grpConf)
 confN      = input.int(2, "Ждать подтверждения, свечей", minval=1, group=grpConf)
 useBody    = input.bool(true, "4. Сильная сигнальная свеча", group=grpConf)
-atrLenQ    = input.int(14, "ATR период (для свечи)", minval=1, group=grpConf)
+atrLenQ    = input.int(14, "ATR период", minval=1, group=grpConf)
 bodyAtr    = input.float(0.5, "Тело свечи не меньше, × ATR", step=0.1, group=grpConf)
 closePct   = input.float(0.6, "Закрытие в верхней/нижней доле диапазона", minval=0.5, maxval=1.0, step=0.05, group=grpConf)
-useVolExp  = input.bool(true, "5. Расширение волатильности (ATR быстрый > ATR медленный)", group=grpConf)
+useVolExp  = input.bool(true, "5. Расширение волатильности (ATR быстрый > медленный)", group=grpConf)
 volFast    = input.int(5, "ATR быстрый", minval=1, group=grpConf)
 volSlow    = input.int(20, "ATR медленный", minval=2, group=grpConf)
 volK       = input.float(1.0, "Множитель", step=0.05, group=grpConf)
 
-grpExit = "Выход"
-stopPct = input.float(0.0, "Стоп по базовому активу, % (0 = выкл.)", minval=0.0, step=0.05, group=grpExit)
-exitEOD = input.bool(true, "Закрывать в конце сессии", group=grpExit)
+// ── Стоп
+stopType  = input.string("Структура", "Тип стопа", options=["Структура", "ATR", "VWAP"], group="Стоп (SL)")
+structLen = input.int(8, "Структура: свечей назад", minval=2, group="Стоп (SL)")
+atrMult   = input.float(1.5, "ATR: размер стопа, × ATR", step=0.1, group="Стоп (SL)")
+bufAtr    = input.float(0.2, "Буфер за уровнем, × ATR (структура/VWAP)", step=0.05, group="Стоп (SL)")
+minRisk   = input.float(0.8, "Мин. размер стопа, × ATR", step=0.1, group="Стоп (SL)")
+maxRisk   = input.float(3.0, "Макс. размер стопа, × ATR", step=0.1, group="Стоп (SL)")
 
-grpStat = "Статистика"
-showTbl  = input.bool(true, "Показывать таблицу", group=grpStat)
-unitStr  = input.string("Пункты цены", "Единицы результата", options=["Пункты цены", "% от цены входа"], group=grpStat)
-costPts  = input.float(0.0, "Издержки на сделку (спред/комиссия), пункты цены", minval=0.0, step=0.001, group=grpStat)
-tblPosStr = input.string("Верх справа", "Положение таблицы", options=["Верх справа", "Верх слева", "Низ справа", "Низ слева"], group=grpStat)
+// ── Выход
+exitSel   = input.string("Цель 3", "Основной режим выхода (рисуется на графике)", options=["EMA 9", "Цель 1", "Цель 2", "Цель 3", "Цель 4", "Частично"], group="Выход")
+tp1       = input.float(1.0, "Цель 1, R", step=0.25, minval=0.1, group="Выход")
+tp2       = input.float(1.5, "Цель 2, R", step=0.25, minval=0.1, group="Выход")
+tp3       = input.float(2.0, "Цель 3, R", step=0.25, minval=0.1, group="Выход")
+tp4       = input.float(3.0, "Цель 4, R", step=0.25, minval=0.1, group="Выход")
+emaArmR   = input.float(0.0, "Режим EMA 9: выход по EMA активен после достижения, R (0 = сразу)", step=0.25, minval=0.0, group="Выход")
+partFrac  = input.int(50, "Частично: доля позиции на первой цели, %", minval=1, maxval=99, group="Выход")
+partTp1   = input.float(1.0, "Частично: первая цель, R", step=0.25, minval=0.1, group="Выход")
+partTp2   = input.float(2.0, "Частично: цель для остатка, R", step=0.25, minval=0.1, group="Выход")
+partRest  = input.string("Цель", "Частично: остаток закрывать", options=["Цель", "EMA 9"], group="Выход")
+costPts   = input.float(0.0, "Издержки на сделку (спред/комиссия), пункты цены", minval=0.0, step=0.001, group="Выход")
 
-grpLine = "Линии сделок (вход → выход)"
-showLines    = input.bool(true, "Рисовать линию от входа до выхода", group=grpLine)
-lineColorMode = input.string("По направлению", "Цвет линии", options=["По направлению", "По результату"], group=grpLine)
-colCall = input.color(color.green, "CALL (по направлению)", group=grpLine)
-colPut  = input.color(color.red,   "PUT (по направлению)",  group=grpLine)
-colWin  = input.color(color.lime,  "Прибыльная (по результату)", group=grpLine)
-colLoss = input.color(color.orange, "Убыточная (по результату)", group=grpLine)
-lineW   = input.int(2, "Толщина линии", minval=1, maxval=5, group=grpLine)
-lineStyleStr = input.string("Сплошная", "Стиль линии", options=["Сплошная", "Пунктир", "Точки"], group=grpLine)
-showResLbl = input.bool(true, "Подпись результата сделки на выходе", group=grpLine)
+// ── Линии и метки
+showLines = input.bool(true, "Линия от входа до выхода", group="Линии и метки")
+lineColorMode = input.string("По результату", "Цвет линии", options=["По направлению", "По результату"], group="Линии и метки")
+colCall   = input.color(#26A69A, "CALL (по направлению)", group="Линии и метки")
+colPut    = input.color(#EF5350, "PUT (по направлению)", group="Линии и метки")
+colWin    = input.color(#2E9E5B, "Прибыльная (по результату)", group="Линии и метки")
+colLoss   = input.color(#E65100, "Убыточная (по результату)", group="Линии и метки")
+lineW     = input.int(2, "Толщина линии", minval=1, maxval=5, group="Линии и метки")
+lineStyleStr = input.string("Сплошная", "Стиль линии", options=["Сплошная", "Пунктир", "Точки"], group="Линии и метки")
+showSLTP  = input.bool(true, "Рисовать уровни SL/TP", group="Линии и метки")
+colSL     = input.color(#EF5350, "Цвет SL", group="Линии и метки")
+colTP     = input.color(#26A69A, "Цвет TP", group="Линии и метки")
+showResLbl = input.bool(true, "Подпись выхода (тип и результат в R)", group="Линии и метки")
 
-// ───────── Расчёты ─────────
-ema = ta.ema(emaSrc, emaLen)
-ema2 = ta.ema(close, ema2Len)
-ema3 = ta.ema(close, ema3Len)
+// ── Таблицы
+showTblA  = input.bool(true, "Показывать основную статистику", group="Таблицы")
+showTblB  = input.bool(true, "Показывать сравнение вариантов выхода", group="Таблицы")
+posAStr   = input.string("Верх справа", "Положение: основная", options=["Верх справа", "Верх слева", "Низ справа", "Низ слева"], group="Таблицы")
+posBStr   = input.string("Низ справа", "Положение: сравнение", options=["Верх справа", "Верх слева", "Низ справа", "Низ слева"], group="Таблицы")
+themeMode = input.string("Авто", "Тема таблиц", options=["Авто", "Тёмная", "Светлая"], group="Таблицы")
+sizeStr   = input.string("Средний", "Размер текста", options=["Мелкий", "Средний", "Крупный"], group="Таблицы")
 
-inRTH   = not na(time(timeframe.period, sessStr, tzStr))
-newSess = inRTH and not inRTH[1]
+// ═════════════════════════ ТЕМА ═════════════════════════
+color bgc = chart.bg_color
+float lum = 0.299 * color.r(bgc) + 0.587 * color.g(bgc) + 0.114 * color.b(bgc)
+bool isDark = themeMode == "Авто" ? lum < 128 : themeMode == "Тёмная"
+color tBg    = isDark ? color.new(#1E222D, 4) : color.new(#FFFFFF, 4)
+color tHead  = isDark ? #2A2E39 : #E3E6EE
+color tSel   = isDark ? #2F4468 : #CFE0FF
+color tFg    = isDark ? #E6E8EE : #131722
+color tDim   = isDark ? #A3A8B5 : #50555F
+color tPos   = isDark ? #4ADE80 : #0B7A3E
+color tNeg   = isDark ? #FF7A7A : #C62828
+color tFrame = isDark ? #4A4E5A : #A9ADB8
+string tSize = switch sizeStr
+    "Мелкий"  => size.tiny
+    "Крупный" => size.normal
+    => size.small
+
+// ═════════════════════════ РАСЧЁТЫ ═════════════════════════
+float ema  = ta.ema(emaSrc, emaLen)
+float ema2 = ta.ema(close, ema2Len)
+float ema3 = ta.ema(close, ema3Len)
+
+bool inRTH   = not na(time(timeframe.period, sessStr, tzStr))
+bool newSess = inRTH and not inRTH[1]
 
 var float cumPV = 0.0
 var float cumV  = 0.0
@@ -94,6 +140,13 @@ float vwap    = rthOnly ? (inRTH ? vwapRth : na) : vwapDay
 
 float minsFromOpen = (inRTH and not na(sessStartTime)) ? (time - sessStartTime) / 60000.0 : na
 bool inWindow = not limitWin or (not na(minsFromOpen) and minsFromOpen <= winMin)
+bool canTrade = (not rthOnly or inRTH) and inWindow
+
+float atrQ     = ta.atr(atrLenQ)
+float atrFastV = ta.atr(volFast)
+float atrSlowV = ta.atr(volSlow)
+float lowS     = ta.lowest(low, structLen)
+float highS    = ta.highest(high, structLen)
 
 // Режим рынка
 [diPlus, diMinus, adx] = ta.dmi(adxLen, adxLen)
@@ -118,114 +171,190 @@ bool brkDn      = useBrk and close < llBrk
 bool okLong     = not useFlat or (isTrendEff and (not requireDI or diPlus > diMinus)) or brkUp
 bool okShort    = not useFlat or (isTrendEff and (not requireDI or diMinus > diPlus)) or brkDn
 
-bool canTrade = (not rthOnly or inRTH) and inWindow
-
 // Качество сигнальной свечи и волатильность
-float atrQ    = ta.atr(atrLenQ)
-float atrFastV = ta.atr(volFast)
-float atrSlowV = ta.atr(volSlow)
-float bodyV   = math.abs(close - open)
-float rngV    = high - low
+float bodyV    = math.abs(close - open)
+float rngV     = high - low
 float closePos = rngV > 0 ? (close - low) / rngV : 0.5
-bool volOk    = not useVolExp or (atrFastV > atrSlowV * volK)
+bool volOk     = not useVolExp or (atrFastV > atrSlowV * volK)
 bool qualLongOk  = volOk and (not useBody or (close > open and bodyV >= bodyAtr * atrQ and closePos >= closePct))
 bool qualShortOk = volOk and (not useBody or (close < open and bodyV >= bodyAtr * atrQ and closePos <= 1 - closePct))
 
-// ───────── Сигналы ─────────
-bool longRaw  = ta.crossover(ema, vwap)  and canTrade
-bool shortRaw = ta.crossunder(ema, vwap) and canTrade
+// ═════════════════════════ СОСТОЯНИЕ ВАРИАНТОВ ВЫХОДА ═════════════════════════
+// 0 = EMA 9, 1..4 = Цель 1..4, 5 = Частично
+K = 6
+int selIdx = switch exitSel
+    "EMA 9"  => 0
+    "Цель 1" => 1
+    "Цель 2" => 2
+    "Цель 3" => 3
+    "Цель 4" => 4
+    => 5
 
-// ───────── Статистика: переменные ─────────
-var int   nTr = 0
-var int   nWin = 0
-var int   nLoss = 0
-var int   nLong = 0
-var int   nShort = 0
-var int   winLong = 0
-var int   winShort = 0
-var float grossP = 0.0
-var float grossL = 0.0
-var float sumPnl = 0.0
-var float equity = 0.0
-var float peak = 0.0
-var float maxDD = 0.0
-var float bestTr = na
-var float worstTr = na
-var int   loseStreak = 0
-var int   maxLoseStreak = 0
-var int   sumBars = 0
-var int   entryBar = 0
-var bool  entryFlat = false
-var int   nT = 0
-var int   wT = 0
-var float sumT = 0.0
-var int   nF = 0
-var int   wF = 0
-var float sumF = 0.0
+var aOpen  = array.new<bool>(K, false)
+var aDir   = array.new<int>(K, 0)
+var aEntry = array.new<float>(K, na)
+var aRisk  = array.new<float>(K, na)
+var aStop  = array.new<float>(K, na)
+var aW     = array.new<float>(K, 1.0)
+var aBank  = array.new<float>(K, 0.0)
+var aMfe   = array.new<float>(K, 0.0)
+var aBar   = array.new<int>(K, 0)
+var aFlat  = array.new<bool>(K, false)
 
-// ───────── Ведение позиции и выход ─────────
-var int   pos = 0
-var float entryPrice = na
+var sN   = array.new<int>(K, 0)
+var sW   = array.new<int>(K, 0)
+var sSum = array.new<float>(K, 0.0)
+var sGP  = array.new<float>(K, 0.0)
+var sGL  = array.new<float>(K, 0.0)
+var sEq  = array.new<float>(K, 0.0)
+var sPk  = array.new<float>(K, 0.0)
+var sDD  = array.new<float>(K, 0.0)
 
-bool exitLong  = false
-bool exitShort = false
-float exitPx = na
-float exitPnl = na
+// Детали для выбранного варианта
+var float dBest = na
+var float dWorst = na
+var int dLose = 0
+var int dMaxLose = 0
+var int dLN = 0
+var int dLW = 0
+var int dSN = 0
+var int dSW = 0
+var int dTN = 0
+var int dTW = 0
+var float dTS = 0.0
+var int dFN = 0
+var int dFW = 0
+var float dFS = 0.0
+var float dPts = 0.0
 
-if pos == 1
-    bool byEma  = close < ema
-    bool byStop = stopPct > 0 and low <= entryPrice * (1 - stopPct / 100)
-    bool byEod  = exitEOD and inRTH[1] and not inRTH
-    exitLong := byEma or byStop or byEod
-    if exitLong
-        exitPx := byStop ? entryPrice * (1 - stopPct / 100) : (byEma ? close : close[1])
-if pos == -1
-    bool byEma  = close > ema
-    bool byStop = stopPct > 0 and high >= entryPrice * (1 + stopPct / 100)
-    bool byEod  = exitEOD and inRTH[1] and not inRTH
-    exitShort := byEma or byStop or byEod
-    if exitShort
-        exitPx := byStop ? entryPrice * (1 + stopPct / 100) : (byEma ? close : close[1])
+array<float> tpArr = array.from(0.0, tp1, tp2, tp3, tp4, 0.0)
 
-if exitLong or exitShort
-    float dir = pos
-    float pnlPts = dir * (exitPx - entryPrice) - costPts
-    float pnl = unitStr == "% от цены входа" ? pnlPts / entryPrice * 100 : pnlPts
-    exitPnl := pnl
-    nTr += 1
-    sumPnl += pnl
-    equity += pnl
-    peak := math.max(peak, equity)
-    maxDD := math.max(maxDD, peak - equity)
-    bestTr := na(bestTr) ? pnl : math.max(bestTr, pnl)
-    worstTr := na(worstTr) ? pnl : math.min(worstTr, pnl)
-    sumBars += bar_index - entryBar
-    if pnl > 0
-        nWin += 1
-        grossP += pnl
-        loseStreak := 0
-    else
-        nLoss += 1
-        grossL += -pnl
-        loseStreak += 1
-        maxLoseStreak := math.max(maxLoseStreak, loseStreak)
-    if pos == 1
-        nLong += 1
-        winLong += pnl > 0 ? 1 : 0
-    else
-        nShort += 1
-        winShort += pnl > 0 ? 1 : 0
-    if entryFlat
-        nF += 1
-        wF += pnl > 0 ? 1 : 0
-        sumF += pnl
-    else
-        nT += 1
-        wT += pnl > 0 ? 1 : 0
-        sumT += pnl
-    pos := 0
-    entryPrice := na
+// ═════════════════════════ ОБРАБОТКА ВЫХОДОВ ═════════════════════════
+bool selExit = false
+bool selPart = false
+float selExitR = na
+float selExitPx = na
+float selPartPx = na
+string selExitType = ""
+bool eodNow = exitEOD and inRTH[1] and not inRTH
 
+for v = 0 to K - 1
+    if array.get(aOpen, v)
+        int d = array.get(aDir, v)
+        float en = array.get(aEntry, v)
+        float rk = array.get(aRisk, v)
+        float stp = array.get(aStop, v)
+        float w = array.get(aW, v)
+        float bank = array.get(aBank, v)
+        float mfePrev = array.get(aMfe, v)
+        bool wasPart = w < 1.0
+        bool closed = false
+        float rRaw = 0.0
+        float exPx = na
+        string exT = ""
+
+        bool hitStop = d == 1 ? low <= stp : high >= stp
+        if hitStop
+            closed := true
+            exPx := stp
+            rRaw := bank + w * d * (stp - en) / rk
+            exT := (wasPart and stp == en) ? "BE" : "SL"
+        else if v == 0
+            bool armed = mfePrev >= emaArmR
+            bool emaX = armed and (d == 1 ? close < ema : close > ema)
+            if emaX
+                closed := true
+                exPx := close
+                rRaw := d * (close - en) / rk
+                exT := "EMA"
+        else if v <= 4
+            float tpR = array.get(tpArr, v)
+            bool hitTp = d == 1 ? high >= en + tpR * rk : low <= en - tpR * rk
+            if hitTp
+                closed := true
+                exPx := en + d * tpR * rk
+                rRaw := tpR
+                exT := "TP " + str.tostring(tpR, "0.0#") + "R"
+        else
+            if not wasPart
+                bool hitP1 = d == 1 ? high >= en + partTp1 * rk : low <= en - partTp1 * rk
+                if hitP1
+                    array.set(aBank, v, partFrac / 100.0 * partTp1)
+                    array.set(aW, v, 1.0 - partFrac / 100.0)
+                    array.set(aStop, v, en)
+                    if v == selIdx
+                        selPart := true
+                        selPartPx := en + d * partTp1 * rk
+            else
+                if partRest == "Цель"
+                    bool hitP2 = d == 1 ? high >= en + partTp2 * rk : low <= en - partTp2 * rk
+                    if hitP2
+                        closed := true
+                        exPx := en + d * partTp2 * rk
+                        rRaw := bank + w * partTp2
+                        exT := "TP " + str.tostring(partTp2, "0.0#") + "R"
+                else
+                    bool emaX2 = d == 1 ? close < ema : close > ema
+                    if emaX2
+                        closed := true
+                        exPx := close
+                        rRaw := bank + w * d * (close - en) / rk
+                        exT := "EMA"
+
+        if not closed and eodNow
+            closed := true
+            exPx := close[1]
+            rRaw := bank + w * d * (close[1] - en) / rk
+            exT := "EOD"
+
+        if closed
+            float rNet = rRaw - costPts / rk
+            array.set(aOpen, v, false)
+            array.set(sN, v, array.get(sN, v) + 1)
+            if rNet > 0
+                array.set(sW, v, array.get(sW, v) + 1)
+                array.set(sGP, v, array.get(sGP, v) + rNet)
+            else
+                array.set(sGL, v, array.get(sGL, v) - rNet)
+            array.set(sSum, v, array.get(sSum, v) + rNet)
+            float eqN = array.get(sEq, v) + rNet
+            float pkN = math.max(array.get(sPk, v), eqN)
+            array.set(sEq, v, eqN)
+            array.set(sPk, v, pkN)
+            array.set(sDD, v, math.max(array.get(sDD, v), pkN - eqN))
+            if v == selIdx
+                selExit := true
+                selExitR := rNet
+                selExitPx := exPx
+                selExitType := exT
+                dBest := na(dBest) ? rNet : math.max(dBest, rNet)
+                dWorst := na(dWorst) ? rNet : math.min(dWorst, rNet)
+                dPts += rNet * rk
+                if rNet > 0
+                    dLose := 0
+                else
+                    dLose += 1
+                    dMaxLose := math.max(dMaxLose, dLose)
+                if d == 1
+                    dLN += 1
+                    dLW += rNet > 0 ? 1 : 0
+                else
+                    dSN += 1
+                    dSW += rNet > 0 ? 1 : 0
+                if array.get(aFlat, v)
+                    dFN += 1
+                    dFW += rNet > 0 ? 1 : 0
+                    dFS += rNet
+                else
+                    dTN += 1
+                    dTW += rNet > 0 ? 1 : 0
+                    dTS += rNet
+        else
+            array.set(aMfe, v, math.max(mfePrev, d == 1 ? (high - en) / rk : (en - low) / rk))
+
+bool selBusy = array.get(aOpen, selIdx)
+
+// ═════════════════════════ СИГНАЛЫ ВХОДА (не зависят от позиций) ═════════════════════════
 var int confDir = 0
 var int confBar = 0
 var float confLevel = na
@@ -235,86 +364,73 @@ var int nConfDone = 0
 var int nRej = 0
 var int pendDir = 0
 var int pendBar = 0
-bool enterLongL  = false
-bool enterShortL = false
-bool enterLongT  = false
-bool enterShortT = false
-bool enterLongF  = false
-bool enterShortF = false
-bool skippedLong  = false
+
+bool longRaw  = ta.crossover(ema, vwap)  and canTrade
+bool shortRaw = ta.crossunder(ema, vwap) and canTrade
+
+bool evLong = false
+bool evShort = false
+bool evFlat = false
+bool evLate = false
+bool skippedLong = false
 bool skippedShort = false
-bool waitLong  = false
+bool waitLong = false
 bool waitShort = false
-bool rejLong   = false
-bool rejShort  = false
+bool rejLong = false
+bool rejShort = false
 
-if pos == 0
-    if longRaw
-        if okLong or not skipFlat
-            if not qualLongOk
-                rejLong := true
-                nRej += 1
-            else if useBrkConf
-                confDir := 1
-                confBar := bar_index
-                confLevel := high
-                confFlat := not okLong
-                waitLong := true
-                nWaitC += 1
-                pendDir := 0
-            else
-                pos := 1
-                entryPrice := close
-                entryBar := bar_index
-                entryFlat := not okLong
-                enterLongT := okLong
-                enterLongF := not okLong
-                pendDir := 0
+if longRaw
+    if okLong or not skipFlat
+        if not qualLongOk
+            rejLong := true
+            nRej += 1
+        else if useBrkConf
+            confDir := 1
+            confBar := bar_index
+            confLevel := high
+            confFlat := not okLong
+            waitLong := true
+            nWaitC += 1
+            pendDir := 0
         else
-            skippedLong := true
-            pendDir := 1
-            pendBar := bar_index
-    else if shortRaw
-        if okShort or not skipFlat
-            if not qualShortOk
-                rejShort := true
-                nRej += 1
-            else if useBrkConf
-                confDir := -1
-                confBar := bar_index
-                confLevel := low
-                confFlat := not okShort
-                waitShort := true
-                nWaitC += 1
-                pendDir := 0
-            else
-                pos := -1
-                entryPrice := close
-                entryBar := bar_index
-                entryFlat := not okShort
-                enterShortT := okShort
-                enterShortF := not okShort
-                pendDir := 0
+            evLong := true
+            evFlat := not okLong
+            pendDir := 0
+    else
+        skippedLong := true
+        pendDir := 1
+        pendBar := bar_index
+else if shortRaw
+    if okShort or not skipFlat
+        if not qualShortOk
+            rejShort := true
+            nRej += 1
+        else if useBrkConf
+            confDir := -1
+            confBar := bar_index
+            confLevel := low
+            confFlat := not okShort
+            waitShort := true
+            nWaitC += 1
+            pendDir := 0
         else
-            skippedShort := true
-            pendDir := -1
-            pendBar := bar_index
+            evShort := true
+            evFlat := not okShort
+            pendDir := 0
+    else
+        skippedShort := true
+        pendDir := -1
+        pendBar := bar_index
 
-// Подтверждение: закрытие за экстремумом сигнальной свечи в течение N свечей
-if pos != 0
-    confDir := 0
-if pos == 0 and confDir != 0 and not waitLong and not waitShort
+// Подтверждение пробоем сигнальной свечи
+if confDir != 0 and not waitLong and not waitShort and not evLong and not evShort
     bool confStale = bar_index - confBar > confN or not canTrade
     if confDir == 1
         if confStale or ema <= vwap
             confDir := 0
         else if close > confLevel
-            pos := 1
-            entryPrice := close
-            entryBar := bar_index
-            entryFlat := confFlat
-            enterLongT := not confFlat
-            enterLongF := confFlat
+            evLong := true
+            evFlat := confFlat
             confDir := 0
             pendDir := 0
             nConfDone += 1
@@ -322,154 +438,247 @@ if pos == 0 and confDir != 0 and not waitLong and not waitShort
         if confStale or ema >= vwap
             confDir := 0
         else if close < confLevel
-            pos := -1
-            entryPrice := close
-            entryBar := bar_index
-            entryFlat := confFlat
-            enterShortT := not confFlat
-            enterShortF := confFlat
+            evShort := true
+            evFlat := confFlat
             confDir := 0
             pendDir := 0
             nConfDone += 1
 
-// Отложенный вход: сигнал был пропущен на флэте, но рынок перешёл в тренд, а цена всё ещё на нужной стороне
-if pos == 0 and pendDir != 0 and not skippedLong and not skippedShort
-    bool stale = pendBars == 0 or bar_index - pendBar > pendBars or not canTrade
+// Отложенный вход после выхода из флэта
+if pendDir != 0 and not skippedLong and not skippedShort and not evLong and not evShort
+    bool pendStale = pendBars == 0 or bar_index - pendBar > pendBars or not canTrade
     if pendDir == 1
-        if stale or ema <= vwap
+        if pendStale or ema <= vwap
             pendDir := 0
         else if okLong and close > ema
-            pos := 1
-            entryPrice := close
-            entryBar := bar_index
-            entryFlat := false
-            enterLongL := true
+            evLong := true
+            evFlat := false
+            evLate := true
             pendDir := 0
     else
-        if stale or ema >= vwap
+        if pendStale or ema >= vwap
             pendDir := 0
         else if okShort and close < ema
-            pos := -1
-            entryPrice := close
-            entryBar := bar_index
-            entryFlat := false
-            enterShortL := true
+            evShort := true
+            evFlat := false
+            evLate := true
             pendDir := 0
 
-// ───────── Отрисовка ─────────
-plot(ema,  "EMA 9", color=color.new(color.orange, 0), linewidth=2)
-plot(vwap, "VWAP",  color=color.new(color.aqua, 0),   linewidth=2)
-plot(ema2, "EMA 2 (21)",  color=color.new(color.fuchsia, 0), linewidth=1, display=showE2 ? display.all : display.none)
-plot(ema3, "EMA 3 (200)", color=color.new(color.white, 0),   linewidth=2, display=showE3 ? display.all : display.none)
+// ═════════════════════════ ОТКРЫТИЕ СДЕЛОК ═════════════════════════
+bool selTook = false
+if (evLong or evShort) and not na(atrQ) and not na(vwap)
+    int dN = evLong ? 1 : -1
+    float rawStop = close - dN * atrMult * atrQ
+    if stopType == "Структура"
+        rawStop := dN == 1 ? lowS - bufAtr * atrQ : highS + bufAtr * atrQ
+    else if stopType == "VWAP"
+        rawStop := dN == 1 ? vwap - bufAtr * atrQ : vwap + bufAtr * atrQ
+    float rk0 = math.min(math.max(math.abs(close - rawStop), minRisk * atrQ), maxRisk * atrQ)
+    if not na(rk0) and rk0 > 0
+        for v = 0 to K - 1
+            if not array.get(aOpen, v)
+                array.set(aOpen, v, true)
+                array.set(aDir, v, dN)
+                array.set(aEntry, v, close)
+                array.set(aRisk, v, rk0)
+                array.set(aStop, v, close - dN * rk0)
+                array.set(aW, v, 1.0)
+                array.set(aBank, v, 0.0)
+                array.set(aMfe, v, 0.0)
+                array.set(aBar, v, bar_index)
+                array.set(aFlat, v, evFlat)
+                if v == selIdx
+                    selTook := true
 
-// Входы в тренде
-plotshape(enterLongT,  "CALL (тренд)", style=shape.labelup,   location=location.belowbar, color=color.green, textcolor=color.white, text="CALL", size=size.small)
-plotshape(enterShortT, "PUT (тренд)",  style=shape.labeldown, location=location.abovebar, color=color.red,   textcolor=color.white, text="PUT",  size=size.small)
-// Отложенные входы (после выхода из флэта)
-plotshape(enterLongL,  "CALL (отложенный)", style=shape.labelup,   location=location.belowbar, color=color.teal,   textcolor=color.white, text="CALL*", size=size.small)
-plotshape(enterShortL, "PUT (отложенный)",  style=shape.labeldown, location=location.abovebar, color=color.maroon, textcolor=color.white, text="PUT*",  size=size.small)
-// Входы на флэте, если торговля на флэте разрешена
-plotshape(enterLongF,  "CALL (флэт)",  style=shape.labelup,   location=location.belowbar, color=color.gray,  textcolor=color.white, text="CALL~", size=size.small)
-plotshape(enterShortF, "PUT (флэт)",   style=shape.labeldown, location=location.abovebar, color=color.gray,  textcolor=color.white, text="PUT~",  size=size.small)
-// Сигналы, ожидающие подтверждения, и отклонённые по качеству свечи/волатильности
-plotshape(waitLong,  "Ждём подтверждения CALL", style=shape.diamond, location=location.belowbar, color=color.new(color.blue, 10), size=size.tiny)
-plotshape(waitShort, "Ждём подтверждения PUT",  style=shape.diamond, location=location.abovebar, color=color.new(color.blue, 10), size=size.tiny)
-plotshape(rejLong,   "Отклонён CALL (качество)", style=shape.cross, location=location.belowbar, color=color.new(color.orange, 10), size=size.tiny)
-plotshape(rejShort,  "Отклонён PUT (качество)",  style=shape.cross, location=location.abovebar, color=color.new(color.orange, 10), size=size.tiny)
-// Пропущенные сигналы на флэте
-plotshape(skippedLong,  "Пропуск CALL", style=shape.circle, location=location.belowbar, color=color.new(color.gray, 20), size=size.tiny)
-plotshape(skippedShort, "Пропуск PUT",  style=shape.circle, location=location.abovebar, color=color.new(color.gray, 20), size=size.tiny)
+bool mkLongT  = selTook and evLong  and not evFlat and not evLate
+bool mkShortT = selTook and evShort and not evFlat and not evLate
+bool mkLongF  = selTook and evLong  and evFlat
+bool mkShortF = selTook and evShort and evFlat
+bool mkLongL  = selTook and evLong  and evLate
+bool mkShortL = selTook and evShort and evLate
 
-plotshape(exitLong,   "Выход из лонга",  style=shape.xcross, location=location.abovebar, color=color.new(color.gray, 0), size=size.tiny, text="exit")
-plotshape(exitShort,  "Выход из шорта",  style=shape.xcross, location=location.belowbar, color=color.new(color.gray, 0), size=size.tiny, text="exit")
+// ═════════════════════════ ОТРИСОВКА ═════════════════════════
+plot(ema,  "EMA основная", color=colEma,  linewidth=2)
+plot(vwap, "VWAP",         color=colVwap, linewidth=2)
+plot(ema2, "EMA вторая",   color=colEma2, linewidth=1, display=showE2 ? display.all : display.none)
+plot(ema3, "EMA третья",   color=colEma3, linewidth=2, display=showE3 ? display.all : display.none)
+
+// Входы
+plotshape(mkLongT,  "CALL (тренд)", style=shape.labelup,   location=location.belowbar, color=color.green, textcolor=color.white, text="CALL", size=size.small)
+plotshape(mkShortT, "PUT (тренд)",  style=shape.labeldown, location=location.abovebar, color=color.red,   textcolor=color.white, text="PUT",  size=size.small)
+plotshape(mkLongL,  "CALL (отложенный)", style=shape.labelup,   location=location.belowbar, color=color.teal,   textcolor=color.white, text="CALL*", size=size.small)
+plotshape(mkShortL, "PUT (отложенный)",  style=shape.labeldown, location=location.abovebar, color=color.maroon, textcolor=color.white, text="PUT*",  size=size.small)
+plotshape(mkLongF,  "CALL (флэт)", style=shape.labelup,   location=location.belowbar, color=color.gray, textcolor=color.white, text="CALL~", size=size.small)
+plotshape(mkShortF, "PUT (флэт)",  style=shape.labeldown, location=location.abovebar, color=color.gray, textcolor=color.white, text="PUT~",  size=size.small)
+
+// Сигналы без входа (показываем, пока выбранный режим не в сделке)
+plotshape(waitLong and not selBusy,  "Ждём подтверждения CALL", style=shape.diamond, location=location.belowbar, color=color.new(color.blue, 10), size=size.tiny)
+plotshape(waitShort and not selBusy, "Ждём подтверждения PUT",  style=shape.diamond, location=location.abovebar, color=color.new(color.blue, 10), size=size.tiny)
+plotshape(rejLong and not selBusy,   "Отклонён CALL (качество)", style=shape.cross, location=location.belowbar, color=color.new(color.orange, 10), size=size.tiny)
+plotshape(rejShort and not selBusy,  "Отклонён PUT (качество)",  style=shape.cross, location=location.abovebar, color=color.new(color.orange, 10), size=size.tiny)
+plotshape(skippedLong and not selBusy,  "Пропуск CALL (флэт)", style=shape.circle, location=location.belowbar, color=color.new(color.gray, 20), size=size.tiny)
+plotshape(skippedShort and not selBusy, "Пропуск PUT (флэт)",  style=shape.circle, location=location.abovebar, color=color.new(color.gray, 20), size=size.tiny)
 
 bgcolor(showBg and useFlat and inRTH and not isTrendEff ? color.new(color.gray, 88) : na, title="Флэт")
 
-// ───────── Таблица статистики ─────────
-tblPosition = switch tblPosStr
-    "Верх справа" => position.top_right
-    "Верх слева"  => position.top_left
-    "Низ справа"  => position.bottom_right
-    => position.bottom_left
+// Уровни SL/TP выбранного варианта
+bool selOpenNow = array.get(aOpen, selIdx)
+float selStop = array.get(aStop, selIdx)
+float selEntryP = array.get(aEntry, selIdx)
+int selDir = array.get(aDir, selIdx)
+float selRisk = array.get(aRisk, selIdx)
+float selT1 = na
+float selT2 = na
+if selOpenNow
+    if selIdx >= 1 and selIdx <= 4
+        selT1 := selEntryP + selDir * array.get(tpArr, selIdx) * selRisk
+    else if selIdx == 5
+        selT1 := selEntryP + selDir * partTp1 * selRisk
+        selT2 := partRest == "Цель" ? selEntryP + selDir * partTp2 * selRisk : na
 
-var table t = table.new(tblPosition, 2, 23, bgcolor=color.new(color.black, 15), border_width=1, frame_color=color.gray, frame_width=1)
+plot(showSLTP and selOpenNow ? selStop : na, "SL", color=colSL, linewidth=1, style=plot.style_linebr)
+plot(showSLTP and selOpenNow ? selT1 : na,   "TP 1", color=colTP, linewidth=1, style=plot.style_linebr)
+plot(showSLTP and selOpenNow ? selT2 : na,   "TP 2", color=colTP, linewidth=1, style=plot.style_linebr)
 
-f_row(table tbl, int r, string a, string b, color c) =>
-    table.cell(tbl, 0, r, a, text_color=color.silver, text_halign=text.align_left, text_size=size.small)
-    table.cell(tbl, 1, r, b, text_color=c, text_halign=text.align_right, text_size=size.small)
-
-f_num(float v) =>
-    na(v) ? "-" : (unitStr == "% от цены входа" ? str.tostring(v, "#.00") + "%" : str.tostring(v, "#.####"))
-
-f_pct(int a, int b) =>
-    b > 0 ? str.tostring(100.0 * a / b, "#.0") + "%" : "-"
-
-if showTbl and barstate.islast
-    float avgWin = nWin > 0 ? grossP / nWin : na
-    float avgLoss = nLoss > 0 ? grossL / nLoss : na
-    float payoff = (not na(avgWin) and not na(avgLoss) and avgLoss > 0) ? avgWin / avgLoss : na
-    float pf = grossL > 0 ? grossP / grossL : na
-    float expct = nTr > 0 ? sumPnl / nTr : na
-    string wl = str.tostring(nWin) + " / " + str.tostring(nLoss)
-    string mkt = not useFlat ? "логика выкл." : isBullTr ? "бычий тренд" : isBearTr ? "медвежий тренд" : isTrendEff ? "тренд (быстрый)" : "флэт"
-
-    f_row(t, 0,  "Единицы", unitStr == "% от цены входа" ? "% от входа" : "пункты цены", color.white)
-    f_row(t, 1,  "Сделок", str.tostring(nTr), color.white)
-    f_row(t, 2,  "Приб. / убыт.", wl, color.white)
-    f_row(t, 3,  "Winrate", f_pct(nWin, nTr), color.white)
-    f_row(t, 4,  "Итого (net)", f_num(sumPnl), sumPnl >= 0 ? color.lime : color.red)
-    f_row(t, 5,  "Матожидание / сделку", f_num(expct), nz(expct) >= 0 ? color.lime : color.red)
-    f_row(t, 6,  "Ср. прибыль", f_num(avgWin), color.lime)
-    f_row(t, 7,  "Ср. убыток", f_num(na(avgLoss) ? na : -avgLoss), color.red)
-    f_row(t, 8,  "Payoff (приб./убыт.)", na(payoff) ? "-" : str.tostring(payoff, "#.00"), color.white)
-    f_row(t, 9,  "Profit factor", na(pf) ? "-" : str.tostring(pf, "#.00"), nz(pf) >= 1 ? color.lime : color.red)
-    f_row(t, 10, "Лучшая сделка", f_num(bestTr), color.lime)
-    f_row(t, 11, "Худшая сделка", f_num(worstTr), color.red)
-    f_row(t, 12, "Макс. просадка", f_num(-maxDD), color.red)
-    f_row(t, 13, "Макс. серия убытков", str.tostring(maxLoseStreak), color.white)
-    f_row(t, 14, "Лонг: сделок / winrate", str.tostring(nLong) + " / " + f_pct(winLong, nLong), color.white)
-    f_row(t, 15, "Шорт: сделок / winrate", str.tostring(nShort) + " / " + f_pct(winShort, nShort), color.white)
-    f_row(t, 16, "Ср. длит., свечей", nTr > 0 ? str.tostring(1.0 * sumBars / nTr, "#.0") : "-", color.white)
-    f_row(t, 17, "Тренд: n / winrate / итого", str.tostring(nT) + " / " + f_pct(wT, nT) + " / " + f_num(sumT), sumT >= 0 ? color.lime : color.red)
-    f_row(t, 18, "Флэт: n / winrate / итого", str.tostring(nF) + " / " + f_pct(wF, nF) + " / " + f_num(sumF), sumF >= 0 ? color.lime : color.red)
-    string psE2 = na(ema2) ? "-" : (close > ema2 ? "выше" : "ниже")
-    string psE3 = na(ema3) ? "-" : (close > ema3 ? "выше" : "ниже")
-    color psCol = (close > nz(ema2, close) and close > nz(ema3, close)) ? color.lime : (close < nz(ema2, close) and close < nz(ema3, close)) ? color.red : color.gray
-    f_row(t, 20, "Цена vs EMA " + str.tostring(ema2Len) + " / " + str.tostring(ema3Len), psE2 + " / " + psE3, psCol)
-    f_row(t, 19, "Рынок сейчас (ADX)", mkt + " (" + str.tostring(adx, "#.0") + ")", useFlat and isTrendEff ? color.lime : color.gray)
-    string diag = "ADX " + (adx >= adxThresh ? "да" : "нет") + " | BB " + (bbw > bbwAvg * bbwK ? "да" : "нет") + " | чоп " + str.tostring(chopCnt, "#") + "/" + str.tostring(maxCrossF) + " | пробой " + (brkUp ? "вверх" : brkDn ? "вниз" : "нет")
-    f_row(t, 21, "Диагностика (посл. свеча)", diag, color.silver)
-    f_row(t, 22, "Подтв.: ждали / вошли / откл.", str.tostring(nWaitC) + " / " + str.tostring(nConfDone) + " / " + str.tostring(nRej), color.white)
-
-// ───────── Линии сделок (вход → выход) ─────────
+// Линия сделки и подписи
 lineSty = switch lineStyleStr
     "Пунктир" => line.style_dashed
     "Точки"   => line.style_dotted
     => line.style_solid
 
-var line tLine = na
-bool newLongEntry  = enterLongT or enterLongF or enterLongL
-bool newShortEntry = enterShortT or enterShortF or enterShortL
-bool didExit = exitLong or exitShort
+f_sgn(float v, string fmt) =>
+    na(v) ? "-" : (v > 0 ? "+" : "") + str.tostring(v, fmt)
 
-if showLines and didExit and not na(tLine)
-    line.set_xy2(tLine, bar_index, exitPx)
+var line tLine = na
+if selPart and showResLbl
+    label.new(bar_index, selPartPx, "TP1", style=label.style_none, textcolor=tPos, size=size.small)
+
+if showLines and selExit and not na(tLine)
+    line.set_xy2(tLine, selExitType == "EOD" ? bar_index - 1 : bar_index, selExitPx)
     if lineColorMode == "По результату"
-        line.set_color(tLine, exitPnl > 0 ? colWin : colLoss)
-    if showResLbl
-        label.new(bar_index, exitPx, (exitPnl > 0 ? "+" : "") + f_num(exitPnl), style=label.style_none, textcolor=exitPnl > 0 ? colWin : colLoss, size=size.small)
+        line.set_color(tLine, selExitR > 0 ? colWin : colLoss)
     tLine := na
 
+if selExit and showResLbl
+    label.new(selExitType == "EOD" ? bar_index - 1 : bar_index, selExitPx, selExitType + " " + f_sgn(selExitR, "0.0#") + "R", style=label.style_none, textcolor=selExitR > 0 ? tPos : tNeg, size=size.small)
+
 if showLines
-    if newLongEntry or newShortEntry
-        tLine := line.new(bar_index, entryPrice, bar_index, entryPrice, color=newLongEntry ? colCall : colPut, width=lineW, style=lineSty)
-    else if pos != 0 and not na(tLine)
+    if selTook
+        tLine := line.new(bar_index, close, bar_index, close, color=evLong ? colCall : colPut, width=lineW, style=lineSty)
+    else if selOpenNow and not na(tLine)
         line.set_xy2(tLine, bar_index, close)
 
-// ───────── Алерты ─────────
-alertcondition(enterLongT,  "CALL (тренд)", "EMA9 пересекла VWAP вверх — CALL, рынок в тренде")
-alertcondition(enterShortT, "PUT (тренд)",  "EMA9 пересекла VWAP вниз — PUT, рынок в тренде")
-alertcondition(enterLongL,  "CALL отложенный", "Отложенный CALL после выхода из флэта")
-alertcondition(enterShortL, "PUT отложенный",  "Отложенный PUT после выхода из флэта")
-alertcondition(enterLongF or enterShortF, "Вход на флэте", "Сигнал на флэте (торговля на флэте включена)")
-alertcondition(exitLong or exitShort, "Выход", "Выход из позиции")
+// ═════════════════════════ ТАБЛИЦЫ ═════════════════════════
+f_pos(string s) =>
+    switch s
+        "Верх справа" => position.top_right
+        "Верх слева"  => position.top_left
+        "Низ справа"  => position.bottom_right
+        => position.bottom_left
+
+f_pct(int a, int b) =>
+    b > 0 ? str.tostring(100.0 * a / b, "0") + "%" : "-"
+
+f_tp(float x) =>
+    str.tostring(x, "0.0#") + "R"
+
+f_cell(table t, int c, int r, string txt, color fg, color bg, string al) =>
+    table.cell(t, c, r, txt, text_color=fg, bgcolor=bg, text_halign=al, text_size=tSize)
+
+var table tA = table.new(f_pos(posAStr), 4, 10, bgcolor=color.new(color.gray, 100), border_width=1)
+var table tB = table.new(f_pos(posBStr), 7, 7, bgcolor=color.new(color.gray, 100), border_width=1)
+
+if barstate.islast
+    array<string> names = array.from("EMA 9", f_tp(tp1), f_tp(tp2), f_tp(tp3), f_tp(tp4), "Част.")
+    string mkt = not useFlat ? "логика выкл." : isBullTr ? "бычий тренд" : isBearTr ? "медвежий тренд" : isTrendEff ? "тренд" : "флэт"
+    string psE2 = na(ema2) ? "-" : (close > ema2 ? "выше" : "ниже")
+    string psE3 = na(ema3) ? "-" : (close > ema3 ? "выше" : "ниже")
+
+    if showTblA
+        int n = array.get(sN, selIdx)
+        int nw = array.get(sW, selIdx)
+        int nl = n - nw
+        float sumR = array.get(sSum, selIdx)
+        float gp = array.get(sGP, selIdx)
+        float gl = array.get(sGL, selIdx)
+        float ddv = array.get(sDD, selIdx)
+        float avgW = nw > 0 ? gp / nw : na
+        float avgL = nl > 0 ? gl / nl : na
+        float pf = gl > 0 ? gp / gl : na
+        float ex = n > 0 ? sumR / n : na
+        string diag = "ADX " + (adx >= adxThresh ? "да" : "нет") + " | BB " + (bbw > bbwAvg * bbwK ? "да" : "нет") + " | чоп " + str.tostring(chopCnt, "0") + "/" + str.tostring(maxCrossF) + " | пробой " + (brkUp ? "вверх" : brkDn ? "вниз" : "нет")
+
+        f_cell(tA, 0, 0, "Выход: " + array.get(names, selIdx) + (costPts > 0 ? "  (издержки учтены)" : ""), tFg, tHead, text.align_center)
+        table.merge_cells(tA, 0, 0, 3, 0)
+
+        f_cell(tA, 0, 1, "Сделок", tDim, tBg, text.align_left)
+        f_cell(tA, 1, 1, str.tostring(n), tFg, tBg, text.align_right)
+        f_cell(tA, 2, 1, "Winrate", tDim, tBg, text.align_left)
+        f_cell(tA, 3, 1, f_pct(nw, n), tFg, tBg, text.align_right)
+
+        f_cell(tA, 0, 2, "Итого R", tDim, tBg, text.align_left)
+        f_cell(tA, 1, 2, f_sgn(sumR, "0.0"), sumR >= 0 ? tPos : tNeg, tBg, text.align_right)
+        f_cell(tA, 2, 2, "R / сделку", tDim, tBg, text.align_left)
+        f_cell(tA, 3, 2, f_sgn(ex, "0.00"), nz(ex) >= 0 ? tPos : tNeg, tBg, text.align_right)
+
+        f_cell(tA, 0, 3, "Profit factor", tDim, tBg, text.align_left)
+        f_cell(tA, 1, 3, na(pf) ? "-" : str.tostring(pf, "0.00"), nz(pf) >= 1 ? tPos : tNeg, tBg, text.align_right)
+        f_cell(tA, 2, 3, "Просадка", tDim, tBg, text.align_left)
+        f_cell(tA, 3, 3, "-" + str.tostring(ddv, "0.0") + "R", tNeg, tBg, text.align_right)
+
+        f_cell(tA, 0, 4, "Ср. приб / убыт", tDim, tBg, text.align_left)
+        f_cell(tA, 1, 4, (na(avgW) ? "-" : f_sgn(avgW, "0.0")) + " / " + (na(avgL) ? "-" : f_sgn(-avgL, "0.0")), tFg, tBg, text.align_right)
+        f_cell(tA, 2, 4, "Серия убытков", tDim, tBg, text.align_left)
+        f_cell(tA, 3, 4, str.tostring(dMaxLose), tFg, tBg, text.align_right)
+
+        f_cell(tA, 0, 5, "Лонг n / WR", tDim, tBg, text.align_left)
+        f_cell(tA, 1, 5, str.tostring(dLN) + " / " + f_pct(dLW, dLN), tFg, tBg, text.align_right)
+        f_cell(tA, 2, 5, "Шорт n / WR", tDim, tBg, text.align_left)
+        f_cell(tA, 3, 5, str.tostring(dSN) + " / " + f_pct(dSW, dSN), tFg, tBg, text.align_right)
+
+        f_cell(tA, 0, 6, "Тренд n / WR / R", tDim, tBg, text.align_left)
+        f_cell(tA, 1, 6, str.tostring(dTN) + " / " + f_pct(dTW, dTN) + " / " + f_sgn(dTS, "0.0"), dTS >= 0 ? tPos : tNeg, tBg, text.align_right)
+        f_cell(tA, 2, 6, "Флэт n / WR / R", tDim, tBg, text.align_left)
+        f_cell(tA, 3, 6, str.tostring(dFN) + " / " + f_pct(dFW, dFN) + " / " + f_sgn(dFS, "0.0"), dFS >= 0 ? tPos : tNeg, tBg, text.align_right)
+
+        f_cell(tA, 0, 7, "Рынок (ADX)", tDim, tBg, text.align_left)
+        f_cell(tA, 1, 7, mkt + " (" + str.tostring(adx, "0.0") + ")", useFlat and isTrendEff ? tPos : tFg, tBg, text.align_right)
+        f_cell(tA, 2, 7, "Цена к EMA " + str.tostring(ema2Len) + "/" + str.tostring(ema3Len), tDim, tBg, text.align_left)
+        f_cell(tA, 3, 7, psE2 + " / " + psE3, (psE2 == "выше" and psE3 == "выше") ? tPos : (psE2 == "ниже" and psE3 == "ниже") ? tNeg : tFg, tBg, text.align_right)
+
+        f_cell(tA, 0, 8, "Подтв. ждали/вошли/откл.", tDim, tBg, text.align_left)
+        f_cell(tA, 1, 8, str.tostring(nWaitC) + " / " + str.tostring(nConfDone) + " / " + str.tostring(nRej), tFg, tBg, text.align_right)
+        f_cell(tA, 2, 8, "Итого, пункты", tDim, tBg, text.align_left)
+        f_cell(tA, 3, 8, f_sgn(dPts, "0.0###"), dPts >= 0 ? tPos : tNeg, tBg, text.align_right)
+
+        f_cell(tA, 0, 9, "Диагностика", tDim, tBg, text.align_left)
+        f_cell(tA, 1, 9, diag, tDim, tBg, text.align_left)
+        table.merge_cells(tA, 1, 9, 3, 9)
+
+    if showTblB
+        array<string> hdr = array.from("Выход", "N", "WR", "ΣR", "R/сд", "PF", "DD")
+        for c = 0 to 6
+            f_cell(tB, c, 0, array.get(hdr, c), tFg, tHead, c == 0 ? text.align_left : text.align_right)
+        for v = 0 to K - 1
+            int nn = array.get(sN, v)
+            int ww = array.get(sW, v)
+            float sr = array.get(sSum, v)
+            float g1 = array.get(sGP, v)
+            float g2 = array.get(sGL, v)
+            float exv = nn > 0 ? sr / nn : na
+            float pfv = g2 > 0 ? g1 / g2 : na
+            color rbg = v == selIdx ? tSel : tBg
+            f_cell(tB, 0, v + 1, array.get(names, v), tFg, rbg, text.align_left)
+            f_cell(tB, 1, v + 1, str.tostring(nn), tFg, rbg, text.align_right)
+            f_cell(tB, 2, v + 1, f_pct(ww, nn), tFg, rbg, text.align_right)
+            f_cell(tB, 3, v + 1, f_sgn(sr, "0.0"), sr >= 0 ? tPos : tNeg, rbg, text.align_right)
+            f_cell(tB, 4, v + 1, f_sgn(exv, "0.00"), nz(exv) >= 0 ? tPos : tNeg, rbg, text.align_right)
+            f_cell(tB, 5, v + 1, na(pfv) ? "-" : str.tostring(pfv, "0.00"), nz(pfv) >= 1 ? tPos : tNeg, rbg, text.align_right)
+            f_cell(tB, 6, v + 1, "-" + str.tostring(array.get(sDD, v), "0.0"), tNeg, rbg, text.align_right)
+
+// ═════════════════════════ АЛЕРТЫ ═════════════════════════
+alertcondition(mkLongT,  "CALL (тренд)", "EMA9 пересекла VWAP вверх, CALL")
+alertcondition(mkShortT, "PUT (тренд)",  "EMA9 пересекла VWAP вниз, PUT")
+alertcondition(mkLongL or mkShortL, "Отложенный вход", "Отложенный вход после выхода из флэта")
+alertcondition(mkLongF or mkShortF, "Вход на флэте", "Сигнал на флэте (торговля на флэте включена)")
+alertcondition(selExit, "Выход", "Выход из позиции (SL, TP, EMA или конец сессии)")
