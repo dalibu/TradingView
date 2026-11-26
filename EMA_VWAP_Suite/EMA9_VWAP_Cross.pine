@@ -1,5 +1,5 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross v14 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("EMA 9 + VWAP Cross v16 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // ═════════════════════════ НАСТРОЙКИ ═════════════════════════
 // ── EMA / VWAP
@@ -50,17 +50,27 @@ volSlow    = input.int(20, "ATR медленный", minval=2, group=grpConf)
 volK       = input.float(1.0, "Множитель", step=0.05, group=grpConf)
 lateConfirm = input.bool(true, "Применять подтверждение (1, 4, 5) и к отложенным входам CALL*/PUT*", group=grpConf)
 confMarginPct = input.float(5.0, "Мин. закрытие за уровнем, % от диапазона сигнальной свечи", minval=0.0, maxval=100.0, step=0.5, group=grpConf)
-showConfLine = input.bool(true, "Линия уровня", inline="c1", group=grpConf)
-confLineLen  = input.int(8, "Длина", minval=1, maxval=50, inline="c1", group=grpConf)
-colConf      = input.color(#2962FF, "Ожид.", inline="c2", group=grpConf)
-colConfOk    = input.color(#00897B, "Подтв.", inline="c2", group=grpConf)
-colConfFail  = input.color(#9E9E9E, "Нет", inline="c2", group=grpConf)
+showConfLine = input.bool(true, "Линии уровня на свечах пересечения EMA и VWAP", group=grpConf)
+lineWin      = input.int(4, "Окно поиска подтверждающей свечи, свечей", minval=1, maxval=30, group=grpConf)
+reqBody      = input.bool(true, "Подтверждающая свеча: тело в направлении движения", group=grpConf)
+colConfOk    = input.color(#00897B, "Цвет", inline="c3", group=grpConf)
 confLineW    = input.int(2, "Толщина", minval=1, maxval=5, inline="c3", group=grpConf)
 confLineStyleStr = input.string("Пунктир", "", options=["Сплошная", "Пунктир", "Точки"], inline="c3", group=grpConf)
 confSty = switch confLineStyleStr
     "Сплошная" => line.style_solid
     "Точки"    => line.style_dotted
     => line.style_dashed
+
+grpPx = "Линии пересечений VWAP ценой"
+showPxLine = input.bool(true, "Линии на свечах пересечения VWAP ценой", group=grpPx)
+pxMode     = input.string("Закрытие за VWAP", "Что считать пересечением", options=["Закрытие за VWAP", "Тело пересекает VWAP", "Диапазон пересекает VWAP"], group=grpPx)
+colPx      = input.color(#5C6BC0, "Цвет", inline="p2", group=grpPx)
+pxLineW    = input.int(1, "Толщина", minval=1, maxval=5, inline="p2", group=grpPx)
+pxLineStyleStr = input.string("Точки", "", options=["Сплошная", "Пунктир", "Точки"], inline="p2", group=grpPx)
+pxSty = switch pxLineStyleStr
+    "Сплошная" => line.style_solid
+    "Пунктир"  => line.style_dashed
+    => line.style_dotted
 
 // ── Стоп
 stopType  = input.string("Структура", "Тип стопа", options=["Структура", "ATR", "VWAP"], group="Стоп (SL)")
@@ -371,7 +381,6 @@ var float confLevel = na
 var bool confFlat = false
 var bool confLate = false
 var float confRng = na
-var line cLine = na
 var int nWaitC = 0
 var int nConfDone = 0
 var int nRej = 0
@@ -380,6 +389,53 @@ var int pendBar = 0
 
 bool longRaw  = ta.crossover(ema, vwap)  and canTrade
 bool shortRaw = ta.crossunder(ema, vwap) and canTrade
+
+// ── Линии уровня: рисуются только если нашлась подтверждающая свеча в том же направлении ──
+bool cXUp = ta.crossover(close, vwap)
+bool cXDn = ta.crossunder(close, vwap)
+bool pxUp = pxMode == "Закрытие за VWAP" ? cXUp : pxMode == "Тело пересекает VWAP" ? (open < vwap and close > vwap) : (low < vwap and high > vwap and close > vwap)
+bool pxDn = pxMode == "Закрытие за VWAP" ? cXDn : pxMode == "Тело пересекает VWAP" ? (open > vwap and close < vwap) : (low < vwap and high > vwap and close < vwap)
+
+var array<int>   pBar  = array.new<int>()
+var array<float> pLvl  = array.new<float>()
+var array<float> pRng  = array.new<float>()
+var array<int>   pDir  = array.new<int>()
+var array<int>   pKind = array.new<int>()
+
+// 1) проверка ожидающих свечей C1 (подтверждающая свеча может быть не только следующей)
+if array.size(pBar) > 0
+    for k = array.size(pBar) - 1 to 0
+        int b0 = array.get(pBar, k)
+        float lv = array.get(pLvl, k)
+        float rg = array.get(pRng, k)
+        int dr = array.get(pDir, k)
+        int kd = array.get(pKind, k)
+        bool inWin = bar_index - b0 <= lineWin
+        bool bodyOk = not reqBody or (dr == 1 ? close > open : close < open)
+        bool beyond = dr == 1 ? close > lv + confMarginPct / 100.0 * rg : close < lv - confMarginPct / 100.0 * rg
+        if inWin and bodyOk and beyond
+            line.new(b0, lv, bar_index, lv, color=kd == 1 ? colConfOk : colPx, width=kd == 1 ? confLineW : pxLineW, style=kd == 1 ? confSty : pxSty)
+        if not inWin or (inWin and bodyOk and beyond)
+            array.remove(pBar, k)
+            array.remove(pLvl, k)
+            array.remove(pRng, k)
+            array.remove(pDir, k)
+            array.remove(pKind, k)
+
+// 2) новые свечи C1: пересечение EMA и VWAP, а также пересечение VWAP ценой
+if canTrade and not na(vwap)
+    if (longRaw or shortRaw) and showConfLine
+        array.push(pBar, bar_index)
+        array.push(pLvl, longRaw ? high : low)
+        array.push(pRng, high - low)
+        array.push(pDir, longRaw ? 1 : -1)
+        array.push(pKind, 1)
+    else if showPxLine and not (longRaw or shortRaw) and (pxUp or pxDn)
+        array.push(pBar, bar_index)
+        array.push(pLvl, pxUp ? high : low)
+        array.push(pRng, high - low)
+        array.push(pDir, pxUp ? 1 : -1)
+        array.push(pKind, 2)
 
 bool evLong = false
 bool evShort = false
@@ -405,7 +461,6 @@ if longRaw
             confFlat := not okLong
             confLate := false
             waitLong := true
-            cLine := showConfLine ? line.new(bar_index, confLevel, bar_index + confLineLen, confLevel, color=colConf, width=confLineW, style=confSty) : na
             nWaitC += 1
             pendDir := 0
         else
@@ -429,7 +484,6 @@ else if shortRaw
             confFlat := not okShort
             confLate := false
             waitShort := true
-            cLine := showConfLine ? line.new(bar_index, confLevel, bar_index + confLineLen, confLevel, color=colConf, width=confLineW, style=confSty) : na
             nWaitC += 1
             pendDir := 0
         else
@@ -447,11 +501,7 @@ if confDir != 0 and not waitLong and not waitShort and not evLong and not evShor
     if confDir == 1
         if confStale or ema <= vwap
             confDir := 0
-            if not na(cLine)
-                line.set_color(cLine, colConfFail)
         else if close > confLevel + confMarginPct / 100.0 * confRng
-            if not na(cLine)
-                line.set_color(cLine, colConfOk)
             evLong := true
             evFlat := confFlat
             evLate := confLate
@@ -461,11 +511,7 @@ if confDir != 0 and not waitLong and not waitShort and not evLong and not evShor
     else
         if confStale or ema >= vwap
             confDir := 0
-            if not na(cLine)
-                line.set_color(cLine, colConfFail)
         else if close < confLevel - confMarginPct / 100.0 * confRng
-            if not na(cLine)
-                line.set_color(cLine, colConfOk)
             evShort := true
             evFlat := confFlat
             evLate := confLate
@@ -494,7 +540,6 @@ if pendDir != 0 and not skippedLong and not skippedShort and not evLong and not 
                     confFlat := false
                     confLate := true
                     waitLong := true
-                    cLine := showConfLine ? line.new(bar_index, confLevel, bar_index + confLineLen, confLevel, color=colConf, width=confLineW, style=confSty) : na
                     nWaitC += 1
                 else
                     evLong := true
@@ -519,7 +564,6 @@ if pendDir != 0 and not skippedLong and not skippedShort and not evLong and not 
                     confFlat := false
                     confLate := true
                     waitShort := true
-                    cLine := showConfLine ? line.new(bar_index, confLevel, bar_index + confLineLen, confLevel, color=colConf, width=confLineW, style=confSty) : na
                     nWaitC += 1
                 else
                     evShort := true
