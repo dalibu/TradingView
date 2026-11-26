@@ -1,20 +1,14 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross v10 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("EMA 9 + VWAP Cross v14 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // ═════════════════════════ НАСТРОЙКИ ═════════════════════════
 // ── EMA / VWAP
 emaLen   = input.int(9, "Длина EMA (основная)", minval=1, group="EMA / VWAP")
 emaSrc   = input.source(close, "Источник EMA", group="EMA / VWAP")
-showE2   = input.bool(true, "Показывать вторую EMA", group="EMA / VWAP")
 ema2Len  = input.int(21, "Длина второй EMA", minval=1, group="EMA / VWAP")
-showE3   = input.bool(true, "Показывать третью EMA", group="EMA / VWAP")
 ema3Len  = input.int(200, "Длина третьей EMA", minval=1, group="EMA / VWAP")
 vwapSrc  = input.source(ohlc4, "Источник VWAP (OHLC4)", group="EMA / VWAP")
 rthOnly  = input.bool(true, "Считать VWAP только по сессии", group="EMA / VWAP")
-colEma   = input.color(#FF9800, "Цвет EMA основной", group="EMA / VWAP")
-colVwap  = input.color(#00ACC1, "Цвет VWAP", group="EMA / VWAP")
-colEma2  = input.color(#E040FB, "Цвет второй EMA", group="EMA / VWAP")
-colEma3  = input.color(#FBC02D, "Цвет третьей EMA", group="EMA / VWAP")
 
 // ── Сессия
 sessStr  = input.string("0930-1600", "Сессия", group="Сессия")
@@ -55,6 +49,18 @@ volFast    = input.int(5, "ATR быстрый", minval=1, group=grpConf)
 volSlow    = input.int(20, "ATR медленный", minval=2, group=grpConf)
 volK       = input.float(1.0, "Множитель", step=0.05, group=grpConf)
 lateConfirm = input.bool(true, "Применять подтверждение (1, 4, 5) и к отложенным входам CALL*/PUT*", group=grpConf)
+confMarginPct = input.float(5.0, "Мин. закрытие за уровнем, % от диапазона сигнальной свечи", minval=0.0, maxval=100.0, step=0.5, group=grpConf)
+showConfLine = input.bool(true, "Линия уровня", inline="c1", group=grpConf)
+confLineLen  = input.int(8, "Длина", minval=1, maxval=50, inline="c1", group=grpConf)
+colConf      = input.color(#2962FF, "Ожид.", inline="c2", group=grpConf)
+colConfOk    = input.color(#00897B, "Подтв.", inline="c2", group=grpConf)
+colConfFail  = input.color(#9E9E9E, "Нет", inline="c2", group=grpConf)
+confLineW    = input.int(2, "Толщина", minval=1, maxval=5, inline="c3", group=grpConf)
+confLineStyleStr = input.string("Пунктир", "", options=["Сплошная", "Пунктир", "Точки"], inline="c3", group=grpConf)
+confSty = switch confLineStyleStr
+    "Сплошная" => line.style_solid
+    "Точки"    => line.style_dotted
+    => line.style_dashed
 
 // ── Стоп
 stopType  = input.string("Структура", "Тип стопа", options=["Структура", "ATR", "VWAP"], group="Стоп (SL)")
@@ -78,21 +84,21 @@ partRest  = input.string("Цель", "Частично: остаток закр�
 costPts   = input.float(0.0, "Издержки на сделку (спред/комиссия), пункты цены", minval=0.0, step=0.001, group="Выход")
 
 // ── Линии и метки
-showLines = input.bool(true, "Линия от входа до выхода", group="Линии и метки")
-lineColorMode = input.string("По результату", "Цвет линии", options=["По направлению", "По результату"], group="Линии и метки")
-colCall   = input.color(#26A69A, "CALL (по направлению)", group="Линии и метки")
-colPut    = input.color(#EF5350, "PUT (по направлению)", group="Линии и метки")
-colWin    = input.color(#2E9E5B, "Прибыльная (по результату)", group="Линии и метки")
-colLoss   = input.color(#E65100, "Убыточная (по результату)", group="Линии и метки")
-lineW     = input.int(2, "Толщина линии", minval=1, maxval=5, group="Линии и метки")
-lineStyleStr = input.string("Сплошная", "Стиль линии", options=["Сплошная", "Пунктир", "Точки"], group="Линии и метки")
-showSLTP  = input.bool(true, "Уровни SL/TP вперёд с подписями", group="Линии и метки")
-projBars  = input.int(20, "Длина уровней вперёд, свечей", minval=1, maxval=100, group="Линии и метки")
-lvlW      = input.int(2, "Толщина уровней SL/TP", minval=1, maxval=4, group="Линии и метки")
-keepLevels = input.bool(true, "Оставлять уровни на графике после выхода", group="Линии и метки")
-colSL     = input.color(#EF5350, "Цвет SL", group="Линии и метки")
-colTP     = input.color(#26A69A, "Цвет TP", group="Линии и метки")
-showResLbl = input.bool(true, "Подпись выхода (тип и результат в R)", group="Линии и метки")
+showLines     = input.bool(true, "Линия сделки", inline="l1", group="Линии и метки")
+lineColorMode = input.string("По результату", "", options=["По направлению", "По результату"], inline="l1", group="Линии и метки")
+colCall       = input.color(#26A69A, "CALL", inline="l2", group="Линии и метки")
+colPut        = input.color(#EF5350, "PUT", inline="l2", group="Линии и метки")
+colWin        = input.color(#2E9E5B, "Плюс", inline="l2", group="Линии и метки")
+colLoss       = input.color(#E65100, "Минус", inline="l2", group="Линии и метки")
+lineW         = input.int(2, "Толщина", minval=1, maxval=5, inline="l3", group="Линии и метки")
+lineStyleStr  = input.string("Сплошная", "", options=["Сплошная", "Пунктир", "Точки"], inline="l3", group="Линии и метки")
+showSLTP      = input.bool(true, "Уровни SL/TP", inline="s1", group="Линии и метки")
+colSL         = input.color(#EF5350, "SL", inline="s1", group="Линии и метки")
+colTP         = input.color(#26A69A, "TP", inline="s1", group="Линии и метки")
+lvlW          = input.int(2, "Толщина", minval=1, maxval=4, inline="s2", group="Линии и метки")
+projBars      = input.int(20, "Длина вперёд", minval=1, maxval=100, inline="s2", group="Линии и метки")
+keepLevels    = input.bool(true, "Оставлять уровни после выхода", group="Линии и метки")
+showResLbl    = input.bool(true, "Подпись выхода (тип и результат в R)", group="Линии и метки")
 
 // ── Таблицы
 showTblA  = input.bool(true, "Показывать основную статистику", group="Таблицы")
@@ -364,6 +370,8 @@ var int confBar = 0
 var float confLevel = na
 var bool confFlat = false
 var bool confLate = false
+var float confRng = na
+var line cLine = na
 var int nWaitC = 0
 var int nConfDone = 0
 var int nRej = 0
@@ -393,9 +401,11 @@ if longRaw
             confDir := 1
             confBar := bar_index
             confLevel := high
+            confRng := high - low
             confFlat := not okLong
             confLate := false
             waitLong := true
+            cLine := showConfLine ? line.new(bar_index, confLevel, bar_index + confLineLen, confLevel, color=colConf, width=confLineW, style=confSty) : na
             nWaitC += 1
             pendDir := 0
         else
@@ -415,9 +425,11 @@ else if shortRaw
             confDir := -1
             confBar := bar_index
             confLevel := low
+            confRng := high - low
             confFlat := not okShort
             confLate := false
             waitShort := true
+            cLine := showConfLine ? line.new(bar_index, confLevel, bar_index + confLineLen, confLevel, color=colConf, width=confLineW, style=confSty) : na
             nWaitC += 1
             pendDir := 0
         else
@@ -435,7 +447,11 @@ if confDir != 0 and not waitLong and not waitShort and not evLong and not evShor
     if confDir == 1
         if confStale or ema <= vwap
             confDir := 0
-        else if close > confLevel
+            if not na(cLine)
+                line.set_color(cLine, colConfFail)
+        else if close > confLevel + confMarginPct / 100.0 * confRng
+            if not na(cLine)
+                line.set_color(cLine, colConfOk)
             evLong := true
             evFlat := confFlat
             evLate := confLate
@@ -445,7 +461,11 @@ if confDir != 0 and not waitLong and not waitShort and not evLong and not evShor
     else
         if confStale or ema >= vwap
             confDir := 0
-        else if close < confLevel
+            if not na(cLine)
+                line.set_color(cLine, colConfFail)
+        else if close < confLevel - confMarginPct / 100.0 * confRng
+            if not na(cLine)
+                line.set_color(cLine, colConfOk)
             evShort := true
             evFlat := confFlat
             evLate := confLate
@@ -470,9 +490,11 @@ if pendDir != 0 and not skippedLong and not skippedShort and not evLong and not 
                     confDir := 1
                     confBar := bar_index
                     confLevel := high
+                    confRng := high - low
                     confFlat := false
                     confLate := true
                     waitLong := true
+                    cLine := showConfLine ? line.new(bar_index, confLevel, bar_index + confLineLen, confLevel, color=colConf, width=confLineW, style=confSty) : na
                     nWaitC += 1
                 else
                     evLong := true
@@ -493,9 +515,11 @@ if pendDir != 0 and not skippedLong and not skippedShort and not evLong and not 
                     confDir := -1
                     confBar := bar_index
                     confLevel := low
+                    confRng := high - low
                     confFlat := false
                     confLate := true
                     waitShort := true
+                    cLine := showConfLine ? line.new(bar_index, confLevel, bar_index + confLineLen, confLevel, color=colConf, width=confLineW, style=confSty) : na
                     nWaitC += 1
                 else
                     evShort := true
@@ -537,10 +561,10 @@ bool mkLongL  = selTook and evLong  and evLate
 bool mkShortL = selTook and evShort and evLate
 
 // ═════════════════════════ ОТРИСОВКА ═════════════════════════
-plot(ema,  "EMA основная", color=colEma,  linewidth=2)
-plot(vwap, "VWAP",         color=colVwap, linewidth=2)
-plot(ema2, "EMA вторая",   color=colEma2, linewidth=1, display=showE2 ? display.all : display.none)
-plot(ema3, "EMA третья",   color=colEma3, linewidth=2, display=showE3 ? display.all : display.none)
+plot(ema,  "EMA основная", color=#FF9800,  linewidth=2)
+plot(vwap, "VWAP",         color=#00ACC1, linewidth=2)
+plot(ema2, "EMA вторая",   color=#E040FB, linewidth=1)
+plot(ema3, "EMA третья",   color=#FBC02D, linewidth=2)
 
 // Входы
 plotshape(mkLongT,  "CALL (тренд)", style=shape.labelup,   location=location.belowbar, color=color.green, textcolor=color.white, text="CALL", size=size.small)
