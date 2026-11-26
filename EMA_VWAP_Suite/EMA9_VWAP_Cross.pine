@@ -1,5 +1,5 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross v9 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("EMA 9 + VWAP Cross v10 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // ═════════════════════════ НАСТРОЙКИ ═════════════════════════
 // ── EMA / VWAP
@@ -54,6 +54,7 @@ useVolExp  = input.bool(true, "5. Расширение волатильност�
 volFast    = input.int(5, "ATR быстрый", minval=1, group=grpConf)
 volSlow    = input.int(20, "ATR медленный", minval=2, group=grpConf)
 volK       = input.float(1.0, "Множитель", step=0.05, group=grpConf)
+lateConfirm = input.bool(true, "Применять подтверждение (1, 4, 5) и к отложенным входам CALL*/PUT*", group=grpConf)
 
 // ── Стоп
 stopType  = input.string("Структура", "Тип стопа", options=["Структура", "ATR", "VWAP"], group="Стоп (SL)")
@@ -362,6 +363,7 @@ var int confDir = 0
 var int confBar = 0
 var float confLevel = na
 var bool confFlat = false
+var bool confLate = false
 var int nWaitC = 0
 var int nConfDone = 0
 var int nRej = 0
@@ -392,6 +394,7 @@ if longRaw
             confBar := bar_index
             confLevel := high
             confFlat := not okLong
+            confLate := false
             waitLong := true
             nWaitC += 1
             pendDir := 0
@@ -413,6 +416,7 @@ else if shortRaw
             confBar := bar_index
             confLevel := low
             confFlat := not okShort
+            confLate := false
             waitShort := true
             nWaitC += 1
             pendDir := 0
@@ -434,6 +438,7 @@ if confDir != 0 and not waitLong and not waitShort and not evLong and not evShor
         else if close > confLevel
             evLong := true
             evFlat := confFlat
+            evLate := confLate
             confDir := 0
             pendDir := 0
             nConfDone += 1
@@ -443,6 +448,7 @@ if confDir != 0 and not waitLong and not waitShort and not evLong and not evShor
         else if close < confLevel
             evShort := true
             evFlat := confFlat
+            evLate := confLate
             confDir := 0
             pendDir := 0
             nConfDone += 1
@@ -454,18 +460,48 @@ if pendDir != 0 and not skippedLong and not skippedShort and not evLong and not 
         if pendStale or ema <= vwap
             pendDir := 0
         else if okLong and close > ema
-            evLong := true
-            evFlat := false
-            evLate := true
-            pendDir := 0
+            if not lateConfirm
+                evLong := true
+                evFlat := false
+                evLate := true
+                pendDir := 0
+            else if qualLongOk
+                if useBrkConf
+                    confDir := 1
+                    confBar := bar_index
+                    confLevel := high
+                    confFlat := false
+                    confLate := true
+                    waitLong := true
+                    nWaitC += 1
+                else
+                    evLong := true
+                    evFlat := false
+                    evLate := true
+                pendDir := 0
     else
         if pendStale or ema >= vwap
             pendDir := 0
         else if okShort and close < ema
-            evShort := true
-            evFlat := false
-            evLate := true
-            pendDir := 0
+            if not lateConfirm
+                evShort := true
+                evFlat := false
+                evLate := true
+                pendDir := 0
+            else if qualShortOk
+                if useBrkConf
+                    confDir := -1
+                    confBar := bar_index
+                    confLevel := low
+                    confFlat := false
+                    confLate := true
+                    waitShort := true
+                    nWaitC += 1
+                else
+                    evShort := true
+                    evFlat := false
+                    evLate := true
+                pendDir := 0
 
 // ═════════════════════════ ОТКРЫТИЕ СДЕЛОК ═════════════════════════
 bool selTook = false
