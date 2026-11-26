@@ -1,5 +1,5 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross v7 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("EMA 9 + VWAP Cross v8 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500, max_boxes_count=500)
 
 // ═════════════════════════ НАСТРОЙКИ ═════════════════════════
 // ── EMA / VWAP
@@ -85,10 +85,21 @@ colWin    = input.color(#2E9E5B, "Прибыльная (по результат�
 colLoss   = input.color(#E65100, "Убыточная (по результату)", group="Линии и метки")
 lineW     = input.int(2, "Толщина линии", minval=1, maxval=5, group="Линии и метки")
 lineStyleStr = input.string("Сплошная", "Стиль линии", options=["Сплошная", "Пунктир", "Точки"], group="Линии и метки")
-showSLTP  = input.bool(true, "Рисовать уровни SL/TP", group="Линии и метки")
+showSLTP  = input.bool(false, "Старый вид: линии SL/TP по свечам", group="Линии и метки")
 colSL     = input.color(#EF5350, "Цвет SL", group="Линии и метки")
 colTP     = input.color(#26A69A, "Цвет TP", group="Линии и метки")
 showResLbl = input.bool(true, "Подпись выхода (тип и результат в R)", group="Линии и метки")
+
+// ── Позиция в стиле Long/Short Position
+grpPos       = "Позиция (как Long/Short в TradingView)"
+showPos      = input.bool(true, "Рисовать позицию зонами SL и TP", group=grpPos)
+projBars     = input.int(20, "Проекция вперёд, свечей", minval=1, maxval=100, group=grpPos)
+colRiskZone  = input.color(color.new(#EF5350, 86), "Заливка зоны SL", group=grpPos)
+colRewZone   = input.color(color.new(#26A69A, 86), "Заливка зоны TP", group=grpPos)
+showProgress = input.bool(true, "Закрашивать путь цены от входа (по мере движения)", group=grpPos)
+colProgWin   = input.color(color.new(#26A69A, 55), "Цвет пути: в плюсе", group=grpPos)
+colProgLoss  = input.color(color.new(#EF5350, 55), "Цвет пути: в минусе", group=grpPos)
+showZoneTxt  = input.bool(true, "Подписи уровней (цена и R)", group=grpPos)
 
 // ── Таблицы
 showTblA  = input.bool(true, "Показывать основную статистику", group="Таблицы")
@@ -567,6 +578,70 @@ if showLines
         tLine := line.new(bar_index, close, bar_index, close, color=evLong ? colCall : colPut, width=lineW, style=lineSty)
     else if selOpenNow and not na(tLine)
         line.set_xy2(tLine, bar_index, close)
+
+// ───── Позиция в стиле Long/Short TradingView ─────
+var box bRisk = na
+var box bRew  = na
+var box bProg = na
+var line lEnt = na
+var line lTp1 = na
+var float posEntry = na
+
+if showPos
+    if selExit
+        int xEnd = selExitType == "EOD" ? bar_index - 1 : bar_index
+        if not na(bRisk)
+            box.set_right(bRisk, xEnd)
+        if not na(bRew)
+            box.set_right(bRew, xEnd)
+        if not na(lEnt)
+            line.set_x2(lEnt, xEnd)
+        if not na(lTp1)
+            line.set_x2(lTp1, xEnd)
+        if not na(bProg)
+            box.set_right(bProg, xEnd)
+            box.set_top(bProg, math.max(posEntry, selExitPx))
+            box.set_bottom(bProg, math.min(posEntry, selExitPx))
+            box.set_bgcolor(bProg, selExitR > 0 ? colProgWin : colProgLoss)
+        bRisk := na
+        bRew := na
+        bProg := na
+        lEnt := na
+        lTp1 := na
+
+    if selTook
+        float tpBox = (selIdx >= 1 and selIdx <= 4) ? selT1 : (selIdx == 5 ? selEntryP + selDir * partTp2 * selRisk : na)
+        int xR = bar_index + projBars
+        posEntry := selEntryP
+        string riskTxt = showZoneTxt ? "SL  " + str.tostring(selStop, format.mintick) : ""
+        bRisk := box.new(bar_index, math.max(selEntryP, selStop), xR, math.min(selEntryP, selStop), border_color=color.new(colSL, 35), border_width=1, bgcolor=colRiskZone, text=riskTxt, text_size=size.small, text_color=tFg, text_halign=text.align_right, text_valign=text.valign_center)
+        if not na(tpBox)
+            float tpR = math.abs(tpBox - selEntryP) / selRisk
+            string rewTxt = showZoneTxt ? "TP  " + str.tostring(tpR, "0.0#") + "R  " + str.tostring(tpBox, format.mintick) : ""
+            bRew := box.new(bar_index, math.max(selEntryP, tpBox), xR, math.min(selEntryP, tpBox), border_color=color.new(colTP, 35), border_width=1, bgcolor=colRewZone, text=rewTxt, text_size=size.small, text_color=tFg, text_halign=text.align_right, text_valign=text.valign_center)
+        lEnt := line.new(bar_index, selEntryP, xR, selEntryP, color=color.new(tFg, 25), style=line.style_dashed, width=1)
+        if selIdx == 5 and not na(selT1)
+            lTp1 := line.new(bar_index, selT1, xR, selT1, color=colTP, style=line.style_dotted, width=1)
+        if showProgress
+            bProg := box.new(bar_index, selEntryP, bar_index, selEntryP, border_color=na, bgcolor=colProgWin)
+    else if selOpenNow
+        int xR2 = bar_index + projBars
+        if not na(bRisk)
+            box.set_right(bRisk, xR2)
+        if not na(bRew)
+            box.set_right(bRew, xR2)
+        if not na(lEnt)
+            line.set_x2(lEnt, xR2)
+        if not na(lTp1)
+            line.set_x2(lTp1, xR2)
+        if selPart and not na(bRisk)
+            box.set_bgcolor(bRisk, color.new(color.gray, 90))
+            box.set_text(bRisk, "BE")
+        if not na(bProg)
+            box.set_right(bProg, bar_index)
+            box.set_top(bProg, math.max(posEntry, close))
+            box.set_bottom(bProg, math.min(posEntry, close))
+            box.set_bgcolor(bProg, selDir * (close - posEntry) >= 0 ? colProgWin : colProgLoss)
 
 // ═════════════════════════ ТАБЛИЦЫ ═════════════════════════
 f_pos(string s) =>
