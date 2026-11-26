@@ -1,5 +1,5 @@
 //@version=6
-indicator("EMA 9 + VWAP Cross v16 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("EMA 9 + VWAP Cross v17 (SL/TP + статистика)", overlay=true, max_labels_count=500, max_lines_count=500)
 
 // ═════════════════════════ НАСТРОЙКИ ═════════════════════════
 // ── EMA / VWAP
@@ -9,6 +9,10 @@ ema2Len  = input.int(21, "Длина второй EMA", minval=1, group="EMA / V
 ema3Len  = input.int(200, "Длина третьей EMA", minval=1, group="EMA / VWAP")
 vwapSrc  = input.source(ohlc4, "Источник VWAP (OHLC4)", group="EMA / VWAP")
 rthOnly  = input.bool(true, "Считать VWAP только по сессии", group="EMA / VWAP")
+colEma   = input.color(#FF9800, "EMA", inline="ec", group="EMA / VWAP")
+colVwap  = input.color(#00ACC1, "VWAP", inline="ec", group="EMA / VWAP")
+colEma2  = input.color(#E040FB, "EMA 2", inline="ec", group="EMA / VWAP")
+colEma3  = input.color(#FBC02D, "EMA 3", inline="ec", group="EMA / VWAP")
 
 // ── Сессия
 sessStr  = input.string("0930-1600", "Сессия", group="Сессия")
@@ -605,10 +609,10 @@ bool mkLongL  = selTook and evLong  and evLate
 bool mkShortL = selTook and evShort and evLate
 
 // ═════════════════════════ ОТРИСОВКА ═════════════════════════
-plot(ema,  "EMA основная", color=#FF9800,  linewidth=2)
-plot(vwap, "VWAP",         color=#00ACC1, linewidth=2)
-plot(ema2, "EMA вторая",   color=#E040FB, linewidth=1)
-plot(ema3, "EMA третья",   color=#FBC02D, linewidth=2)
+plot(ema,  "EMA основная", color=colEma,  linewidth=2)
+plot(vwap, "VWAP",         color=colVwap, linewidth=2)
+plot(ema2, "EMA вторая",   color=colEma2, linewidth=1)
+plot(ema3, "EMA третья",   color=colEma3, linewidth=2)
 
 // Входы
 plotshape(mkLongT,  "CALL (тренд)", style=shape.labelup,   location=location.belowbar, color=color.green, textcolor=color.white, text="CALL", size=size.small)
