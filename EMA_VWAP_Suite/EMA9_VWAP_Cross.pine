@@ -3,16 +3,16 @@ indicator("EMA 9 + VWAP Cross v17 (SL/TP + статистика)", overlay=true,
 
 // ═════════════════════════ НАСТРОЙКИ ═════════════════════════
 // ── EMA / VWAP
-emaLen   = input.int(9, "Длина EMA (основная)", minval=1, group="EMA / VWAP")
-emaSrc   = input.source(close, "Источник EMA", group="EMA / VWAP")
-ema2Len  = input.int(21, "Длина второй EMA", minval=1, group="EMA / VWAP")
-ema3Len  = input.int(200, "Длина третьей EMA", minval=1, group="EMA / VWAP")
-vwapSrc  = input.source(ohlc4, "Источник VWAP (OHLC4)", group="EMA / VWAP")
-rthOnly  = input.bool(true, "Считать VWAP только по сессии", group="EMA / VWAP")
-colEma   = input.color(#FF9800, "EMA", inline="ec", group="EMA / VWAP")
-colVwap  = input.color(#00ACC1, "VWAP", inline="ec", group="EMA / VWAP")
-colEma2  = input.color(#E040FB, "EMA 2", inline="ec", group="EMA / VWAP")
-colEma3  = input.color(#FBC02D, "EMA 3", inline="ec", group="EMA / VWAP")
+grp = "EMA/VWAP"
+ema1Len = input.int(9, title="EMA 1 (основная)", minval=1, inline="ema1_row", group=grp)
+ema1Col = input.color(color.orange, title="", inline="ema1_row", group=grp)
+ema2Len = input.int(21, title="EMA 2", minval=1, inline="ema2_row", group=grp)
+ema2Col = input.color(color.rgb(8, 160, 206), title="", inline="ema2_row", group=grp)
+ema3Len = input.int(200, title="EMA 3", minval=1, inline="ema3_row", group=grp)
+ema3Col = input.color(color.yellow, title="", inline="ema3_row", group=grp)
+vwapSrc  = input.source(ohlc4, "VWAP", inline="vwap_row", group=grp)
+colVwap  = input.color(color.rgb(117, 97, 228), title="", inline="vwap_row", group=grp)
+rthOnly  = input.bool(true, "Считать VWAP только по сессии", group=grp)
 
 // ── Сессия
 sessStr  = input.string("0930-1600", "Сессия", group="Сессия")
@@ -140,7 +140,7 @@ string tSize = switch sizeStr
     => size.small
 
 // ═════════════════════════ РАСЧЁТЫ ═════════════════════════
-float ema  = ta.ema(emaSrc, emaLen)
+float ema1  = ta.ema(close, ema1Len)
 float ema2 = ta.ema(close, ema2Len)
 float ema3 = ta.ema(close, ema3Len)
 
@@ -285,7 +285,7 @@ for v = 0 to K - 1
             exT := (wasPart and stp == en) ? "BE" : "SL"
         else if v == 0
             bool armed = mfePrev >= emaArmR
-            bool emaX = armed and (d == 1 ? close < ema : close > ema)
+            bool emaX = armed and (d == 1 ? close < ema1 : close > ema1)
             if emaX
                 closed := true
                 exPx := close
@@ -318,7 +318,7 @@ for v = 0 to K - 1
                         rRaw := bank + w * partTp2
                         exT := "TP " + str.tostring(partTp2, "0.0#") + "R"
                 else
-                    bool emaX2 = d == 1 ? close < ema : close > ema
+                    bool emaX2 = d == 1 ? close < ema1 : close > ema1
                     if emaX2
                         closed := true
                         exPx := close
@@ -391,8 +391,8 @@ var int nRej = 0
 var int pendDir = 0
 var int pendBar = 0
 
-bool longRaw  = ta.crossover(ema, vwap)  and canTrade
-bool shortRaw = ta.crossunder(ema, vwap) and canTrade
+bool longRaw  = ta.crossover(ema1, vwap)  and canTrade
+bool shortRaw = ta.crossunder(ema1, vwap) and canTrade
 
 // ── Линии уровня: рисуются только если нашлась подтверждающая свеча в том же направлении ──
 bool cXUp = ta.crossover(close, vwap)
@@ -503,7 +503,7 @@ else if shortRaw
 if confDir != 0 and not waitLong and not waitShort and not evLong and not evShort
     bool confStale = bar_index - confBar > confN or not canTrade
     if confDir == 1
-        if confStale or ema <= vwap
+        if confStale or ema1 <= vwap
             confDir := 0
         else if close > confLevel + confMarginPct / 100.0 * confRng
             evLong := true
@@ -513,7 +513,7 @@ if confDir != 0 and not waitLong and not waitShort and not evLong and not evShor
             pendDir := 0
             nConfDone += 1
     else
-        if confStale or ema >= vwap
+        if confStale or ema1 >= vwap
             confDir := 0
         else if close < confLevel - confMarginPct / 100.0 * confRng
             evShort := true
@@ -527,9 +527,9 @@ if confDir != 0 and not waitLong and not waitShort and not evLong and not evShor
 if pendDir != 0 and not skippedLong and not skippedShort and not evLong and not evShort
     bool pendStale = pendBars == 0 or bar_index - pendBar > pendBars or not canTrade
     if pendDir == 1
-        if pendStale or ema <= vwap
+        if pendStale or ema1 <= vwap
             pendDir := 0
-        else if okLong and close > ema
+        else if okLong and close > ema1
             if not lateConfirm
                 evLong := true
                 evFlat := false
@@ -551,9 +551,9 @@ if pendDir != 0 and not skippedLong and not skippedShort and not evLong and not 
                     evLate := true
                 pendDir := 0
     else
-        if pendStale or ema >= vwap
+        if pendStale or ema1 >= vwap
             pendDir := 0
-        else if okShort and close < ema
+        else if okShort and close < ema1
             if not lateConfirm
                 evShort := true
                 evFlat := false
@@ -609,10 +609,10 @@ bool mkLongL  = selTook and evLong  and evLate
 bool mkShortL = selTook and evShort and evLate
 
 // ═════════════════════════ ОТРИСОВКА ═════════════════════════
-plot(ema,  "EMA основная", color=colEma,  linewidth=2)
-plot(vwap, "VWAP",         color=colVwap, linewidth=2)
-plot(ema2, "EMA вторая",   color=colEma2, linewidth=1)
-plot(ema3, "EMA третья",   color=colEma3, linewidth=2)
+plot(ema1, "EMA 1 (основная)", color=ema1Col, linewidth=2)
+plot(ema2, "EMA 2",   color=ema2Col, linewidth=1)
+plot(ema3, "EMA 3",   color=ema3Col, linewidth=1)
+plot(vwap, "VWAP",    color=colVwap, linewidth=2)
 
 // Входы
 plotshape(mkLongT,  "CALL (тренд)", style=shape.labelup,   location=location.belowbar, color=color.green, textcolor=color.white, text="CALL", size=size.small)
@@ -761,7 +761,7 @@ var table tA = table.new(f_pos(posAStr), 4, 10, bgcolor=color.new(color.gray, 10
 var table tB = table.new(f_pos(posBStr), 7, 7, bgcolor=color.new(color.gray, 100), border_width=1)
 
 if barstate.islast
-    array<string> names = array.from("EMA 9", f_tp(tp1), f_tp(tp2), f_tp(tp3), f_tp(tp4), "Част.")
+    array<string> names = array.from("EMA " + str.tostring(ema1Len), f_tp(tp1), f_tp(tp2), f_tp(tp3), f_tp(tp4), "Част.")
     string mkt = not useFlat ? "логика выкл." : isBullTr ? "бычий тренд" : isBearTr ? "медвежий тренд" : isTrendEff ? "тренд" : "флэт"
     string psE2 = na(ema2) ? "-" : (close > ema2 ? "выше" : "ниже")
     string psE3 = na(ema3) ? "-" : (close > ema3 ? "выше" : "ниже")
